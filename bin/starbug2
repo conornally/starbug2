@@ -166,11 +166,10 @@ if options&KILLPROC:
 
 from starbug2.starbug import StarbugBase ## Ive put this here because it takes some time
 
-printf("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
-starbugs=multiprocessing.Manager().list()
-
+#def fn(fname, sb_list):
 def fn(fname):
     printf("%s\n"%fname)
+    sb=None
     if os.path.exists(fname):
         dname,bname,ext=split_fname(fname)
 
@@ -196,44 +195,48 @@ def fn(fname):
             if options & DOARTIFL: sb.artificial_stars()
             sb.export(outdir=output)
 
-            starbugs.append(sb)
+            #sb_list.append(sb)
         else: perror("file must be type '.fits' not %s\n"%ext)
     else: perror("can't access %s\n"%fname)
+    return sb
 
-pool=multiprocessing.Pool(processes=ncores)
-pool.map(fn, args)
+if __name__=="__main__":
 
-###########################
-# Match Output Catalogues #
-###########################
+    printf("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
+    #starbugs=multiprocessing.Manager().list()
+    #results=pool.starmap(fn, args)#[(fname,starbugs) for fname in args])
+    #pool.map(fn, args)
 
-if options|DOMATCH and len(starbugs)>1:
-    fname=combine_fnames( [sb.fname for sb in starbugs] ) 
-    fname="%s/%s"%(split_fname(fname)[:2]) if fname else "out"
-    param=load_params(pfile)
+    pool=multiprocessing.Pool(processes=ncores)
+    starbugs=pool.map(fn,args)
 
-    if options&VERBOSE: printf("Matching outputs\n")
+    ###########################
+    # Match Output Catalogues #
+    ###########################
 
-    if options&DODETECT:
-        colnames=starbug2.match_cols
-        colnames+=[ name for name in param["MATCH_COLS"].split() if name not in colnames]
+    if options|DOMATCH and len(starbugs)>1:
+        fname=combine_fnames( [sb.fname for sb in starbugs] ) 
+        fname="%s/%s"%(split_fname(fname)[:2]) if fname else "out"
+        param=load_params(pfile)
 
-        av,full=dither_match( [sb.detections for sb in starbugs] , threshold=param["MATCH_THRESH"], colnames=colnames)
+        if options&VERBOSE: printf("Matching outputs\n")
 
-        N=len(starbugs)-param["RM_MATCH"]
-        mask=( (av["NUM"]>=N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
+        if options&DODETECT:
+            colnames=starbug2.match_cols
+            colnames+=[ name for name in param["MATCH_COLS"].split() if name not in colnames]
 
-        printf("-> %s-ap*...\n"%fname)
-        header={"FILTER":starbugs[0].filter}
-        av.meta.update(header)
-        #header.update(param)
-        export_table(hstack((av,full)), fname="%s-apfull.fits"%fname, header=header)
-        export_table(av[mask], fname="%s-apmatch.fits"%fname, header=header)
+            av,full=dither_match( [sb.detections for sb in starbugs] , threshold=param["MATCH_THRESH"], colnames=colnames)
 
-    if options&DOPHOTOM:
-        perror("em sorry not implemented PSF tab matching yet\n")
+            N=len(starbugs)-param["RM_MATCH"]
+            mask=( (av["NUM"]>=N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
 
+            printf("-> %s-ap*...\n"%fname)
+            header={"FILTER":starbugs[0].filter}
+            av.meta.update(header)
+            #header.update(param)
+            export_table(hstack((av,full)), fname="%s-apfull.fits"%fname, header=header)
+            export_table(av[mask], fname="%s-apmatch.fits"%fname, header=header)
 
-
-
+        if options&DOPHOTOM:
+            perror("em sorry not implemented PSF tab matching yet\n")
 
