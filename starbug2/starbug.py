@@ -120,7 +120,7 @@ class StarbugBase(object):
                                         roundlo=self.options["ROUND_LO"],
                                         roundhi=self.options["ROUND_HI"],
                                         wcs=WCS(self.image[1].header),
-                                        boxsize=self.options["BOX_SIZE"],
+                                        boxsize=int(self.options["BOX_SIZE"]),
                                         filtersize=self.options["FILTER_SIZE"],
                                         verbose=self.options["VERBOSE"])
 
@@ -167,7 +167,7 @@ class StarbugBase(object):
         self.log("Estimating Background\n")
         if self.detections:
             bgd=BackGround_Estimate_Routine(self.detections, 
-                                            boxsize=self.options["BOX_SIZE"],
+                                            boxsize=int(self.options["BOX_SIZE"]),
                                             fwhm=starbug2.filters[self.filter][2],
                                             verbose=self.options["VERBOSE"])
             self.background=fits.ImageHDU(data=bgd(self.image[1].data))
