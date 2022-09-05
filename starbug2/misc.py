@@ -2,6 +2,7 @@
 Miscillaneous functions...
 """
 import os,stat,sys,numpy as np
+import starbug2
 from starbug2.utils import *
 from starbug2.matching import sort_exposures
 from astropy.io import fits
@@ -28,12 +29,12 @@ def generate_psfs(dname):
 
     printf("Generating PSFs --> %s\n"%dname)
 
-    load=loading(len(filters))
-    for fltr,line in filters.items():
+    load=loading(len(starbug2.filters))
+    for fltr,line in starbug2.filters.items():
         load.msg=fltr
         load.show()
         
-        nc = webbpsf.NIRCam() if line[5]==NIRCAM else webbpsf.MIRI()
+        nc = webbpsf.NIRCam() if line[5]==starbug2.NIRCAM else webbpsf.MIRI()
         nc.filter=fltr
         psf=nc.calc_psf()
         load()

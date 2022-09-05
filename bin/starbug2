@@ -30,6 +30,7 @@ sys.stdout.write("loading..\r")
 import pkg_resources
 import starbug2 
 from starbug2.utils import *
+from starbug2.misc import *
 from starbug2.matching import dither_match
 import multiprocessing
 
@@ -143,7 +144,7 @@ if pfile==None:
         pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
 
 if options&GENRATPSF:
-    starbug2.misc.generate_psfs(load_params(pfile)["PSFDIR"])
+    generate_psfs(load_params(pfile)["PSFDIR"])
 
 if options&GENRATRUN:
     cmd="starbug2 -vf "#"+ " ".join( ["-vf"])
