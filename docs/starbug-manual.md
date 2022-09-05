@@ -1,45 +1,25 @@
-# Starbug II Manual
+# StarBugII Manual
 
-Last edited during starbug version v0.1.6
+JWST PSF photometry in dusty crowded fields.
+Last updated: v0.2.1
 
-## Install 
+## Installation
 
 ```bash
 pip install starbug2-X.X.X.tar.gz
+
+-- OR --
+
+pip install --user starbug2-X.X.X.tar.gz 
 ```
 
-One of the required packages is STSCIs "webbpsf". This package is used to generate the up to date PSF files. It has its own install requirements which can be found at: https://webbpsf.readthedocs.io/en/stable/installation.html#data-install. Essentially some package data must be downloaded and the location of their storage must be set as an environment variable "WEBBPSF_PATH"
+After the package is installed, there are a few steps required to initialise Starbug.
 
-\vspace{0.5cm}\hrule 
+**WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on https://webbpsf.readthedocs.io/en/latest/installation.html however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then add append to your .bashrc (or equivalent) `export "WEBBPSF=PATH/TO/DIRECTORY"`.
 
-## First Run
+**PSFDIR** This is the folder where starbug stores its relevant data files. By default this is "${HOME}/.local/share/starbug". Make sure this folder exists, or if you wish to save them elsewhere, change the folder (permanently) in "starbug2/starbug2/param/default.param [PSFDIR]", or (temporarily) in a local starbug.param file.
 
-### PSF Files
-
-The PSF files must be generated to run any PSF fitting routines. These files are going to be stored in the folder specified in the parameter file, by default that is PSFDIR=~/.local/share/starbug but can be set to anything. The generation process will take several minutes
-
-To generate the PSFs run:
-
-```bash
-starbug2 --generate-psfs 
-```
-\vspace{0.5cm}\hrule 
-
-### Local Parameter File
-
-It is advisable to generate a local parameter file for each project, so parameters can be set specifically to each dataset and not effect the global defaults. To do this run:
-
-```bash
-starbug2 --local-param
-```
-\vspace{0.5cm}\hrule 
-
-### BASH TAB Completeion
-
-A bash tab completion script has been included but not install by default. To install it:
-```bash
-echo "source PATH/TO/INSTALL/bin/complete.sh" >> ~/.bashrc
-```
+**PSF FILES** Starbug requires PSF files to be generated for the filters you are using. To do so, run `starbug2 --generate-psf` and they will be generated into "PSFDIR"
 
 ## Usage
 
@@ -67,9 +47,9 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
        --local-param              : Make a local copy of the default parameter file
        --generate-region   a.fits : Make a ds9 region file with a detection file
        --clean-table       a.fits : Clean up an individual table
+       --generate-run      *.fits : Generate a simple run script
+       --version                  : Print starbug2 version
 ```
-
-\newpage
 
 ## Parameter File
 

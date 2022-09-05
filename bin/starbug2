@@ -53,7 +53,7 @@ options=0
 
 pfile=None
 setdict={}
-output='.'
+output=None
 ncores=1
 
 def usage():
@@ -91,7 +91,9 @@ for opt,optarg in opts:
         #options &= ~VERBOSE
 
     if opt in ("-o","--output"):
-        if os.path.exists(optarg): output=optarg
+        if os.path.exists(optarg): 
+            output=optarg
+            setdict["OUTDIR"]=optarg
         else:
             perror("output directory '%s' does not exist\n"%optarg)
             options|=KILLPROC
@@ -106,7 +108,7 @@ for opt,optarg in opts:
             perror("unable to set parameter, use syntax -s KEY=VALUE\n")
             options|=KILLPROC
 
-    if opt=="--generate-psf": options|=GENRATPSF
+    if opt=="--generate-psf": options|=(GENRATPSF|STOPPROC)
 
     if opt=="--local-param":
         os.system("cp %s/default.param starbug.param"%pkg_resources.resource_filename("starbug2","param/"))
@@ -210,6 +212,10 @@ if __name__=="__main__":
 
     pool=multiprocessing.Pool(processes=ncores)
     starbugs=pool.map(fn,args)
+
+    for n,sb in enumerate(starbugs): 
+        if not sb: perror("FAILED: %s\n"%args[n])
+
 
     ###########################
     # Match Output Catalogues #

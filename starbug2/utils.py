@@ -4,6 +4,7 @@ from parse import parse
 from scipy.optimize import minimize
 from astropy.table import Table,hstack
 from astropy.io import fits
+import starbug2
 
 printf=sys.stdout.write
 perror=sys.stderr.write
@@ -210,7 +211,7 @@ def extnames(hdulist): return list(ext.name for ext in hdulist)
 
 def flux2ABmag(flux,fluxerr=None, filter=None):
     zp=3631.0
-    if filter and filter in list(ZP.keys()): zp=ZP[filter][0]
+    if filter and filter in list(starbug2.ZP.keys()): zp=starbug2.ZP[filter][0]
     mag=-2.5*np.log10(flux/zp)
     magerr=2.5*np.log10(1.0+(fluxerr/flux)) if any(fluxerr) else None
     return(mag,magerr)

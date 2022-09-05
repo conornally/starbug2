@@ -281,10 +281,11 @@ class StarbugBase(object):
                 subimage_size=self.options["SUBIMAGE_SIZE"], separation_thresh=self.options["SEPARATION_THRESH"], fwhm=starbug2.filters[self.filter][2])
         export_table(result, "/tmp/artificialstars.fits")
 
-    def export(self, outdir="."):
+    def export(self, outdir=None):
         """
         Export all the current catalogues
         """
+        if not outdir: outdir=self.options["OUTDIR"]
         if not os.path.exists("%s/"%outdir):
             perror("output directory '%s' does not exist, using /tmp instead\n"%outdir)
             outdir="/tmp"
@@ -338,6 +339,10 @@ class StarbugBase(object):
             if not os.path.exists("%s/%s.fits"%(dname, self.filter)):
                 perror("WARNING: Unable to locate filter PSF for '%s'\n"%self.filter)
                 status=1
+        
+        if not os.path.exists((dname:=os.path.expandvars(self.options["OUTDIR"]))):
+            perror("WARNING: Unable to locate OUTDIR='%s'\n"%dname)
+            status=1
 
         return status
 

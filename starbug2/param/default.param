@@ -6,6 +6,7 @@ TEST = 0    //.
 VERBOSE =0       // (0:false 1:true)
 NULLVAL =999.999 //table null value
 PSFDIR  =${HOME}/.local/share/starbug // path to PSF files
+OUTDIR	=out //.
 
 
 ## DETECTETION - Aperture photomtry

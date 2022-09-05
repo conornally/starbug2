@@ -1,3 +1,9 @@
+v0.2.1:
+    General
+        >   Fix some MACOS compatibility errors
+        >   Added OUTDIR to param file
+
+
 v0.2.0:
 	>	first pass aperture phot package..with some quirks
 	>	--generate-run -> run.sh makes a simple run modifiable run script to aid the user
