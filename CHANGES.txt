@@ -1,0 +1,105 @@
+v0.2.0:
+	>	first pass aperture phot package..with some quirks
+	>	--generate-run -> run.sh makes a simple run modifiable run script to aid the user
+	>	matching stdev now (SHOULD) take the largest rather than combining
+
+v0.1.7:
+	>	APPHot local background estimated using MODE not median
+	>	Can pass sigma sky into apphot to sigma clip background backgorund annulis
+	>	band match first draft
+	
+
+v0.1.6:
+	Aperture Photometry things:
+		>	apcorr fits aperture radius
+		>	errors
+		>	source flags saturation or JUMP
+		>	averaging now takes mean,std and numsq errors
+        >   flag raised if the mean and median are more than 5% different for one source over frames (SRC_VAR)
+
+v0.1.5:
+	Matching has been put on hold as i need to add the ability to be able to run all the dithers on pipeline 2 images...
+
+    matching.dither_match():
+        >   this matches together all files input into bin/starbug on one run
+        >   it outputs two files for now, -apfull (all matched columns) -apmatch (a stripped down version)
+
+    bin/starbug multiprocessing:
+        >   it will now multiprocess (not by default) all the starbug input file processes
+        >   __setstate__ __getstate__ added to starbug to enable pickling
+
+    matching.generic_match():
+        >   match tables for different OBSRVN VISIT DETECTOR etc
+    General:
+        >   hcascade: left aligned hstack of tables
+        >   find_colnames: look for substring in table colnames
+
+v0.1.4:
+	Matching:
+        >   bin/starbug2-match initial draft
+		>	added MATCH_COL to param file, to choose which columns to include in output
+		>	added RM_MATCH to param file, to remove matches with less than RM_MATCH resolutions from table
+		>	averaging now takes the median of the values in the table
+		>	removed NULLVAL from the tables and just using nan for now
+    AperturePhot:
+        >   Done inside three radii, n=1..3 FWHM returning three different flux values
+        >   Sky value now calculated as median in a much larger radius (default 25-30)
+    General:
+        >   move load_params to utils
+        >   loading now has a print resolution
+		>	made a first attempt at a completion script
+
+v0.1.3:
+	Background Estimation:
+		>	The aperture size of the local sky estimation now scales with peak pixel value of the source
+	Known issues:
+		>	Need to make sure PSFPhot loads the background in properly
+			>>>	sometimes it needs to load it, other times it needs to generate it
+    AperturePhot:
+        >   APPhot now takes HUDList not 2d array, in time a lot of routines should take this
+        >   Flux multiplied by the area modifier in pipeline2
+            >>> Need to do the same for PSFPhot
+	General:
+		>	region generation also scales aperture on peak source pixel
+
+v0.1.2:
+	--> The PSF photometry over subtracts the sources
+		>	For every source in the given sourcelist, a mean sky value is calculated with an annuli (Rin=APHOT_R0, Rout=APHOT_R1 for now)
+		>	any pixel less than 2FWHM from the centre of the source is then set to this value (i know this has some flaws)
+		>	Background2D is then run over the image.
+			>>> The idea is not to "remove" the star from the image, its to mitigate its effect during background2D calculations
+        >   generate-region scales the circle to the source size
+	Photometry:
+		>	it now spits out the calculated background
+		>	a new loading bar is visible during the source masking
+    Background Estimation:
+        >   The apertures to estimate the sky now scale with the peak pixel value of the source. This allows it to "hug" to the star, which will reduce the effect of crowding
+		
+v0.1.1:
+	Photometry:
+		>   saves residual images into a multiextension hdu
+	Source Detection:
+		>   fixed Background2D filtersize and boxsize inputs
+		>   removed MedianBackground subtraction (no different from plain)
+	Cleanup:
+		>   now cutting when ap_flux<0    
+		>	and then I removed that ^^^
+	General:
+		>   moved StarbugBase to its own file
+		>   separated the filter info
+		>   added some parameter file descriptions
+		>	first draft on manual
+		>   moved param file detection out of StarbuBase to bin file
+
+v0.1.0 - a working version..
+
+NOTES and TODO:
+
+    >   During export step, add starbug parameters to the header file. That way the file will be completely reproducible
+    >   Separate the background subtraction annuli radii from the apphot radii?
+    >   Artificial stars needs to make sure it is using all the correct routines 
+	>	Make sure you have the correct PSFs. I think the ones im currently using are too narrow? The residuals dont look fantastic
+    >   Fix when verbose happens, or dont have it as an option at all, or make verbose mode a lot more verbose?
+
+	>	Cleanup: Sharpness basically is not gaussian so the fit isnt very accurate
+

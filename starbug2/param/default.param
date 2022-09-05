@@ -1,0 +1,55 @@
+## STARBUG CONFIG FILE
+PARAM = STARBUGII PARAMETERS    //COMMENT
+TEST = 0    //.
+
+## GENERIC
+VERBOSE =0       // (0:false 1:true)
+NULLVAL =999.999 //table null value
+PSFDIR  =${HOME}/.local/share/starbug // path to PSF files
+
+
+## DETECTETION - Aperture photomtry
+SIGSKY		=2.0  // (float>0) 
+SIGSRC		=5.0  // (float>0) Source value mininmum N sigma above background
+BOX_SIZE	=2    // (int>0) Background estimation kernal size (pix)
+FILTER_SIZE	=3    //.
+SHARP_LO = 0.2    // cutoff in detection
+SHARP_HI = 1.0    // cutoff in detection
+ROUND_LO =-1.0    // cutoff in detection
+ROUND_HI = 1.0    // cutoff in detection
+
+## APERTURE PHOTOMOETRY
+APPHOT_R    =3      //Radius in number of pixels
+#APPHOT_R1   =2      //Radius of aperture 1 in number of FWHM 
+#APPHOT_R2   =3      //Radius of aperture 2 in number of FWHM 
+SKY_RIN     =25  //.
+SKY_ROUT    =30 //.
+
+## CLEANUP
+ERROR_CUT       =1     // cut sources with errors larger than value
+SHARP_HI_SIG    =2     // after detection, number of sigma above gaussian mean to cut off sources
+SHARP_LO_SIG    =2     // after detection, number of sigma above gaussian mean to cut off sources
+ROUND_HI_SIG    =2     // after detection, number of sigma above gaussian mean to cut off sources
+ROUND_LO_SIG    =2     // after detection, number of sigma above gaussian mean to cut off sources
+
+## BACKGROUNDESTIMATION
+BGD_R	=	0//.
+
+## PHOTOMETRY
+AP_FILE  =       //Detection file to use instead of detecting
+BGD_FILE =       //Background estimation file
+#PSF=            //PSF.fits related to the image
+CRIT_SEP =8     //minimum distance for grouping (pixels) between two sources
+#PSF_ITERATIONS =3	//number of DAOPhot PSF iterations (FIND, GROUP, SUBTRACT, NSTAR)
+
+## CATALOGUE MATCHING
+MATCH_THRESH =0.45  					//when combining background subtraction catalogue, minimum separation (arcsec) of centroids to be considered separate sources
+MATCH_COLS = // EXTRA columns to include in output matched table i.e sharpness
+RM_MATCH =-1                          // Remove any sources with less matches than N-RM_MATCH. (if -1, keep everything)
+
+## ARTIFICAL STARS
+NUMBER_ARTIFICIAL_STARS =500   //number of individual stars to test
+SUBIMAGE_SIZE =500              //number of pixels ? to crop around artificial star
+MIN_FLUX    =10                 //minimun flux for artificial star
+MAX_FLUX    =10000               //maximum flux for artificial star
+SEPARATION_THRESH =2            //number pixels above which the separation is too high and the artifical star failed to be detected
