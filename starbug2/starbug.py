@@ -121,7 +121,7 @@ class StarbugBase(object):
                                         roundhi=self.options["ROUND_HI"],
                                         wcs=WCS(self.image[1].header),
                                         boxsize=int(self.options["BOX_SIZE"]),
-                                        filtersize=self.options["FILTER_SIZE"],
+                                        filtersize=int(self.options["FILTER_SIZE"]),
                                         verbose=self.options["VERBOSE"])
 
             dat=detector(self.image["SCI"].data)
