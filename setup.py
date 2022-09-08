@@ -18,7 +18,7 @@ setup(
         license="LICENSE.txt",
         description="JWST PSF photometry in complex crowded fields",
         long_description=open("README.md").read(),
-        long_description_content_type='text/markdown'
+        long_description_content_type="text/markdown",
         install_requires=[
             "photutils",
             "astropy",
