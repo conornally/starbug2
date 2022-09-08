@@ -14,8 +14,8 @@ SIGSKY		=2.0  // (float>0)
 SIGSRC		=5.0  // (float>0) Source value mininmum N sigma above background
 BOX_SIZE	=2    // (int>0) Background estimation kernal size (pix)
 FILTER_SIZE	=3    //.
-SHARP_LO = 0.2    // cutoff in detection
-SHARP_HI = 1.0    // cutoff in detection
+SHARP_LO = 0.4    // cutoff in detection
+SHARP_HI = 0.9    // cutoff in detection
 ROUND_LO =-1.0    // cutoff in detection
 ROUND_HI = 1.0    // cutoff in detection
 
