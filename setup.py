@@ -1,7 +1,7 @@
 #python3 setup.py sdist
 #pip install -e .
 from setuptools import setup, find_packages
-VERSION="0.2.1"
+VERSION="0.2.2"
 
 setup(
         name="starbug2",
@@ -18,6 +18,7 @@ setup(
         license="LICENSE.txt",
         description="JWST PSF photometry in complex crowded fields",
         long_description=open("README.md").read(),
+        long_description_content_type='text/markdown'
         install_requires=[
             "photutils",
             "astropy",
