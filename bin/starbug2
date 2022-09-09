@@ -18,6 +18,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
    -v  --verbose         : display verbose outputs
 
    --> Single run commands
+       --init                     : Initialise Starbug (post install)
        --generate-psf             : Generate ALL the PSF files to "PSFDIR"
        --local-param              : Make a local copy of the default parameter file
        --generate-region   a.fits : Make a ds9 region file with a detection file
@@ -48,6 +49,7 @@ DOMATCH= 0x2000
 
 GENRATPSF =0x10000
 GENRATRUN =0x20000
+INITSB    =0x40000
 
 options=0
 
@@ -62,7 +64,7 @@ def usage():
 
 opts,args=getopt.getopt(sys.argv[1:],"ABCDfhMPvb:d:n:o:p:s:", ("artific","background", "clean", "detect", "find", "help", "match", "photom", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
-                                                      "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run"))
+                                                      "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run"))
 
 for opt,optarg in opts:
     if opt in ("-h","--help"):    usage()
@@ -108,6 +110,7 @@ for opt,optarg in opts:
             perror("unable to set parameter, use syntax -s KEY=VALUE\n")
             options|=KILLPROC
 
+    if opt=="--init": options|=(INITSB|STOPPROC)
     if opt=="--generate-psf": options|=(GENRATPSF|STOPPROC)
 
     if opt=="--local-param":
@@ -144,6 +147,9 @@ if pfile==None:
     else:
         perror("no local parameter file found, using default.param\n")
         pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
+
+if options&INITSB:
+    init_starbug(load_params(pfile)["PSFDIR"])
 
 if options&GENRATPSF:
     generate_psfs(load_params(pfile)["PSFDIR"])

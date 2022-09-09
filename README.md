@@ -6,11 +6,13 @@ Last updated: v0.2.1
 ## Installation
 
 ```bash
-pip install starbug2-X.X.X.tar.gz
+pip install starbug2
 
--- OR --
+--- OR ---
 
-pip install --user starbug2-X.X.X.tar.gz 
+git clone https://github.com/conornally/starbug2.git
+python setup.py
+pip install .
 ```
 
 After the package is installed, there are a few steps required to initialise Starbug.

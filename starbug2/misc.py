@@ -12,6 +12,15 @@ from astropy.io import fits
 ##########################
 # One time run functions #
 ##########################
+def init_starbug(dname):
+    """
+    Initialise Starbug..
+        - generate PSFs
+        - download crds files
+    INPUT:
+        dname : data directory
+    """
+    generate_psfs(dname)
 
 def generate_psfs(dname):
     """
@@ -22,24 +31,25 @@ def generate_psfs(dname):
                 in loaded parameter file "PSFDIR"
     """
     import webbpsf
+    if os.getenv("WEBBPSF_PATH"): 
+        dname=os.path.expandvars(dname)
+        if not os.path.exists(dname):
+            os.mkdirs(dname)
 
-    dname=os.path.expandvars(dname)
-    if not os.path.exists(dname):
-        os.mkdir(dname)
+        printf("Generating PSFs --> %s\n"%dname)
 
-    printf("Generating PSFs --> %s\n"%dname)
-
-    load=loading(len(starbug2.filters))
-    for fltr,line in starbug2.filters.items():
-        load.msg=fltr
+        load=loading(len(starbug2.filters))
+        for fltr,line in starbug2.filters.items():
+            load.msg=fltr
+            load.show()
+            
+            nc = webbpsf.NIRCam() if line[5]==starbug2.NIRCAM else webbpsf.MIRI()
+            nc.filter=fltr
+            psf=nc.calc_psf()
+            load()
+            fits.PrimaryHDU(data=psf[1].data, header=psf[1].header).writeto("%s/%s.fits"%(dname, fltr), overwrite=True)
         load.show()
-        
-        nc = webbpsf.NIRCam() if line[5]==starbug2.NIRCAM else webbpsf.MIRI()
-        nc.filter=fltr
-        psf=nc.calc_psf()
-        load()
-        fits.PrimaryHDU(data=psf[1].data, header=psf[1].header).writeto("%s/%s.fits"%(dname, fltr), overwrite=True)
-    load.show()
+    else:perror("WARNING: Cannot generate PSFs, no environment variable 'WEBBPSF_PATH', please see https://webbpsf.readthedocs.io/en/latest/installation.html\n")
 
 def generate_runscript(fnames, args="starbug2 "):
     """

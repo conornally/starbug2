@@ -1,3 +1,5 @@
 include README.md
 include LICENSE.txt
+include CITATION.cff
 include extras/starbug2.completion
+include starbug2/param/default.param

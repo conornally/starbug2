@@ -1,3 +1,10 @@
+v0.2.3:
+	Previously it successully installed with pip, but the param file failed, this hopefully fixes that
+
+v0.2.2:
+	Setting things up for PIP
+
+
 v0.2.1:
     General
         >   Fix some MACOS compatibility errors
