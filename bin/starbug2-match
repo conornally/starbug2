@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -Wignore
 """Starbug2 Matching
 usage: starbug2-match [-Bhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
-    -B  --bandmatch          : match in "BAND" mode (wavelength specific)
+    #-B  --bandmatch          : match in "BAND" mode (wavelength specific)
     -h  --help               : show help message
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file

@@ -34,7 +34,7 @@ def generate_psfs(dname):
     if os.getenv("WEBBPSF_PATH"): 
         dname=os.path.expandvars(dname)
         if not os.path.exists(dname):
-            os.mkdirs(dname)
+            os.makedirs(dname)
 
         printf("Generating PSFs --> %s\n"%dname)
 

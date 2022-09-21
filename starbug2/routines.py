@@ -164,6 +164,7 @@ class APPhot_Routine():
 
         data= image["SCI"].data * area
         data[mask]=np.nan
+        data[data<=0]=np.nan
         error=np.sqrt(data)
 
         apertures=CircularAperture(pos,self.radius)

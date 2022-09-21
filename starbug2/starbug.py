@@ -149,12 +149,16 @@ class StarbugBase(object):
             apcorr=apphot.calc_apcorr( self.filter, self.options["APPHOT_R"],"%s/jwst_nircam_apcorr_0004.fits"%(self.options["PSFDIR"] ))
             ap_cat=apphot(dat, self.image, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
-            ap_cat.add_column(Column( -2.5*np.log10(ap_cat["flux"] / ZP[self.filter][0]), name="%s_mag"%self.filter))
-            ap_cat.add_column(Column( 2.5*np.log10(1+(ap_cat["eflux"]/ap_cat["flux"])), name="%s_emag"%self.filter ))
+            mag,magerr=flux2ABmag( ap_cat["flux"], ap_cat["eflux"], filter=self.filter)
+            ap_cat.add_column(Column(mag,self.filter))
+            ap_cat.add_column(Column(magerr,"e%s"%self.filter))
+
+            #ap_cat.add_column(Column( -2.5*np.log10(ap_cat["flux"] / ZP[self.filter][0]), name="%s_mag"%self.filter))
+            #ap_cat.add_column(Column( 2.5*np.log10(1+(ap_cat["eflux"]/ap_cat["flux"])), name="%s_emag"%self.filter ))
 
             self.detections=hstack((dat,ap_cat))
             self.detections.meta=self.info()
-            self.detections.meta.update({"STARBUGROUNTINE":"DETECT"})
+            self.detections.meta.update({"ROUNTINE":"DETECT"})
 
         else: perror("Failed to run aperture photometry")
 

@@ -79,8 +79,8 @@ def export_region(tab, fname="/tmp/out.reg"):
     xcol="RA"
     ycol="DEC"
     
-    if "peak" in tab.colnames: r= np.sqrt(tab["peak"]**0.7)*2.5 if "peak" in tab.colnames else 5
-    else: r=np.ones(len(tab))*10
+    if "peak" in tab.colnames: r= np.sqrt(tab["peak"]**0.7)*2.5 
+    else: r=np.ones(len(tab))*2
 
     with open(fname, 'w') as fp:
         fp.write("global color=cyan\n")
@@ -91,6 +91,7 @@ def export_region(tab, fname="/tmp/out.reg"):
         else:
             perror("unable to open %f\n"%fname)
 
+"""
 def load_table(fname):
     table=None
     if os.path.exists(fname):
@@ -99,6 +100,7 @@ def load_table(fname):
         fp.close()
     else: perror("unable to open %f\n"%fname)
     return table
+"""
 
 def load_params(fname):
     """

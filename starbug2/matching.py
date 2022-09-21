@@ -168,6 +168,7 @@ def generic_match(catalogues, threshold, colnames):
     return finish_matching(base, colnames)
 
 def band_match(catalogues, threshold, colnames):
+    threshold=threshold*u.arcsec
     ### ORDER the tables into the correct order (increasing wavelength)
     tables=np.full( len(starbug2.filters), None)
     mask=np.full(len(starbug2.filters), False)
@@ -184,8 +185,6 @@ def band_match(catalogues, threshold, colnames):
         if tab: s+="%5s "%fltr
         #else: s+=". "
     puts(s)
-    colnames=["RA","DEC","flux","eflux"]
-    threshold=threshold*u.arcsec
 
     ### Match in increasing wavelength order
     base=Table(None)
@@ -238,11 +237,6 @@ def finish_matching(tab, colnames):
     """
     flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint32)
     av=Table(np.full((len(tab),len(colnames)),np.nan), names=colnames)
-    #if "ap_stdflux" in tab.colnames: 
-        #tab.remove_column("ap_stdflux")
-        #if "ap_stdflux" in colnames: colnames.remove("ap_stdflux")
-        #perror("WARNING, REMOVING DITHER FLUX STDEV COL\n")
-
 
     for name in colnames:
         if not (all_cols:=find_colnames(tab,name)): continue
@@ -252,26 +246,21 @@ def finish_matching(tab, colnames):
             col=Column(np.nanmean(ar,axis=1), name=name)
             median=np.nanmedian(ar,axis=1)
             if "stdflux" not in colnames: av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux")) 
-            av.add_column(Column( -2.5*np.log10(col/starbug2.ZP[tab.meta["FILTER"]][0]), name="%s_mag"%tab.meta["FILTER"]))
-
             ## if median and mean are >5% different, flag as SRC_VAR
             flags[ np.abs(median-col)>(col/5.0)] |= starbug2.SRC_VAR
-            
         elif name== "eflux":
             col=Column(np.nansum(ar*ar, axis=1), name=name)
-            av.add_column(Column( 2.5*np.log10(1+(av["stdflux"]/av["flux"])), name="%s_emag"%tab.meta["FILTER"] ))
         elif name=="stdflux": 
             col=Column(np.nanmax(ar,axis=1),name=name)
-
         elif name=="flag":
             col=Column(flags, name=name)
             for fcol in ar.T: col|=fcol.astype(np.uint32)
         else: col=Column(np.nanmedian(ar, axis=1),name=name)
         
         av[name]=col
+    mag,magerr=flux2ABmag(av["flux"],av["eflux"], tab.meta["FILTER"])
     narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
     av.add_column(Column(narr, name="NUM"))
-    #return hstack((av,tab))
     return (av,tab)
 
 if __name__=="__main__":

@@ -1,7 +1,10 @@
 # StarBugII
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.2.1
+Last updated: v0.2.4
+
+GitHUB: https://github.com/conornally/starbug2
+PYPI: https://pypi.org/project/starbug2
 
 ## Installation
 
@@ -11,7 +14,7 @@ pip install starbug2
 --- OR ---
 
 git clone https://github.com/conornally/starbug2.git
-python setup.py
+python -m build
 pip install .
 ```
 
@@ -45,6 +48,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
    -v  --verbose         : display verbose outputs
 
    --> Single run commands
+       --init          (in prep.) : Initialise starbug into system
        --generate-psf             : Generate ALL the PSF files to "PSFDIR"
        --local-param              : Make a local copy of the default parameter file
        --generate-region   a.fits : Make a ds9 region file with a detection file

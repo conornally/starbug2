@@ -16,7 +16,7 @@ DQ_SATURATED =0x02
 DQ_JUMP_DET  =0x04
 
 ## DEFAULT MATCHING COLS
-match_cols=["RA","DEC","flag","flux","eflux"]
+match_cols=["RA","DEC","flag","flux","eflux", "stdflux"]
 
 # ZERO POINT...
 ZP={   "F070W"	:[3631,0],

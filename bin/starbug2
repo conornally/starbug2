@@ -119,7 +119,7 @@ for opt,optarg in opts:
         options|=STOPPROC
 
     if opt=="--generate-region":
-        table=load_table(optarg)
+        table=Table.read(optarg,format="fits")#load_table(optarg)
         _,fname,_=split_fname(optarg)
         export_region(table, fname="%s.reg"%fname)
         printf("generating region --> %s.reg\n"%fname)
@@ -127,7 +127,7 @@ for opt,optarg in opts:
 
     if opt=="--clean-table":
         printf("cleaning table <-- %s\n"%optarg)
-        table=load_table(optarg)
+        table=Table.read(optarg,format="fits")#load_table(optarg)
         options|=STOPPROC
 
     if opt=="--version": quit("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version)
@@ -241,7 +241,7 @@ if __name__=="__main__":
             av,full=dither_match( [sb.detections for sb in starbugs] , threshold=param["MATCH_THRESH"], colnames=colnames)
 
             N=len(starbugs)-param["RM_MATCH"]
-            mask=( (av["NUM"]>=N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
+            mask=( (av["NUM"]>N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
 
             printf("-> %s-ap*...\n"%fname)
             header={"FILTER":starbugs[0].filter}
