@@ -1,7 +1,6 @@
 """
 Routines for Starbug
 """
-import matplotlib.pyplot as plt
 import os
 import sys
 import time
@@ -380,14 +379,6 @@ class Cleaning_Routine(object):
         if "roundness1" in self.cat.colnames:
             self.round1_mu, self.round1_sig = norm.fit(self.cat["roundness1"])
             self.log("fit 'roundness1': mu=%.2g sig=%.2g\n"%(self.round1_mu, self.round1_sig))
-            """
-            import matplotlib.pyplot as plt
-            plt.hist(self.cat["roundness1"],bins=40, density=True)
-            x=np.linspace(min(self.cat["roundness1"]), max(self.cat["roundness1"]), 100)
-            plt.plot(x, norm.pdf(x,self.round1_mu, self.round1_sig))
-            plt.show()
-            """
-
 
         if "roundness2" in self.cat.colnames:
             self.round2_mu, self.round2_sig = norm.fit(self.cat["roundness2"])
