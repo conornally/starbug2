@@ -211,12 +211,35 @@ def hcascade(tables, colnames=None):
 
 def extnames(hdulist): return list(ext.name for ext in hdulist)
 
-def flux2ABmag(flux,fluxerr=None, filter=None):
+def flux2mag(flux,fluxerr=None, zp=1):
+
+    ## sort any type issues in FLUX
+    if type(flux)!=np.array: flux=np.array(flux)
+    if not flux.shape: flux=np.array([flux])
+
+    # sort type issues in FLUXERR
+    if fluxerr is None: fluxerr=np.zeros(len(flux))
+    if type(fluxerr)!=np.array: fluxerr=np.array(fluxerr)
+    if not fluxerr.shape: fluxerr=np.array([fluxerr])
+
+    mag=np.full( len(flux), np.nan )
+    magerr=np.full( len(flux), np.nan )
+
+    maskflux = (flux>0)
+    maskferr = (fluxerr>=0)
+    mask= np.logical_and( maskflux, maskferr)
+
+    mag[maskflux]= -2.5*np.log10(flux[maskflux]/zp)
+    magerr[mask] = 2.5*np.log10( 1.0+( fluxerr[mask]/flux[mask]) )
+
+    return mag,magerr
+
+
+def flux2ABmag(flux,fluxerr=None, zp=1, filter=None):
     zp=3631.0
     if filter and filter in list(starbug2.ZP.keys()): zp=starbug2.ZP[filter][0]
-    mag=-2.5*np.log10(flux/zp)
-    magerr=2.5*np.log10(1.0+(fluxerr/flux)) if any(fluxerr) else None
-    return(mag,magerr)
+
+    return flux2mag( flux, fluxerr, zp=zp)
 
 
 if __name__ == "__main__":
