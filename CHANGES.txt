@@ -2,6 +2,7 @@ v0.2.6:
 	General
 		>Fixing the log10 warning in flux2mag
 		>Adding a few tests
+		>adding requirements.txt...yet more packaging files -.-
 v0.2.5: I keep forgetting to update this file
 		
 v0.2.4:
