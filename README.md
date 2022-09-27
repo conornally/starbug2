@@ -1,10 +1,16 @@
 # StarBugII
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.2.4
+Last updated: v0.2.6
 
 GitHUB: https://github.com/conornally/starbug2
+
 PYPI: https://pypi.org/project/starbug2
+
+[![Python application](https://github.com/conornally/starbug2/actions/workflows/python-app.yml/badge.svg)](https://github.com/conornally/starbug2/actions/workflows/python-app.yml)
+[![PyPI version fury.io](https://badge.fury.io/py/starbug2.svg)](https://pypi.python.org/pypi/starbug2/)
+[![Latest release](https://badgen.net/github/release/conornally/starbug2)](https://github.com/conornally/starbug2/releases)
+
 
 ## Installation
 
