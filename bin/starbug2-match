@@ -1,7 +1,8 @@
 #!/usr/bin/python3 -Wignore
 """Starbug2 Matching
 usage: starbug2-match [-Bhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
-    #-B  --bandmatch          : match in "BAND" mode (wavelength specific)
+    -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
+    -D  --dither             : match in "DITHER" mode (preserves a column for every frame)
     -h  --help               : show help message
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file
@@ -19,7 +20,8 @@ from starbug2 import matching
 VERBOSE=0x01
 KILLPROC=0x02
 
-BANDMATCH=0x04
+BANDMATCH   =0x04
+DITHERMATCH =0x08
 
 options=0
 
@@ -32,7 +34,7 @@ def usage():
     if options& VERBOSE: quit(__doc__)
     else: quit( __doc__.split("\n")[1])
 
-opts,args=getopt.getopt(sys.argv[1:], "Bhvo:p:s:", ("bandmatch","help","verbose",
+opts,args=getopt.getopt(sys.argv[1:], "BDhvo:p:s:", ("band","dither", "help","verbose",
                                                 "output=", "param=", "set="))
 
 for opt,optarg in opts:
@@ -50,7 +52,8 @@ for opt,optarg in opts:
 
         else: perror("unable to set parameter, use syntax -s KEY=VALUE\n")
 
-    if opt in ("-B","--bandmatch"): options|=BANDMATCH
+    if opt in ("-B","--band"): options|=BANDMATCH
+    if opt in ("-D","--dither"): options|=DITHERMATCH
 
 if not len(args): usage()
 
@@ -73,9 +76,14 @@ if options & BANDMATCH:
     utils.export_table(matched,fname="out.fits")
 
 else:
-    av,full=matching.generic_match(tables, parameters["MATCH_THRESH"], colnames)
+    if options & DITHERMATCH: av,full=matching.dither_match(tables, parameters["MATCH_THRESH"], colnames)
+    else:                     av,full=matching.generic_match(tables, parameters["MATCH_THRESH"], colnames)
     av.meta.update(tables[0].meta)
 
-    utils.printf("->out*.fits\n")
-    utils.export_table(hstack((av,full)),fname="out-full.fits")
-    utils.export_table(av,fname="out.fits")
+    if output is None:
+        output=utils.combine_fnames( [ name for name in args] , ntrys=100)
+    dname,fname,ext=utils.split_fname(output)
+
+    utils.printf("-> %s/%s*"%(dname,fname))
+    utils.export_table(hstack((av,full)),fname="%s/%sfull.fits"%(dname,fname))
+    utils.export_table(av,"%s/%smatch.fits"%(dname,fname))

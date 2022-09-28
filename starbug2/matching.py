@@ -263,6 +263,15 @@ def finish_matching(tab, colnames):
     av.add_column(Column(narr, name="NUM"))
     return (av,tab)
 
+
+def remove_NUM(tab, N):
+    """
+    Remove sources from the list of tab if they have >N non matches
+    """
+    if "NUM" in tab.colnames:
+        pass#mask=tab["NUM"]
+
+
 if __name__=="__main__":
     #fnames=(#"/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F335M/out.fits",
     fnames=("/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F200W/out.fits",

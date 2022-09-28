@@ -172,6 +172,9 @@ def combine_fnames(fnames, ntrys=10):
             fname+="(%s)"%"".join(sorted(set(chars)))
             trys+=1
         if trys>ntrys: return None
+    print(fname)
+    while ")(" in fname: fname=fname.replace(")(","")
+    print(fname)
     return "%s/%s%s"%(dname,fname,ext)
 
 

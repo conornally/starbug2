@@ -41,7 +41,7 @@ class Detection_Routine(StarFinderBase):
     def __init__(self,  sig_src=5, sig_sky=3, fwhm=1,
                         sharplo=0.2, sharphi=1, roundlo=-1, roundhi=1,
                         wcs=None, match_threshold=1.0, verbose=0,
-                        boxsize=2, filtersize=3):
+                        bgd2d=1, boxsize=2, filtersize=3):
         self.sig_src=sig_src
         self.sig_sky=sig_sky
         self.fwhm = fwhm
@@ -55,6 +55,7 @@ class Detection_Routine(StarFinderBase):
         self.catalogue=None
         self.verbose=verbose
 
+        self.bgd2d=bgd2d
         self.boxsize=boxsize
         self.filtersize=filtersize
 
@@ -115,8 +116,9 @@ class Detection_Routine(StarFinderBase):
         self.match(self.catalogue, self.detect(data, SExtractorBackground(sigma_clip=sigma_clip)))
         if self.verbose: printf("-> [SExTr] pass: %d sources\n"%len(self.catalogue))
 
-        self.match(self.catalogue, self.detect(data, self._bkg2d))
-        if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
+        if self.bgd2d:
+            self.match(self.catalogue, self.detect(data, self._bkg2d))
+            if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
 
         ## Now with xycoords DAOStarfinder will refit the sharp and round values at the detected locations
         self.catalogue=self.detect(data, xycoords=np.array([self.catalogue["xcentroid"],self.catalogue["ycentroid"]]).T)#, clean=0)
@@ -147,28 +149,36 @@ class APPhot_Routine():
     def __call__(self, detections, image, **kwargs):
         return self.run(detections, image, **kwargs)
 
-    def run(self, detections, image, apcorr=1.0, sig_sky=3):
+    #def run(self, detections, image, apcorr=1.0, sig_sky=3):
+    def run(self, detections, image, error=1, dqflags=None, apcorr=1.0, sig_sky=3):
         """
         Forced aperture photometry on a list of detections
         detections are a astropy.table.Table with columns xcentroid ycentroid or x_0 y_0
         This will add extra columns into this table ap_flux ap_sky
+        INPUT:  detections - Astropy.Table containing source list
+                image       -2D image array to run photometry on
+                error       -2D image array OR scalar to act as photometric error
+                dqflags     -2D array of data quality flags where appropriate
+
+        RETURN: Photometry catalogue
         """
         try:
             pos=[(line["xcentroid"],line["ycentroid"]) for line in detections]
         except:
             pos=[(line["x_0"],line["y_0"]) for line in detections]
 
-        area=1.0 if image[4].name!="AREA" else image["AREA"].data
-        mask= image["DQ"].data &( DQ_DO_NOT_USE| DQ_SATURATED | DQ_JUMP_DET)
+        #area=1.0 if image[4].name!="AREA" else image["AREA"].data
+        #mask= image["DQ"].data &( DQ_DO_NOT_USE| DQ_SATURATED | DQ_JUMP_DET)
 
-        data= image["SCI"].data * area
-        data[mask]=np.nan
-        data[data<=0]=np.nan
-        error=np.sqrt(data)
+        #data= image["SCI"].data * area
+        #data[mask]=np.nan
+        #data[data<=0]=np.nan
+        #error=np.sqrt(data)
+        mask=np.isnan(image)
 
         apertures=CircularAperture(pos,self.radius)
         annulus_aperture=CircularAnnulus(pos, r_in=self.sky_in, r_out=self.sky_out)
-        phot=aperture_photometry(data, apertures, error=error, mask=mask)
+        phot=aperture_photometry(image, apertures, error=error, mask=mask)
         
         self.catalogue=Table(np.full((len(pos),3),np.nan),names=("flux","eflux","sky"))
         bkg_stats=np.full((len(annulus_aperture),2), np.nan) # (mode, stdev) 
@@ -176,7 +186,7 @@ class APPhot_Routine():
         self.log("-> calculating photometric errors\n")
         load=loading(len(apertures),"error?",res=10)
         for i,mask in enumerate(annulus_aperture.to_mask(method="center")):
-            dat=mask.multiply(data)
+            dat=mask.multiply(image)
             dat=sigma_clip(dat[dat>0 & np.isfinite(dat)], sigma=sig_sky)
             bkg_stats[i]=sigma_clipped_stats(dat)[1:]
             #bkg_stats[i]=( mode(dat)[0], np.nanstd(dat)) ##Take the mode to estimate background level
@@ -191,15 +201,15 @@ class APPhot_Routine():
         self.catalogue["sky"]=bkg_stats[:,0]
         self.catalogue["flux"]=apcorr*(phot["aperture_sum"] - (self.catalogue["sky"]*apertures.area))
 
-        if "DQ" in extnames(image):
+        #if "DQ" in extnames(image):
+        col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint32, name="flag")
+        if dqflags is not None:
             self.log("-> flagging unlikely sources\n")
-            col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint32, name="flag")
             for i, mask in enumerate(apertures.to_mask(method="center")):
-                dat=np.array(mask.multiply(image["DQ"].data),np.uint32)
+                dat=np.array(mask.multiply(dqflags),np.uint32)
                 if np.sum( dat & (DQ_DO_NOT_USE|DQ_SATURATED)): col[i]|=SRC_BAD
                 if np.sum( dat & DQ_JUMP_DET): col[i]|=SRC_JMP
-            self.catalogue.add_column(col)
-
+        self.catalogue.add_column(col)
         return self.catalogue
 
     def calc_apcorr(self, filter, radius, table_fname=None):

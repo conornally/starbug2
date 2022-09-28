@@ -14,17 +14,18 @@ SIGSKY		=2.0  // (float>0)
 SIGSRC		=5.0  // (float>0) Source value mininmum N sigma above background
 BOX_SIZE	=2    // (int>0) Background estimation kernal size (pix)
 FILTER_SIZE	=3    //.
+DOBGD2D     =1    // Run background2D estimation (usually finds more sources but takes time)
 SHARP_LO = 0.4    // cutoff in detection
 SHARP_HI = 0.9    // cutoff in detection
 ROUND_LO =-1.0    // cutoff in detection
 ROUND_HI = 1.0    // cutoff in detection
 
 ## APERTURE PHOTOMOETRY
-APPHOT_R    =3      //Radius in number of pixels
+APPHOT_R    =1.5      //Radius in number of pixels
 #APPHOT_R1   =2      //Radius of aperture 1 in number of FWHM 
 #APPHOT_R2   =3      //Radius of aperture 2 in number of FWHM 
-SKY_RIN     =25  //.
-SKY_ROUT    =30 //.
+SKY_RIN     =3  //.
+SKY_ROUT    =4.5 //.
 
 ## CLEANUP
 ERROR_CUT       =1     // cut sources with errors larger than value
@@ -44,7 +45,7 @@ CRIT_SEP =8     //minimum distance for grouping (pixels) between two sources
 #PSF_ITERATIONS =3	//number of DAOPhot PSF iterations (FIND, GROUP, SUBTRACT, NSTAR)
 
 ## CATALOGUE MATCHING
-MATCH_THRESH =0.45  					//when combining background subtraction catalogue, minimum separation (arcsec) of centroids to be considered separate sources
+MATCH_THRESH =0.25  					//when combining background subtraction catalogue, minimum separation (arcsec) of centroids to be considered separate sources
 MATCH_COLS = // EXTRA columns to include in output matched table i.e sharpness
 RM_MATCH =-1                          // Remove any sources with less matches than N-RM_MATCH. (if -1, keep everything)
 

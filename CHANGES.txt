@@ -1,3 +1,17 @@
+v0.2.8:
+    StarBug:
+        >   Adding self.stage to track where the processes differ
+        >   Can now handle stage two and stage three
+    APPhot:
+        >   Takes the arrays now, not the full hdulist
+    Detection:
+        >   Adding option to not do background 2d (needs streamlined)
+    Match:
+        >   Added Dither match
+
+v0.2.7:
+	Param:
+		>	Changed the default values for APPHOT_R APPHOT_SKY* 
 v0.2.6:
 	General
 		>Fixing the log10 warning in flux2mag

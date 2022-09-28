@@ -227,7 +227,7 @@ if __name__=="__main__":
     # Match Output Catalogues #
     ###########################
 
-    if options|DOMATCH and len(starbugs)>1:
+    if options&DOMATCH and len(starbugs)>1:
         fname=combine_fnames( [sb.fname for sb in starbugs] ) 
         fname="%s/%s"%(split_fname(fname)[:2]) if fname else "out"
         param=load_params(pfile)

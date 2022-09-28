@@ -17,6 +17,7 @@ class StarbugBase(object):
     of itself from there on.
     """
     filter=None
+    stage=0
     fname=None
     detections=None
     psfcatalogue=None
@@ -42,7 +43,7 @@ class StarbugBase(object):
         Get some useful information from the image header file
         """
         out={}
-        keys=("FILTER","DETECTOR")
+        keys=("FILTER","DETECTOR","TELESCOP")
         if self.image:
             out.update( { (key,self.image[0].header[key]) for key in keys if key in self.image[0].header})
         return out
@@ -74,6 +75,18 @@ class StarbugBase(object):
                     if ("FILTER" in image[0].header) and (image[0].header["FILTER"] in starbug2.filters.keys()):
                         self.filter=image[0].header["FILTER"]
                     else: perror("Unable to dtermine image filter\n")
+                        
+                    ## I NEED TO DETERMINE BETTER WHAT STAGE IT IS IN
+                    exts=extnames(image)
+                    if "DQ" in exts:
+                        if "AREA" in exts: self.stage=2
+                        else: self.stage=2.5
+                    elif "WHT" in exts: self.stage=3 
+                    else: perror("unable to determine jwst pipeline level\n")
+
+
+                    self.log("loaded: \"%s\"\n"%fname)
+                    self.log("pipeline stage: %d\n"%self.stage)
 
                 else: perror("fits file \"%s\" does not exist\n"%fname)
             else: perror("included file must be FITS format\n")
@@ -120,6 +133,7 @@ class StarbugBase(object):
                                         roundlo=self.options["ROUND_LO"],
                                         roundhi=self.options["ROUND_HI"],
                                         wcs=WCS(self.image[1].header),
+                                        bgd2d=self.options["DOBGD2D"],
                                         boxsize=int(self.options["BOX_SIZE"]),
                                         filtersize=int(self.options["FILTER_SIZE"]),
                                         verbose=self.options["VERBOSE"])
@@ -145,16 +159,28 @@ class StarbugBase(object):
 
                 self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%factor)
 
+            #############################
+            # Preparing the image array #
+            #############################
+
+            image=self.image["SCI"].data
+
             apphot=APPhot_Routine( self.options["APPHOT_R"], self.options["SKY_RIN"], self.options["SKY_ROUT"], verbose=self.options["VERBOSE"])
             apcorr=apphot.calc_apcorr( self.filter, self.options["APPHOT_R"],"%s/jwst_nircam_apcorr_0004.fits"%(self.options["PSFDIR"] ))
-            ap_cat=apphot(dat, self.image, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+
+            if self.stage==2:
+                image*= self.image["AREA"].data ## AREA distortion correction
+                mask=self.image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
+                image[mask]=np.nan
+                error=np.sqrt(image)
+                ap_cat=apphot(dat, image, error=error, dqflags=self.image["DQ"].data, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+            else: ##stage 3 version
+                error=np.sqrt(image)
+                ap_cat=apphot(dat, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
             mag,magerr=flux2ABmag( ap_cat["flux"], ap_cat["eflux"], filter=self.filter)
             ap_cat.add_column(Column(mag,self.filter))
             ap_cat.add_column(Column(magerr,"e%s"%self.filter))
-
-            #ap_cat.add_column(Column( -2.5*np.log10(ap_cat["flux"] / ZP[self.filter][0]), name="%s_mag"%self.filter))
-            #ap_cat.add_column(Column( 2.5*np.log10(1+(ap_cat["eflux"]/ap_cat["flux"])), name="%s_emag"%self.filter ))
 
             self.detections=hstack((dat,ap_cat))
             self.detections.meta=self.info()
