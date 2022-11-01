@@ -1,3 +1,15 @@
+v0.2.10:
+    Starbug:
+        >   Adding caliblevel into headers
+	APPHOT:
+		>	BIG Simplifying error calculation
+v0.2.9:
+    General:
+        >   Fixing a runtime warning on sqrt(nan) in apphot error array
+        >   Turning off verbose on starbug.__setstate__
+        >   match.generic_match adds magnitude properly
+        >   removed peak from apphot catalogue
+        >   region generation looks at flux not peak
 v0.2.8:
     StarBug:
         >   Adding self.stage to track where the processes differ

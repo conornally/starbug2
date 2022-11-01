@@ -3,10 +3,6 @@ from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.routines import *
 
-import warnings
-from astropy.utils.exceptions import AstropyWarning
-warnings.simplefilter("ignore",category=AstropyWarning)
-
 from astropy.table import hstack
 
 class StarbugBase(object):
@@ -23,6 +19,7 @@ class StarbugBase(object):
     psfcatalogue=None
     residuals=[]
     background=None
+    image=None
     def __init__(self, fname, pfile=None, options={}):
         """
         fname : FITS image file name
@@ -38,6 +35,18 @@ class StarbugBase(object):
         if self.options["BGD_FILE"]: self.load_bgdfile()
         self.image=self.load_image(fname)   ## Load the fits image
 
+    @property
+    def header(self):
+        """
+        """
+        head=fits.Header({**self.options,**self.info})
+        head["CALIBLEVEL"]=self.stage
+        head["STARBUG"]=pkg_resources.get_distribution("starbug2").version
+        head["FILTER"]=self.filter
+        return head
+
+
+    @property
     def info(self):
         """
         Get some useful information from the image header file
@@ -78,6 +87,10 @@ class StarbugBase(object):
                         
                     ## I NEED TO DETERMINE BETTER WHAT STAGE IT IS IN
                     exts=extnames(image)
+                    hdr=image[0].header
+
+
+
                     if "DQ" in exts:
                         if "AREA" in exts: self.stage=2
                         else: self.stage=2.5
@@ -139,7 +152,7 @@ class StarbugBase(object):
                                         verbose=self.options["VERBOSE"])
 
             dat=detector(self.image["SCI"].data)
-            colnames=("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2","peak")
+            colnames=("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2")
             dat=dat[colnames]
 
             self.log("Running Aperture Photometry\n")
@@ -172,7 +185,7 @@ class StarbugBase(object):
                 image*= self.image["AREA"].data ## AREA distortion correction
                 mask=self.image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
                 image[mask]=np.nan
-                error=np.sqrt(image)
+                error=np.sqrt(image, where=np.isfinite(image) )
                 ap_cat=apphot(dat, image, error=error, dqflags=self.image["DQ"].data, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
             else: ##stage 3 version
                 error=np.sqrt(image)
@@ -183,7 +196,7 @@ class StarbugBase(object):
             ap_cat.add_column(Column(magerr,"e%s"%self.filter))
 
             self.detections=hstack((dat,ap_cat))
-            self.detections.meta=self.info()
+            self.detections.meta=dict(self.header.items())
             self.detections.meta.update({"ROUNTINE":"DETECT"})
 
         else: perror("Failed to run aperture photometry")
@@ -320,14 +333,13 @@ class StarbugBase(object):
             perror("output directory '%s' does not exist, using /tmp instead\n"%outdir)
             outdir="/tmp"
 
-        head=fits.Header(self.options)
         dname,fname,ext=split_fname(self.fname)
         if self.detections: 
-            hdulist=[fits.PrimaryHDU(header=head),fits.BinTableHDU(data=self.detections)]
+            hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.detections)]
             fits.HDUList(hdulist).writeto("%s/%s-ap.fits"%(outdir,fname), overwrite=True)
             #export_table(self.detections, fname="%s/%s-ap.fits"%(outdir,fname))
         if self.psfcatalogue: 
-            hdulist=[fits.PrimaryHDU(header=head),fits.BinTableHDU(data=self.psfcatalogue)]
+            hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.psfcatalogue)]
             fits.HDUList(hdulist).writeto("%s/%s-psf.fits"%(outdir,fname), overwrite=True)
             #export_table(self.psfcatalogue, fname="%s/%s-psf.fits"%(outdir,fname))
         
@@ -384,4 +396,7 @@ class StarbugBase(object):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        v=self.options["VERBOSE"]
+        self.options["VERBOSE"]=0
         self.load_image(self.fname)
+        self.options["VERBOSE"]=v

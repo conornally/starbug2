@@ -1,3 +1,7 @@
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+warnings.simplefilter("ignore",category=AstropyWarning)
+
 
 ## HASHDEFS
 MIRI=1

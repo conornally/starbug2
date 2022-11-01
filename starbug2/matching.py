@@ -124,7 +124,7 @@ def dither_match(catalogues, threshold, colnames):
         base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
     return finish_matching(base, colnames)
 
-def generic_match(catalogues, threshold, colnames):
+def cascade_match(catalogues, threshold, colnames):
     """
     match a list of catalogues with RA and DEC columns
     INPUT: 
@@ -222,12 +222,18 @@ def band_match(catalogues, threshold, colnames):
     export_table(base,"/tmp/tab.fits")
     return base
 
+def stage_match(stage2, stage3, threshold, colnames):
+    """
+    Match together a stage 2 and stage 3 catalogue
+    if the star is resolved in just the stage 3, it takes on that value
+    if the star is resolved in both, the stage3 is ignored
+    """
+    
+    if stage2.meta.get("CALIBLEVEL")!=2: perror("WARNING: stage2 catalogue CALIBLEVEL=%s does not match\n"%stage2.meta.get("CALIB_LEVEL"))
+    if stage3.meta.get("CALIBLEVEL")!=3: perror("WARNING: stage3 catalogue CALIBLEVEL=%s does not match\n"%stage2.meta.get("CALIB_LEVEL"))
+    tab=cascade_match((stage2,stage3),threshold,colnames)
 
-
-
-
-
-
+    return tab 
 
 
 
@@ -259,6 +265,8 @@ def finish_matching(tab, colnames):
         
         av[name]=col
     mag,magerr=flux2ABmag(av["flux"],av["eflux"], tab.meta["FILTER"])
+    av.add_column(mag,name=tab.meta["FILTER"])
+    av.add_column(magerr,name="e%s"%tab.meta["FILTER"])
     narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
     av.add_column(Column(narr, name="NUM"))
     return (av,tab)
@@ -273,34 +281,10 @@ def remove_NUM(tab, N):
 
 
 if __name__=="__main__":
-    #fnames=(#"/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F335M/out.fits",
-    fnames=("/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F200W/out.fits",
-            "/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F444W/out.fits",
-            )
-            #"/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F187N/out.fits")
-    tables=[Table().read(fname) for fname in fnames]
-    band_match(tables,0.5,None)
+    stage2=Table.read("/home/conor/dat/NGC6822/JWST/stage2/F444W/out.fits")
+    stage3=Table.read("/dat/ngc6822/jwst/stage3/F444W/jw01234-o0(0106)_t00(36)_nircam_clear-f444w_i2d-apmatch.fits")
 
-    """
-    fnames=sorted(glob.glob("/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F335M/*-apmatch.fits"))
-    colnames=("RA","DEC","ap_flux")
-    tables=list(Table.read(fname, format="fits") for fname in fnames)
-    export_table(generic_match(tables),"out.fits")
 
-    fnames=glob.glob("/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F187N/*-ap.fits")
-    fps=[ fits.open(fp) for fp in fnames]
-    out=sort_exposures(fps)
-
-    print("band ob visit exp det a1 a2 a3 a4 b1 b2 b3 b4 al bl ??")
-    for band,obs in out.items():
-        for ob,visits in obs.items():
-            for visit,exps in visits.items():
-                for exp,dets in exps.items():
-                    #for det,fp in dets.items():
-                    s=":     "
-                    for item in dets: s+= "X  " if item else ".. "
-
-                    ar=np.array([Table(fp[1].data._get_raw_data()) if fp else None for fp in dets])
-                    out=match_detectormodule( ar )
-                    print(band,ob,visit,exp, s)
-    """
+    av,tab=dither_match((stage2,stage3),0.25,starbug2.match_cols)
+    print(tab)
+    export_table(tab,fname="/tmp/tab.fits")

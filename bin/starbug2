@@ -55,7 +55,7 @@ options=0
 
 pfile=None
 setdict={}
-output=None
+output='.'
 ncores=1
 
 def usage():
@@ -121,8 +121,8 @@ for opt,optarg in opts:
     if opt=="--generate-region":
         table=Table.read(optarg,format="fits")#load_table(optarg)
         _,fname,_=split_fname(optarg)
-        export_region(table, fname="%s.reg"%fname)
-        printf("generating region --> %s.reg\n"%fname)
+        export_region(table, fname="%s/%s.reg"%(output,fname))
+        printf("generating region --> %s/%s.reg\n"%(output,fname))
         options|=STOPPROC
 
     if opt=="--clean-table":
@@ -212,9 +212,6 @@ def fn(fname):
 if __name__=="__main__":
 
     printf("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
-    #starbugs=multiprocessing.Manager().list()
-    #results=pool.starmap(fn, args)#[(fname,starbugs) for fname in args])
-    #pool.map(fn, args)
 
     pool=multiprocessing.Pool(processes=ncores)
     starbugs=pool.map(fn,args)
@@ -222,15 +219,19 @@ if __name__=="__main__":
     for n,sb in enumerate(starbugs): 
         if not sb: perror("FAILED: %s\n"%args[n])
 
-
     ###########################
     # Match Output Catalogues #
     ###########################
 
     if options&DOMATCH and len(starbugs)>1:
-        fname=combine_fnames( [sb.fname for sb in starbugs] ) 
-        fname="%s/%s"%(split_fname(fname)[:2]) if fname else "out"
+        if (fname:=combine_fnames( [sb.fname for sb in starbugs] )):
+            dname,name,ext=split_fname(fname)
+            dname=output if dname=="." else dname
+            fname="%s/%s"%(dname, name)
+        else: fname="out"
+
         param=load_params(pfile)
+        header=starbugs[0].header
 
         if options&VERBOSE: printf("Matching outputs\n")
 
@@ -243,12 +244,10 @@ if __name__=="__main__":
             N=len(starbugs)-param["RM_MATCH"]
             mask=( (av["NUM"]>N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
 
-            printf("-> %s-ap*...\n"%fname)
-            header={"FILTER":starbugs[0].filter}
+            printf("-> %s-ap*...\n"%(fname))
             av.meta.update(header)
-            #header.update(param)
-            export_table(hstack((av,full)), fname="%s-apfull.fits"%fname, header=header)
-            export_table(av[mask], fname="%s-apmatch.fits"%fname, header=header)
+            export_table(hstack((av,full)), fname="%s-apfull.fits"%(fname), header=header)
+            export_table(av[mask], fname="%s-apmatch.fits"%(fname), header=header)
 
         if options&DOPHOTOM:
             perror("em sorry not implemented PSF tab matching yet\n")

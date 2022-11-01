@@ -1,7 +1,7 @@
 # StarBugII
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.3.0
+Last updated: v0.2.8
 
 **NOTE** This is still under heavy development, PSFs from JWST have not been officially released and as such, only aperture photometry can be used robustly.
 

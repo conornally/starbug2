@@ -167,13 +167,6 @@ class APPhot_Routine():
         except:
             pos=[(line["x_0"],line["y_0"]) for line in detections]
 
-        #area=1.0 if image[4].name!="AREA" else image["AREA"].data
-        #mask= image["DQ"].data &( DQ_DO_NOT_USE| DQ_SATURATED | DQ_JUMP_DET)
-
-        #data= image["SCI"].data * area
-        #data[mask]=np.nan
-        #data[data<=0]=np.nan
-        #error=np.sqrt(data)
         mask=np.isnan(image)
 
         apertures=CircularAperture(pos,self.radius)
@@ -181,27 +174,17 @@ class APPhot_Routine():
         phot=aperture_photometry(image, apertures, error=error, mask=mask)
         
         self.catalogue=Table(np.full((len(pos),3),np.nan),names=("flux","eflux","sky"))
-        bkg_stats=np.full((len(annulus_aperture),2), np.nan) # (mode, stdev) 
 
         self.log("-> calculating photometric errors\n")
         load=loading(len(apertures),"error?",res=10)
         for i,mask in enumerate(annulus_aperture.to_mask(method="center")):
             dat=mask.multiply(image)
             dat=sigma_clip(dat[dat>0 & np.isfinite(dat)], sigma=sig_sky)
-            bkg_stats[i]=sigma_clipped_stats(dat)[1:]
-            #bkg_stats[i]=( mode(dat)[0], np.nanstd(dat)) ##Take the mode to estimate background level
+            self.catalogue["sky"][i]=mode(dat)[0]
 
-
-        err=np.full( (len(phot),3), np.nan)
-        err[:,0]=phot["aperture_sum_err"].value      ##POISSON ERR
-        err[:,1]=apertures.area * bkg_stats[:,1]**2  ##SKY_ERR
-        err[:,2]=(apertures.area**2) * (bkg_stats[:,1]**2) / annulus_aperture.area ##MEANSKY_ERR
-        self.catalogue["eflux"]=np.sqrt(np.nansum(err,axis=1))
-
-        self.catalogue["sky"]=bkg_stats[:,0]
+        self.catalogue["eflux"]=phot["aperture_sum_err"]
         self.catalogue["flux"]=apcorr*(phot["aperture_sum"] - (self.catalogue["sky"]*apertures.area))
 
-        #if "DQ" in extnames(image):
         col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint32, name="flag")
         if dqflags is not None:
             self.log("-> flagging unlikely sources\n")
@@ -339,6 +322,7 @@ class PSFPhot_Routine(IterativelySubtractedPSFPhotometry):
         super().__init__(group_maker=group_maker, bkg_estimator=bkg_estimator,
                 psf_model=psf_model, fitshape=fitshape,
                 finder=finder, fitter=fitter, niters=1)
+        print("WARNING: THIS IS UNDER DEVELOPMENT")
 
     def _bkg(self, axis=None,masked=None):
         return self.background
@@ -354,6 +338,8 @@ class PSFPhot_Routine(IterativelySubtractedPSFPhotometry):
 
         cat.remove_columns(("flux_0", "group_id", "x_fit", "y_fit"))
         cat.remove_rows( cat["flux_fit"]<=0)
+        ###mag,magerr=flux2ABmag(
+        print("DO MAGCONV PROPERLY")
         cat.add_column(-2.5*np.log10(cat["flux_fit"]), name="mag_fit")
         cat.add_column((2.5/np.log(10))*(cat["flux_unc"]/cat["flux_fit"]), name="mag_unc")
         return cat
@@ -446,6 +432,8 @@ class ArtificialStar_Routine(object):
         self.detector=detector
         self.psffitter=psffitter
         self.psf=psf
+
+        print("WARNING: THIS IS UNDER DEVELOPMENT")
 
 
     def run(self, image, ntests=1000, subimage_size=500,  sources=None, fwhm=1,

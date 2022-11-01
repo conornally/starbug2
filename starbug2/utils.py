@@ -74,16 +74,18 @@ def export_region(tab, fname="/tmp/out.reg"):
     """
     A handy function to convert the detections in a DS( region file
     """
-    xcol="xcentroid" if "xcentroid" in tab.colnames else "x_0"
-    ycol="ycentroid" if "ycentroid" in tab.colnames else "y_0"
+    #xcol="xcentroid" if "xcentroid" in tab.colnames else "x_0"
+    #ycol="ycentroid" if "ycentroid" in tab.colnames else "y_0"
     xcol="RA"
     ycol="DEC"
     
-    if "peak" in tab.colnames: r= np.sqrt(tab["peak"]**0.7)*2.5 
+    if "flux" in tab.colnames: 
+        r= (-40.0/np.log10(tab["flux"]))
+        r[r<2]=2
     else: r=np.ones(len(tab))*2
 
     with open(fname, 'w') as fp:
-        fp.write("global color=cyan\n")
+        fp.write("global color=cyan width=2\n")
         if tab:
             for src, ri in zip(tab,r[r>0]):
                 #fp.write("circle %f %f %f;"%(1+src[xcol], 1+src[ycol], ri))
@@ -172,9 +174,7 @@ def combine_fnames(fnames, ntrys=10):
             fname+="(%s)"%"".join(sorted(set(chars)))
             trys+=1
         if trys>ntrys: return None
-    print(fname)
     while ")(" in fname: fname=fname.replace(")(","")
-    print(fname)
     return "%s/%s%s"%(dname,fname,ext)
 
 
@@ -205,8 +205,9 @@ def hcascade(tables, colnames=None):
                 tab[cols[n]][mask]*=np.nan
                 if sum(mask): move=1
 
-        empty= ( np.nansum( tab2array( tab[cols] ),axis=0 ) ==0)
-        if any(empty): tab.remove_columns(np.array(cols)[empty])
+        if name != "flag": ## this is a bodge because it was removing the column if all the stars were good
+            empty= ( np.nansum( tab2array( tab[cols] ),axis=0 ) ==0)
+            if any(empty): tab.remove_columns(np.array(cols)[empty])
 
         cols=find_colnames(tab,name)#[ colname for colname in tab.colnames if name in colname]
         tab.rename_columns(cols, ["%s_%d"%(name,i+1) for i in range(len(cols))])
