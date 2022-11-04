@@ -169,6 +169,7 @@ def cascade_match(catalogues, threshold, colnames):
 
 def band_match(catalogues, threshold, colnames):
     threshold=threshold*u.arcsec
+    colnames= list( name for name in catalogues[0].colnames if name in colnames)
     ### ORDER the tables into the correct order (increasing wavelength)
     tables=np.full( len(starbug2.filters), None)
     mask=np.full(len(starbug2.filters), False)
@@ -222,7 +223,7 @@ def band_match(catalogues, threshold, colnames):
     export_table(base,"/tmp/tab.fits")
     return base
 
-def stage_match(stage2, stage3, threshold, colnames):
+def stage_match(stage2, stage3, threshold):
     """
     Match together a stage 2 and stage 3 catalogue
     if the star is resolved in just the stage 3, it takes on that value
@@ -231,8 +232,21 @@ def stage_match(stage2, stage3, threshold, colnames):
     
     if stage2.meta.get("CALIBLEVEL")!=2: perror("WARNING: stage2 catalogue CALIBLEVEL=%s does not match\n"%stage2.meta.get("CALIB_LEVEL"))
     if stage3.meta.get("CALIBLEVEL")!=3: perror("WARNING: stage3 catalogue CALIBLEVEL=%s does not match\n"%stage2.meta.get("CALIB_LEVEL"))
-    tab=cascade_match((stage2,stage3),threshold,colnames)
+    #av,tab=dither_match((stage2,stage3),threshold,stage2.colnames)
+    idx,d2d,_=_match(stage2,stage3)
+    
+    tmp=Table(np.full((len(stage2),len(stage3.colnames)), np.nan), names=stage3.colnames)
+    for src,IDX,sep in zip(stage3,idx,d2d):
+        if (sep<threshold) and (sep==min(d2d[idx==IDX])):
+            tmp[IDX]=src
+        else: tmp.add_row(src)
 
+    mask=np.isfinite(tmp["RA"])
+    tmp.rename_columns(tmp.colnames, list("%s_stage3"%name for name in tmp.colnames))
+    tab=hstack( (stage2.copy(),tmp) )
+    tab.add_column(mask, name="MASK")
+
+    print(tab)
     return tab 
 
 
@@ -281,10 +295,9 @@ def remove_NUM(tab, N):
 
 
 if __name__=="__main__":
-    stage2=Table.read("/home/conor/dat/NGC6822/JWST/stage2/F444W/out.fits")
-    stage3=Table.read("/dat/ngc6822/jwst/stage3/F444W/jw01234-o0(0106)_t00(36)_nircam_clear-f444w_i2d-apmatch.fits")
+    stage2=Table.read("/dat/1zw18/jwst/stage2/1zw18-apstage2.fits")
+    stage3=Table.read("/dat/1zw18/jwst/stage3/1Zw18-apstage3.fits")
 
 
-    av,tab=dither_match((stage2,stage3),0.25,starbug2.match_cols)
-    print(tab)
+    tab=stage_match(stage2,stage3, 0.25*u.arcsec)
     export_table(tab,fname="/tmp/tab.fits")

@@ -52,7 +52,7 @@ class StarbugBase(object):
         Get some useful information from the image header file
         """
         out={}
-        keys=("FILTER","DETECTOR","TELESCOP")
+        keys=("FILTER","DETECTOR","TELESCOP","INSTRUME")
         if self.image:
             out.update( { (key,self.image[0].header[key]) for key in keys if key in self.image[0].header})
         return out
@@ -126,7 +126,7 @@ class StarbugBase(object):
         """
         if not fname: fname=self.options["BGD_FILE"]
         if os.path.exists(fname):
-            self.background=fits.open(fname)
+            self.background=fits.open(fname)[1].data
             self.log("loaded BGD_FILE='%s'\n"%fname)
         else: perror("BGD_FILE='%s' does not exists\n"%fname)
 
@@ -152,43 +152,55 @@ class StarbugBase(object):
                                         verbose=self.options["VERBOSE"])
 
             dat=detector(self.image["SCI"].data)
-            colnames=("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2")
+            colnames=("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")
             dat=dat[colnames]
 
+
+            #######################
+            # APERTURE PHOTOMETRY #
+            #######################
             self.log("Running Aperture Photometry\n")
+            image=self.image["SCI"].data.copy() ##dont work on the real image!
+            apphot=APPhot_Routine( self.options["APPHOT_R"], self.options["SKY_RIN"], self.options["SKY_ROUT"], verbose=self.options["VERBOSE"])
 
             ######################### 
             # Unit Conversion to Jy #
             ######################### 
-
+            error=None
+            scalefactor=1
             if self.image["SCI"].header["BUNIT"]=="MJy/sr":
-                factor=1e6*float(self.image["SCI"].header["PIXAR_SR"])
-                self.image["SCI"].data*=factor
-                self.image["SCI"].header.update({"BUNIT":"Jy"})
+                scalefactor=1e6*float(self.image["SCI"].header["PIXAR_SR"])
+                self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
 
-                if "ERR" in extnames(self.image) and np.shape(self.image["ERR"]):
-                    self.image["ERR"].data*=factor
-                    self.image["ERR"].header.update({"BUNIT":"Jy"})
+            image*=scalefactor
+            if "ERR" in extnames(self.image) and np.shape(self.image["ERR"]):
+                error=self.image["ERR"].data
+                error*=scalefactor
+            else: error=np.sqrt(image)
 
-                self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%factor)
 
-            #############################
-            # Preparing the image array #
-            #############################
 
-            image=self.image["SCI"].data
+            #######################
+            # Aperture Correction #
+            #######################
+            apcorr=1
+            if self.info["INSTRUME"]=="NIRCAM":
+                apcorr=apphot.calc_apcorr( self.filter, self.options["APPHOT_R"],"%s/apcorr_nircam.fits"%(self.options["PSFDIR"] ))
+            elif self.info["INSTRUME"]=="MIRI":
+                perror("MIRI APCORR NOT FULLY IMPLEMENTED YET\n")
+                apcorr=apphot.calc_apcorr( self.filter, self.options["APPHOT_R"],"%s/apcorr_miri.fits"%(self.options["PSFDIR"] ))
+            else:
+                perror("No apcorr file available for instrument\n")
 
-            apphot=APPhot_Routine( self.options["APPHOT_R"], self.options["SKY_RIN"], self.options["SKY_ROUT"], verbose=self.options["VERBOSE"])
-            apcorr=apphot.calc_apcorr( self.filter, self.options["APPHOT_R"],"%s/jwst_nircam_apcorr_0004.fits"%(self.options["PSFDIR"] ))
 
             if self.stage==2:
                 image*= self.image["AREA"].data ## AREA distortion correction
                 mask=self.image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
                 image[mask]=np.nan
-                error=np.sqrt(image, where=np.isfinite(image) )
+                error[mask]=np.nan
                 ap_cat=apphot(dat, image, error=error, dqflags=self.image["DQ"].data, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+
             else: ##stage 3 version
-                error=np.sqrt(image)
                 ap_cat=apphot(dat, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
             mag,magerr=flux2ABmag( ap_cat["flux"], ap_cat["eflux"], filter=self.filter)
@@ -224,11 +236,11 @@ class StarbugBase(object):
         Saves the result as a table self.psfcatalogue
         Additionally it appends a residual Image onto the self.residuals HDUList
         """
-        if not self.detections:
+        if self.detections is None:
             perror("unable to run photometry: no source list loaded\n")
             return
 
-        if not self.background:
+        if self.background is None:
             perror("unable to run photometry: no background estimation loaded\n")
             return
 
@@ -250,7 +262,7 @@ class StarbugBase(object):
                                     roundlo=self.options["ROUND_LO"],
                                     roundhi=self.options["ROUND_HI"],
                                     #boxsize=self.options["BOX_SIZE"],
-                                    background=self.background[1].data,
+                                    background=self.background,
                                     #filtersize=self.options["FILTER_SIZE"],
                                     wcs=WCS(self.image[1].header))
 
@@ -258,7 +270,12 @@ class StarbugBase(object):
             if "xcentroid" in init_guesses.colnames: init_guesses.rename_column("xcentroid", "x_0")
             if "ycentroid" in init_guesses.colnames: init_guesses.rename_column("ycentroid", "y_0")
 
-            init_guesses.remove_columns(("sharpness", "roundness1", "roundness2", "npix", "sky", "flux", "mag", "ap_flux", "ap_sky"))
+            #rmcols= list( set(init_guesses.colnames) & set(("x_0","y_0")) )
+            #print(rmcols)
+            #init_guesses.remove_columns( rmcols )
+            #init_guesses.remove_columns(("sharpness", "roundness1", "roundness2", "npix", "sky", "flux", "mag", "ap_flux", "ap_sky"))
+            init_guesses=init_guesses[["x_0","y_0"]]
+
 
             self.psfcatalogue=tabppend(self.psfcatalogue, phot(self.image[1].data, init_guesses=init_guesses))
             self.residuals.append(phot.get_residual_image())

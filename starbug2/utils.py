@@ -5,6 +5,7 @@ from scipy.optimize import minimize
 from astropy.table import Table,hstack
 from astropy.io import fits
 import starbug2
+import requests
 
 printf=sys.stdout.write
 perror=sys.stderr.write
@@ -244,6 +245,19 @@ def flux2ABmag(flux,fluxerr=None, zp=1, filter=None):
     if filter and filter in list(starbug2.ZP.keys()): zp=starbug2.ZP[filter][0]
 
     return flux2mag( flux, fluxerr, zp=zp)
+
+
+def wget(address, fname=None):
+    """
+    A really simple "implementation" of wget
+    """
+    r=requests.get(address)
+    if r.status_code==200:
+        fname=fname if fname else os.path.basename(address)
+        with open(fname,"wb") as fp:
+            for chunk in r.iter_content(chunk_size=128):
+                fp.write(chunk)
+    else: perror("Unable to download \"%s\"\n"%address)
 
 
 if __name__ == "__main__":

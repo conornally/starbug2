@@ -162,10 +162,13 @@ class APPhot_Routine():
 
         RETURN: Photometry catalogue
         """
-        try:
+        if len( set(("xcentroid","ycentroid")) & set(detections.colnames))==2:
             pos=[(line["xcentroid"],line["ycentroid"]) for line in detections]
-        except:
+        elif len( set(("x_0","y_0")) & set(detections.colnames))==2:
             pos=[(line["x_0"],line["y_0"]) for line in detections]
+        else:
+            perror("Cannot identify position in detection catalogue (x_0/xcentroid)\n");
+            return None
 
         mask=np.isnan(image)
 
@@ -176,11 +179,12 @@ class APPhot_Routine():
         self.catalogue=Table(np.full((len(pos),3),np.nan),names=("flux","eflux","sky"))
 
         self.log("-> calculating photometric errors\n")
-        load=loading(len(apertures),"error?",res=10)
         for i,mask in enumerate(annulus_aperture.to_mask(method="center")):
             dat=mask.multiply(image)
             dat=sigma_clip(dat[dat>0 & np.isfinite(dat)], sigma=sig_sky)
-            self.catalogue["sky"][i]=mode(dat)[0]
+            if len(dat): ##sometimes all the surrounding pixels are nan OR above SIGSKY value??
+                self.catalogue["sky"][i]=mode(dat)[0]
+
 
         self.catalogue["eflux"]=phot["aperture_sum_err"]
         self.catalogue["flux"]=apcorr*(phot["aperture_sum"] - (self.catalogue["sky"]*apertures.area))
@@ -250,14 +254,16 @@ class _fitmodel(LevMarLSQFitter):
 
 class BackGround_Estimate_Routine(BackgroundBase):
     bgd=None
-    sourcelist=[]
-    def __init__(self, sourcelist, boxsize=2, fwhm=2, verbose=0):#mask_r0=7, mask_r1=9
+    sourcelist=None
+    def __init__(self, sourcelist, boxsize=2, fwhm=2, verbose=0, bgd=None):#mask_r0=7, mask_r1=9
         self.sourcelist=sourcelist
         self.boxsize=boxsize
         self.fwhm=fwhm
         self.verbose=verbose
+        self.bgd=bgd
 
     def __call__(self, data):
+        if self.sourcelist is None: return self.bgd
         _data=np.copy(data)
         X,Y=np.ogrid[:data.shape[1], :data.shape[0]]
         rlist=np.sqrt(self.sourcelist["peak"]**0.7)*self.fwhm
@@ -292,7 +298,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
         return self.bgd
 
     def calc_background(self,data, axis=None, masked=None):
-        if not self.bgd: self.__call__(data)
+        if self.bgd is None: self.__call__(data)
         return self.bgd
 
 
@@ -309,11 +315,8 @@ class PSFPhot_Routine(IterativelySubtractedPSFPhotometry):
                  background=None, wcs=None, verbose=1):
 
         group_maker=_grouping(crit_separation=crit_separation)
-
-        #self.background=background
-        bkg_estimator=BackGround_Estimate_Routine(None)
-        bkg_estimator.bgd=background
-
+        bkg_estimator=BackGround_Estimate_Routine(None, bgd=background)
+        print(bkg_estimator.bgd)
         finder=Detection_Routine(sig_src=sig_src, sig_sky=sig_sky, fwhm=fwhm,
                 sharplo=sharplo, sharphi=sharphi, roundlo=roundlo, roundhi=roundhi,
                 wcs=wcs)
@@ -322,7 +325,7 @@ class PSFPhot_Routine(IterativelySubtractedPSFPhotometry):
         super().__init__(group_maker=group_maker, bkg_estimator=bkg_estimator,
                 psf_model=psf_model, fitshape=fitshape,
                 finder=finder, fitter=fitter, niters=1)
-        print("WARNING: THIS IS UNDER DEVELOPMENT")
+        print("\x1b[33mWARNING: THIS IS UNDER DEVELOPMENT\x1b[0m")
 
     def _bkg(self, axis=None,masked=None):
         return self.background

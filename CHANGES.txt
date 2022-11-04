@@ -1,8 +1,17 @@
 v0.2.10:
     Starbug:
         >   Adding caliblevel into headers
+        >   INIT now downloads (crudely) the CRDS apcorr files for nircam and miri
 	APPHOT:
 		>	BIG Simplifying error calculation
+        >   Using error array instead of sqrt data
+        >   picks nircam or miri apcor file
+	MATCHING:
+		>   changing name "Generic match" to cascade match
+        >   first pass stage matching
+    PSF!
+        >   Started work on PSF routine again
+        >   For a single exposure, it can load in the ap and bgd file and run RELATIVELY well
 v0.2.9:
     General:
         >   Fixing a runtime warning on sqrt(nan) in apphot error array

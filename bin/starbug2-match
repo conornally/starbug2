@@ -77,7 +77,7 @@ if options & BANDMATCH:
 
 else:
     if options & DITHERMATCH: av,full=matching.dither_match(tables, parameters["MATCH_THRESH"], colnames)
-    else:                     av,full=matching.generic_match(tables, parameters["MATCH_THRESH"], colnames)
+    else:                     av,full=matching.cascade_match(tables, parameters["MATCH_THRESH"], colnames)
     av.meta.update(tables[0].meta)
 
     if output is None:
