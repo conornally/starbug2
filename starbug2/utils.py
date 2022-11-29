@@ -2,7 +2,7 @@ import time
 import os, sys, numpy as np
 from parse import parse
 from scipy.optimize import minimize
-from astropy.table import Table,hstack
+from astropy.table import Table,hstack,Column
 from astropy.io import fits
 import starbug2
 import requests
@@ -163,7 +163,7 @@ def tab2array(tab,colnames=None):
 def export_table(table, fname=None, header=None):
     if table:
         if not fname: fname="/tmp/starbug.fits"
-        fits.BinTableHDU(data=table, header=header).writeto(fname, overwrite=True)
+        fits.BinTableHDU(data=reindex(table), header=header).writeto(fname, overwrite=True)
 
 def find_colnames(tab, basename):
     """
@@ -274,6 +274,13 @@ def wget(address, fname=None):
                 fp.write(chunk)
     else: perror("Unable to download \"%s\"\n"%address)
 
+def reindex(table):
+    """
+    Add indexes into a table
+    """
+    if "Catalogue Number" in table.colnames: table.remove_column("Catalogue Number")
+    column=Column(["CN%d"%i for i in range(len(table))], name="Catalogue Number")
+    table.add_column(column,index=0)
 
 if __name__ == "__main__":
     import glob

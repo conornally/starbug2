@@ -202,7 +202,7 @@ class APPhot_Routine():
         return self.catalogue
 
 
-    @classmethod
+    @staticmethod
     def calc_apcorr(filter, radius, table_fname=None, verbose=0):
         """
         Using CRDS apcorr table, fit a curve to the radius vs apcorr
@@ -223,6 +223,7 @@ class APPhot_Routine():
         return apcorr
 
 
+    @staticmethod
     def apcorr_from_encenergy(filter, encircled_energy, table_fname=None, verbose=0):
         """
         Rather than fitting radius to the APCORR CRDS, use the closes Encircled energy value

@@ -211,9 +211,9 @@ class StarbugBase(object):
         else: perror("No apcorr file available for instrument\n")
 
         if self.options["FIT_APP_R"]:
-            apcorr=APPhot_Routine.calc_apcorr(self.filter, self.options["APPHOT_R"], fname, verbose=self.options["VERBOSE"])
+            apcorr=APPhot_Routine.calc_apcorr(self.filter, self.options["APPHOT_R"], table_fname=fname, verbose=self.options["VERBOSE"])
         else:
-            apcorr,radius=APPhot_Routine.apcorr_from_encenergy(self.filter,self.options["ENCENERGY"],fname, verbose=self.options["VERBOSE"])
+            apcorr,radius=APPhot_Routine.apcorr_from_encenergy(self.filter,self.options["ENCENERGY"],table_fname=fname, verbose=self.options["VERBOSE"])
 
         apphot=APPhot_Routine( radius, skyin, skyout, encircled_energy=self.options["ENCENERGY"], fit_radius=self.options["FIT_APP_R"], verbose=self.options["VERBOSE"])
 
@@ -399,10 +399,12 @@ class StarbugBase(object):
 
         dname,fname,ext=split_fname(self.fname)
         if self.detections: 
+            reindex(self.detections)
             hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.detections)]
             fits.HDUList(hdulist).writeto("%s/%s-ap.fits"%(outdir,fname), overwrite=True)
             #export_table(self.detections, fname="%s/%s-ap.fits"%(outdir,fname))
         if self.psfcatalogue: 
+            reindex(self.psfcatalogue)
             hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.psfcatalogue)]
             fits.HDUList(hdulist).writeto("%s/%s-psf.fits"%(outdir,fname), overwrite=True)
             #export_table(self.psfcatalogue, fname="%s/%s-psf.fits"%(outdir,fname))
@@ -431,23 +433,34 @@ class StarbugBase(object):
             1 - on fail
         """
         status=0
+        warn=lambda :perror(sbold("WARNING: "))
 
         if self.filter not in starbug2.filters.keys():
-            perror("WARNING: Unknown filter '%s'\n"%self.filter)
+            warn()
+            perror("Unknown filter '%s'\n"%self.filter)
             status=1
 
         dname = os.path.expandvars(self.options["PSFDIR"])
         if not os.path.exists(dname):
-            perror("WARNING: Unable to locate PSFDIR='%s'\n"%dname)
+            warn()
+            perror("Unable to locate PSFDIR='%s'\n"%dname)
             status=1
 
         else:
             if not os.path.exists("%s/%s.fits"%(dname, self.filter)):
-                perror("WARNING: Unable to locate filter PSF for '%s'\n"%self.filter)
+                warn()
+                perror("Unable to locate filter PSF for '%s'\n"%self.filter)
                 status=1
         
         if not os.path.exists((dname:=os.path.expandvars(self.options["OUTDIR"]))):
-            perror("WARNING: Unable to locate OUTDIR='%s'\n"%dname)
+            warn()
+            perror("Unable to locate OUTDIR='%s'\n"%dname)
+            status=1
+
+        tmp=load_params("%sdefault.param"%pkg_resources.resource_filename("starbug2","param/"))
+        if set(tmp.keys()) - set(self.options.keys()):
+            warn()
+            perror("parameter file version mismatch. Run starbug --local-param to update\n")
             status=1
 
         return status
