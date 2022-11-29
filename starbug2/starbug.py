@@ -20,6 +20,7 @@ class StarbugBase(object):
     residuals=[]
     background=None
     image=None
+    wcs=None
     def __init__(self, fname, pfile=None, options={}):
         """
         fname : FITS image file name
@@ -31,9 +32,9 @@ class StarbugBase(object):
         self.options.update(options)
         #if self.options["TEST"]: print(self.options["TEST"])
 
+        self.image=self.load_image(fname)   ## Load the fits image
         if self.options["AP_FILE"]: self.load_apfile() ## Load the source list if given
         if self.options["BGD_FILE"]: self.load_bgdfile()
-        self.image=self.load_image(fname)   ## Load the fits image
 
     @property
     def header(self):
@@ -89,6 +90,8 @@ class StarbugBase(object):
                     exts=extnames(image)
                     hdr=image[0].header
 
+                    if "SCI"  in exts: self.wcs=WCS(image["SCI"].header)
+                    else: self.wcs=WCS(hdr)
 
 
                     if "DQ" in exts:
@@ -116,6 +119,14 @@ class StarbugBase(object):
             with fits.open(fname) as fp:
                 self.detections=Table(data=fp[1].data._get_raw_data())
                 self.log("loaded AP_FILE='%s'\n"%fname)
+
+                cn=self.detections.colnames
+                if not any( _ in cn for _ in ("xcentroid","ycentroid","x_0","y_0")):
+                    if all( _ in cn for _ in ("RA","DEC")):
+                        xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
+                        print(xy)
+                        self.detections.add_columns(xy,names=("xcentroid","ycentroid"),indexes=[0,0])
+                    else: perror("WARNING, unable to determine physical coordinates from detections table\n")
         else: perror("AP_FILE='%s' does not exists\n"%fname)
 
     def load_bgdfile(self,fname=None):
@@ -126,7 +137,7 @@ class StarbugBase(object):
         """
         if not fname: fname=self.options["BGD_FILE"]
         if os.path.exists(fname):
-            self.background=fits.open(fname)[1].data
+            self.background=fits.open(fname)[1]
             self.log("loaded BGD_FILE='%s'\n"%fname)
         else: perror("BGD_FILE='%s' does not exists\n"%fname)
 
@@ -153,66 +164,78 @@ class StarbugBase(object):
 
             dat=detector(self.image["SCI"].data)
             colnames=("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")
-            dat=dat[colnames]
+            self.detections=dat[colnames]
+            self.aperture_photometry()
 
 
-            #######################
-            # APERTURE PHOTOMETRY #
-            #######################
-            self.log("Running Aperture Photometry\n")
-            image=self.image["SCI"].data.copy() ##dont work on the real image!
-            apphot=APPhot_Routine( self.options["APPHOT_R"], self.options["SKY_RIN"], self.options["SKY_ROUT"], verbose=self.options["VERBOSE"])
+    def aperture_photometry(self):
 
-            ######################### 
-            # Unit Conversion to Jy #
-            ######################### 
-            error=None
-            scalefactor=1
-            if self.image["SCI"].header["BUNIT"]=="MJy/sr":
-                scalefactor=1e6*float(self.image["SCI"].header["PIXAR_SR"])
-                self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
+        if self.detections is None:
+            perror("No detection source file loaded (-d file-ap.fits)\n")
+            return
+        dat=self.detections[("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")]
+        #######################
+        # APERTURE PHOTOMETRY #
+        #######################
+        self.log("Running Aperture Photometry\n")
+        image=self.image["SCI"].data.copy() ##dont work on the real image!
 
-            image*=scalefactor
-            if "ERR" in extnames(self.image) and np.shape(self.image["ERR"]):
-                error=self.image["ERR"].data
-                error*=scalefactor
-            else: error=np.sqrt(image)
+        ######################### 
+        # Unit Conversion to Jy #
+        ######################### 
+        error=None
+        scalefactor=1
+        if self.image["SCI"].header["BUNIT"]=="MJy/sr":
+            scalefactor=1e6*float(self.image["SCI"].header["PIXAR_SR"])
+            self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
 
-
-
-            #######################
-            # Aperture Correction #
-            #######################
-            apcorr=1
-            if self.info["INSTRUME"]=="NIRCAM":
-                apcorr=apphot.calc_apcorr( self.filter, self.options["APPHOT_R"],"%s/apcorr_nircam.fits"%(self.options["PSFDIR"] ))
-            elif self.info["INSTRUME"]=="MIRI":
-                perror("MIRI APCORR NOT FULLY IMPLEMENTED YET\n")
-                apcorr=apphot.calc_apcorr( self.filter, self.options["APPHOT_R"],"%s/apcorr_miri.fits"%(self.options["PSFDIR"] ))
-            else:
-                perror("No apcorr file available for instrument\n")
+        image*=scalefactor
+        if "ERR" in extnames(self.image) and np.shape(self.image["ERR"]):
+            error=self.image["ERR"].data
+            error*=scalefactor
+        else: error=np.sqrt(image)
 
 
-            if self.stage==2:
-                image*= self.image["AREA"].data ## AREA distortion correction
-                mask=self.image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
-                image[mask]=np.nan
-                error[mask]=np.nan
-                ap_cat=apphot(dat, image, error=error, dqflags=self.image["DQ"].data, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
-            else: ##stage 3 version
-                ap_cat=apphot(dat, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+        #######################
+        # Aperture Correction #
+        #######################
+        apcorr=1
+        fname=None
+        radius=self.options["APPHOT_R"]
+        skyin= self.options["SKY_RIN"]
+        skyout=self.options["SKY_ROUT"]
 
-            mag,magerr=flux2ABmag( ap_cat["flux"], ap_cat["eflux"], filter=self.filter)
-            ap_cat.add_column(Column(mag,self.filter))
-            ap_cat.add_column(Column(magerr,"e%s"%self.filter))
+        if   self.info["INSTRUME"]=="NIRCAM": fname="%s/apcorr_nircam.fits"%self.options["PSFDIR"]
+        elif self.info["INSTRUME"]=="MIRI":   fname="%s/apcorr_miri.fits"%self.options["PSFDIR"]
+        else: perror("No apcorr file available for instrument\n")
 
-            self.detections=hstack((dat,ap_cat))
-            self.detections.meta=dict(self.header.items())
-            self.detections.meta.update({"ROUNTINE":"DETECT"})
+        if self.options["FIT_APP_R"]:
+            apcorr=APPhot_Routine.calc_apcorr(self.filter, self.options["APPHOT_R"], fname, verbose=self.options["VERBOSE"])
+        else:
+            apcorr,radius=APPhot_Routine.apcorr_from_encenergy(self.filter,self.options["ENCENERGY"],fname, verbose=self.options["VERBOSE"])
 
-        else: perror("Failed to run aperture photometry")
+        apphot=APPhot_Routine( radius, skyin, skyout, encircled_energy=self.options["ENCENERGY"], fit_radius=self.options["FIT_APP_R"], verbose=self.options["VERBOSE"])
 
+        if self.stage==2:
+            image*= self.image["AREA"].data ## AREA distortion correction
+            mask=self.image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
+            image[mask]=np.nan
+            error[mask]=np.nan
+            ap_cat=apphot(dat, image, error=error, dqflags=self.image["DQ"].data, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+
+        else: ##stage 3 version
+            ap_cat=apphot(dat, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+
+        mag,magerr=flux2ABmag( ap_cat["flux"], ap_cat["eflux"], filter=self.filter)
+        ap_cat.add_column(Column(mag,self.filter))
+        ap_cat.add_column(Column(magerr,"e%s"%self.filter))
+
+        self.detections=hstack((dat,ap_cat))
+        self.detections.meta=dict(self.header.items())
+        self.detections.meta.update({"ROUNTINE":"DETECT"})
+
+        #else: perror("Failed to run aperture photometry")
 
     def bgd_estimate(self):
         """
@@ -221,7 +244,15 @@ class StarbugBase(object):
         """
         self.log("Estimating Background\n")
         if self.detections:
-            bgd=BackGround_Estimate_Routine(self.detections, 
+            xname="xcentroid" if "xcentroid" in self.detections.colnames else "x_0"
+            yname="ycentroid" if "ycentroid" in self.detections.colnames else "y_0"
+
+            sources=self.detections[[xname,yname]]
+            sources=sources[ sources[xname]>=0 ]
+            sources=sources[ sources[yname]>=0 ]
+            sources=sources[ sources[xname]<self.image["SCI"].header["NAXIS1"]]
+            sources=sources[ sources[yname]<self.image["SCI"].header["NAXIS2"]]
+            bgd=BackGround_Estimate_Routine(sources, 
                                             boxsize=int(self.options["BOX_SIZE"]),
                                             fwhm=starbug2.filters[self.filter][2],
                                             verbose=self.options["VERBOSE"])
@@ -229,6 +260,16 @@ class StarbugBase(object):
         else:
             perror("unable to estimate background, no source list loaded\n")
 
+    def bgd_subtraction(self):
+        
+        self.log("Subtracting Background\n")
+
+        if self.background is None:
+            perror("No background array loaded (-b file-bgd.fits)\n")
+            return 
+        array= self.image["SCI"].data - self.background.data
+        self.residuals.append(array)
+        self.image["SCI"].data=array
 
     def photometry(self):
         """
@@ -251,6 +292,9 @@ class StarbugBase(object):
             with fits.open(fname) as fp:
                 psf_model=DiscretePRF(fp[0].data)
 
+                print(psf_model.fixed)
+                psf_model.fixed["x_0"]=False
+                psf_model.fixed["y_0"]=False
             phot=PSFPhot_Routine(   self.options["CRIT_SEP"],
                                     starbug2.filters[self.filter][2],
                                     psf_model,
@@ -261,25 +305,28 @@ class StarbugBase(object):
                                     sharphi=self.options["SHARP_HI"],
                                     roundlo=self.options["ROUND_LO"],
                                     roundhi=self.options["ROUND_HI"],
-                                    #boxsize=self.options["BOX_SIZE"],
-                                    background=self.background,
-                                    #filtersize=self.options["FILTER_SIZE"],
-                                    wcs=WCS(self.image[1].header))
+                                    background=self.background.data,
+                                    wcs=self.wcs)
 
             init_guesses=self.detections.copy()
+
             if "xcentroid" in init_guesses.colnames: init_guesses.rename_column("xcentroid", "x_0")
             if "ycentroid" in init_guesses.colnames: init_guesses.rename_column("ycentroid", "y_0")
 
-            #rmcols= list( set(init_guesses.colnames) & set(("x_0","y_0")) )
-            #print(rmcols)
-            #init_guesses.remove_columns( rmcols )
-            #init_guesses.remove_columns(("sharpness", "roundness1", "roundness2", "npix", "sky", "flux", "mag", "ap_flux", "ap_sky"))
+            init_guesses=init_guesses[ init_guesses["x_0"]>=0 ]
+            init_guesses=init_guesses[ init_guesses["y_0"]>=0 ]
+            init_guesses=init_guesses[ init_guesses["x_0"]<self.image["SCI"].header["NAXIS1"]]
+            init_guesses=init_guesses[ init_guesses["y_0"]<self.image["SCI"].header["NAXIS2"]]
+
+
             init_guesses=init_guesses[["x_0","y_0"]]
 
-
+            with open("out.reg","w") as fp:
+                for line in init_guesses:
+                    fp.write("circle %f %f 3\n"%( line["x_0"]+1, line["y_0"]+1))
             self.psfcatalogue=tabppend(self.psfcatalogue, phot(self.image[1].data, init_guesses=init_guesses))
             self.residuals.append(phot.get_residual_image())
-            self.background=fits.ImageHDU(data=phot.bkg_estimator.bgd, name="BACKGROUND")
+            self.background=fits.ImageHDU(data=phot.bkg_estimator.bgd, name="BACKGROUND") ##So is it supposed to be a fits image or a numpy array?!
 
     def cleanup(self):
         """

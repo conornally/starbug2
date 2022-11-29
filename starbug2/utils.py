@@ -10,6 +10,8 @@ import requests
 printf=sys.stdout.write
 perror=sys.stderr.write
 puts=lambda s:printf("%s\n"%s)
+warn=lambda s:perror("\x1b[33m%s\x1b[0m"%s)
+sbold=lambda s:"\x1b[1m%s\x1b[0m"%s
 
 def strnktn(s,n,c):
     for _ in range(n): s+=c
@@ -71,26 +73,39 @@ def tabppend(base, tab):
         for line in tab: base.add_row(line)
     return base
 
-def export_region(tab, fname="/tmp/out.reg"):
+def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA", ycol="DEC", wcs=1, fname="/tmp/out.reg"):
     """
-    A handy function to convert the detections in a DS( region file
+    A handy function to convert the detections in a DS9 region file
     """
-    #xcol="xcentroid" if "xcentroid" in tab.colnames else "x_0"
-    #ycol="ycentroid" if "ycentroid" in tab.colnames else "y_0"
-    xcol="RA"
-    ycol="DEC"
+
+    if xcol not in tab.colnames:
+        xcols= list(filter(lambda s: 'x'==s[0],tab.colnames))
+        if xcols:
+            xcol=xcols[0]
+            printf("Using '%s' as x position column\n"%sbold(xcol))
+            wcs=0
+
+    if ycol not in tab.colnames:
+        ycols= list(filter(lambda s: 'y'==s[0],tab.colnames))
+        if ycols:
+            ycol=ycols[0]
+            printf("Using '%s' as y position column\n"%sbold(ycol))
+            wcs=0
+
     
-    if "flux" in tab.colnames: 
+    if "flux" in tab.colnames and scale_radius: 
         r= (-40.0/np.log10(tab["flux"]))
-        r[r<2]=2
-    else: r=np.ones(len(tab))*2
+        r[r<region_radius]=region_radius
+    else: r=np.ones(len(tab))*region_radius
+
+    prefix="fk5;" if wcs else ""
 
     with open(fname, 'w') as fp:
-        fp.write("global color=cyan width=2\n")
+        fp.write("global color=%s width=2\n"%(colour))
         if tab:
             for src, ri in zip(tab,r[r>0]):
                 #fp.write("circle %f %f %f;"%(1+src[xcol], 1+src[ycol], ri))
-                fp.write("fk5;circle %f %f %fi\n"%(src[xcol], src[ycol], ri))
+                fp.write("%scircle %f %f %fi\n"%(prefix,src[xcol], src[ycol], ri))
         else:
             perror("unable to open %f\n"%fname)
 

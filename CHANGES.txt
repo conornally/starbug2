@@ -1,3 +1,10 @@
+v0.2.12:
+
+v0.2.11:
+    APPHOT:
+        >   Can now ask to use closest encircled energy instead of fitting a raidus
+    General:
+        >   Added some configuration to region generation
 v0.2.10:
     Starbug:
         >   Adding caliblevel into headers

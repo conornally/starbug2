@@ -137,10 +137,12 @@ class APPhot_Routine():
     Aperture photometry called by starbug
     Given photometry radius, sky annuli radii rad_inner rad_outer
     """
-    def __init__(self, radius, sky_in, sky_out, verbose=0):
+    def __init__(self, radius, sky_in, sky_out, encircled_energy=50, fit_radius=1, verbose=0):
         self.radius=radius
         self.sky_in=sky_in
         self.sky_out=sky_out
+        self.encircled_energy=encircled_energy
+        self.fit_radius=fit_radius
         self.catalogue=Table(None)#, names=["ap_flux_r%d"%n for n in range(len(radii))]+["sky_median"])
 
         self.verbose=verbose
@@ -199,7 +201,9 @@ class APPhot_Routine():
         self.catalogue.add_column(col)
         return self.catalogue
 
-    def calc_apcorr(self, filter, radius, table_fname=None):
+
+    @classmethod
+    def calc_apcorr(filter, radius, table_fname=None, verbose=0):
         """
         Using CRDS apcorr table, fit a curve to the radius vs apcorr
         columns and then return aporr to respective input radius
@@ -211,12 +215,30 @@ class APPhot_Routine():
         fn=lambda x,a,b,c: a*np.exp(-b*x)+c
         popt,_=curve_fit(fn, t_apcorr["radius"], t_apcorr["apcorr"])
         apcorr= fn( radius,*popt)
-        self.log("-> estimating aperture correction: %.3g..\n"%apcorr)
+        if verbose: printf("-> estimating aperture correction: %.3g..\n"%apcorr)
 
         popt,_=curve_fit(fn,t_apcorr["radius"],t_apcorr["eefraction"])
         eefrac= fn(radius,*popt)
-        self.log("-> effective encircled energy fraction: %.3g\n"%eefrac)
+        if verbose: printf("-> effective encircled energy fraction: %.3g\n"%eefrac)
         return apcorr
+
+
+    def apcorr_from_encenergy(filter, encircled_energy, table_fname=None, verbose=0):
+        """
+        Rather than fitting radius to the APCORR CRDS, use the closes Encircled energy value
+        """
+        if not table_fname: return None
+        tmp=Table.read(table_fname, format="fits")
+        t_apcorr=tmp[tmp["filter"]==filter]
+
+        line=t_apcorr[(np.abs(t_apcorr["eefraction"]-encircled_energy)).argmin()]
+        if verbose:
+            printf("Best matching encircled energy %.1f, with radius %g pixels\n"%(line["eefraction"],line["radius"]))
+            printf("Using aperture correction: %f\n"%line["apcorr"])
+
+        return line["apcorr"], line["radius"]
+
+
 
     def log(self,msg):
         if self.verbose: 
@@ -262,13 +284,28 @@ class BackGround_Estimate_Routine(BackgroundBase):
         self.verbose=verbose
         self.bgd=bgd
 
+    def calc_peaks(self,im):
+        """
+        Determine peak pixel value for each source in xy
+        """
+        x=self.sourcelist["xcentroid"]
+        y=self.sourcelist["ycentroid"]
+        apertures=CircularAperture(np.array((x,y)).T,2).to_mask()
+        peaks=np.full(len(x),np.nan)
+        for i,mask in enumerate(apertures):
+            peaks[i]=np.nanmax( mask.multiply(im) )
+        return peaks
+
     def __call__(self, data):
         if self.sourcelist is None: return self.bgd
         _data=np.copy(data)
         X,Y=np.ogrid[:data.shape[1], :data.shape[0]]
-        rlist=np.sqrt(self.sourcelist["peak"]**0.7)*self.fwhm
+        peaks=self.calc_peaks(data)
+
+        rlist=np.sqrt(peaks**0.7)*self.fwhm/1.5
         D=50
         load=loading(len(self.sourcelist), msg="masking sources")
+        #fp=open("out.reg","w")
         for r,src in zip(rlist,self.sourcelist):
 
             rin=1.5*r
@@ -295,6 +332,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
             load()
             load.show() ## This will slow the thing down quite a lot
         self.bgd=Background2D(_data, self.boxsize).background
+        #fp.close()
         return self.bgd
 
     def calc_background(self,data, axis=None, masked=None):
@@ -316,7 +354,6 @@ class PSFPhot_Routine(IterativelySubtractedPSFPhotometry):
 
         group_maker=_grouping(crit_separation=crit_separation)
         bkg_estimator=BackGround_Estimate_Routine(None, bgd=background)
-        print(bkg_estimator.bgd)
         finder=Detection_Routine(sig_src=sig_src, sig_sky=sig_sky, fwhm=fwhm,
                 sharplo=sharplo, sharphi=sharphi, roundlo=roundlo, roundhi=roundhi,
                 wcs=wcs)
@@ -337,14 +374,14 @@ class PSFPhot_Routine(IterativelySubtractedPSFPhotometry):
             init_guesses.rename_column("ycentroid", "y_0")
         """ 
         #if init_guesses: self.bkg_estimator.load_sources(init_guesses)
-        cat=super().do_photometry(image, init_guesses) 
+        cat=super().do_photometry(image, init_guesses)
 
-        cat.remove_columns(("flux_0", "group_id", "x_fit", "y_fit"))
+        #cat.remove_columns(("flux_0", "group_id", "x_fit", "y_fit"))
         cat.remove_rows( cat["flux_fit"]<=0)
         ###mag,magerr=flux2ABmag(
         print("DO MAGCONV PROPERLY")
-        cat.add_column(-2.5*np.log10(cat["flux_fit"]), name="mag_fit")
-        cat.add_column((2.5/np.log(10))*(cat["flux_unc"]/cat["flux_fit"]), name="mag_unc")
+        #cat.add_column(-2.5*np.log10(cat["flux_fit"]), name="mag_fit")
+        #cat.add_column((2.5/np.log(10))*(cat["flux_unc"]/cat["flux_fit"]), name="mag_unc")
         return cat
 
 class Cleaning_Routine(object):

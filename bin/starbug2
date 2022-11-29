@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -Wignore
 """Starbug II - JWST PSF photometry
 usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.param] [-s opt=val] image.fits ...
-   -A  --artific         : run artificial star tests
+   -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
    -b  --bgdfile         : load background (-bgd.fits) file
    -C  --clean           : run source cleaning before photometry 
@@ -15,6 +15,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
    -p  --param   a.param : load parameter file
    -P  --photom          : run psf photometry
    -s  --set      option : set value in parameter file at runtime (-s SIGSKY=3)
+   -S  --subbgd          : subtract background from image
    -v  --verbose         : display verbose outputs
 
    --> Single run commands
@@ -29,7 +30,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
 import os,sys,getopt
 sys.stdout.write("loading..\r")
 import pkg_resources
-import starbug2 
+#import starbug2 
 from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.matching import dither_match
@@ -46,10 +47,13 @@ DOPHOTOM=0x400
 DOCLEAN= 0x800 
 DOARTIFL=0x1000
 DOMATCH= 0x2000
+DOAPPHOT=0x4000
+DOBGDSUB=0x8000
 
 GENRATPSF =0x10000
 GENRATRUN =0x20000
-INITSB    =0x40000
+GENRATREG =0x40000
+INITSB    =0x80000
 
 options=0
 
@@ -57,12 +61,13 @@ pfile=None
 setdict={}
 output='.'
 ncores=1
+misc={}
 
 def usage():
     if not (options&VERBOSE): quit(__doc__.split('\n')[1])
     else: quit(__doc__)
 
-opts,args=getopt.getopt(sys.argv[1:],"ABCDfhMPvb:d:n:o:p:s:", ("artific","background", "clean", "detect", "find", "help", "match", "photom", "verbose", "xtest",
+opts,args=getopt.getopt(sys.argv[1:],"ABCDfhMPSvb:d:n:o:p:s:", ("apphot","background", "clean", "detect", "find", "help", "match", "photom", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
                                                       "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run"))
 
@@ -73,12 +78,13 @@ for opt,optarg in opts:
         options|=VERBOSE
         #setdict["VERBOSE"]=1
 
-    if opt in ("-A","--artific"): options |= DOARTIFL
+    if opt in ("-A","--apphot"): options |= DOAPPHOT
     if opt in ("-B","--background"): options|=DOBGDEST
     if opt in ("-C","--clean"):  options |=DOCLEAN
     if opt in ("-D","--detect"): options |= DODETECT
     if opt in ("-M","--match"):  options |= DOMATCH
     if opt in ("-P","--photom"): options |= DOPHOTOM
+    if opt in ("-S","--subbgd"): options |= DOBGDSUB
 
     if opt in ("-d","--apfile"):
         if os.path.exists(optarg): setdict["AP_FILE"]=optarg
@@ -119,11 +125,8 @@ for opt,optarg in opts:
         options|=STOPPROC
 
     if opt=="--generate-region":
-        table=Table.read(optarg,format="fits")#load_table(optarg)
-        _,fname,_=split_fname(optarg)
-        export_region(table, fname="%s/%s.reg"%(output,fname))
-        printf("generating region --> %s/%s.reg\n"%(output,fname))
-        options|=STOPPROC
+        misc["REGION_TAB"]=optarg
+        options|=(GENRATREG|STOPPROC)
 
     if opt=="--clean-table":
         printf("cleaning table <-- %s\n"%optarg)
@@ -148,16 +151,28 @@ if pfile==None:
         perror("no local parameter file found, using default.param\n")
         pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
 
+init_parameters=load_params(pfile)
+init_parameters.update(setdict)
+
 if options&INITSB:
-    init_starbug(load_params(pfile)["PSFDIR"])
+    init_starbug(init_parameters["PSFDIR"])
 
 if options&GENRATPSF:
-    generate_psfs(load_params(pfile)["PSFDIR"])
+    generate_psfs(init_parameters["PSFDIR"])
 
 if options&GENRATRUN:
     cmd="starbug2 -vf "#"+ " ".join( ["-vf"])
-    starbug2.misc.generate_runscript(args, cmd)
+    generate_runscript(args, cmd)
 
+if options&GENRATREG:
+    fname=misc.get("REGION_TAB")
+    if fname and os.path.exists(fname):
+        table=Table.read(fname,format="fits")
+        _,name,_=split_fname(fname)
+        export_region(table, colour=init_parameters["REGION_COL"], scale_radius=init_parameters["REGION_SCAL"],
+                             region_radius=init_parameters["REGION_RAD"], xcol=init_parameters["REGION_XCOL"],
+                             ycol=init_parameters["REGION_YCOL"], wcs=init_parameters["REGION_WCS"], fname="%s/%s.reg"%(output,name))
+        printf("generating region --> %s/%s.reg\n"%(output,name))
 
 if options&STOPPROC: quit(0) ## quiet ending the process if required
 
@@ -173,9 +188,9 @@ if options&KILLPROC:
 # All the options set and one-time run functions done, Time to run Starbug #
 ############################################################################
 
+import starbug2
 from starbug2.starbug import StarbugBase ## Ive put this here because it takes some time
 
-#def fn(fname, sb_list):
 def fn(fname):
     printf("%s\n"%fname)
     sb=None
@@ -193,24 +208,24 @@ def fn(fname):
             sb=StarbugBase(fname, pfile=pfile, options=setdict)
             
             if sb.verify(): return#quit("..quitting :(")
-            #if options&VERBOSE: printf("fname:%s\n"%fname)
             
             if options & DODETECT: sb.detect()
             if options & DOCLEAN: sb.cleanup()
             if options & DOBGDEST: sb.bgd_estimate()
+            if options & DOBGDSUB: sb.bgd_subtraction()
+
+            if options & DOAPPHOT: sb.aperture_photometry()
             if options & DOPHOTOM:
                 sb.photometry()
                 if options & DOCLEAN: sb.cleanup()
             if options & DOARTIFL: sb.artificial_stars()
             sb.export(outdir=output)
 
-            #sb_list.append(sb)
         else: perror("file must be type '.fits' not %s\n"%ext)
     else: perror("can't access %s\n"%fname)
     return sb
 
 if __name__=="__main__":
-
     printf("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
 
     pool=multiprocessing.Pool(processes=ncores)

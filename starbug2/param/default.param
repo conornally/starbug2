@@ -22,10 +22,10 @@ ROUND_HI = 1.0    // cutoff in detection
 
 ## APERTURE PHOTOMOETRY
 APPHOT_R    =1.5      //Radius in number of pixels
-#APPHOT_R1   =2      //Radius of aperture 1 in number of FWHM 
-#APPHOT_R2   =3      //Radius of aperture 2 in number of FWHM 
-SKY_RIN     =3  //.
-SKY_ROUT    =4.5 //.
+ENCENERGY	=0.5	  //Fraction encircled energy (mutually exclusive with APPHOT_R)
+FIT_APP_R	=1		  //Fit APPHOT_R to the aperture correction CRDS (if =0, use ENCENRGY instead)
+SKY_RIN     =3  	  //Sky annulus inner radius
+SKY_ROUT    =4.5 	  //Sky annulus outer radius
 
 ## CLEANUP
 ERROR_CUT       =1     // cut sources with errors larger than value
@@ -40,12 +40,10 @@ BGD_R	=	0//.
 ## PHOTOMETRY
 AP_FILE  =       //Detection file to use instead of detecting
 BGD_FILE =       //Background estimation file
-#PSF=            //PSF.fits related to the image
 CRIT_SEP =8     //minimum distance for grouping (pixels) between two sources
-#PSF_ITERATIONS =3	//number of DAOPhot PSF iterations (FIND, GROUP, SUBTRACT, NSTAR)
 
 ## CATALOGUE MATCHING
-MATCH_THRESH =0.25  					//when combining background subtraction catalogue, minimum separation (arcsec) of centroids to be considered separate sources
+MATCH_THRESH =0.1  					//when combining background subtraction catalogue, minimum separation (arcsec) of centroids to be considered separate sources
 MATCH_COLS = // EXTRA columns to include in output matched table i.e sharpness
 RM_MATCH =-1                          // Remove any sources with less matches than N-RM_MATCH. (if -1, keep everything)
 
@@ -55,3 +53,11 @@ SUBIMAGE_SIZE =500              //number of pixels ? to crop around artificial s
 MIN_FLUX    =10                 //minimun flux for artificial star
 MAX_FLUX    =10000               //maximum flux for artificial star
 SEPARATION_THRESH =2            //number pixels above which the separation is too high and the artifical star failed to be detected
+
+## MISC EXTRAS
+REGION_COL  = green     //DS9 region colour
+REGION_SCAL = 1         //Scale region to flux if possible
+REGION_RAD  = 3         //Region radius default
+REGION_XCOL = RA        //X column name to use for region
+REGION_YCOL = DEC       //Y column name to use for region
+REGION_WCS  = 1         //If X/Y column names correspind to WCS values
