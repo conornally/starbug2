@@ -93,6 +93,30 @@ def _match(cat1, cat2):
 
     return skycoord2.match_to_catalog_3d(skycoord1)
 
+def generic_match(catalogues, threshold=0.25):
+    """
+    """
+    threshold=threshold*u.arcsec
+    base=Table(None)
+
+    for n,cat in enumerate(catalogues,1):
+        if not len(base):
+            tmp=cat.copy()
+        else:
+            idx,d2d,_=_match(base,cat)
+            tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames)
+
+            for src,IDX,sep in zip(cat,idx,d2d):
+                if (sep<=threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
+                    tmp[IDX]=src
+                else:   ##BAD MATCH / NEW SOURCE
+                    tmp.add_row( src )
+        tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
+        base=hstack((base,tmp))
+    return base
+
+
+
 def dither_match(catalogues, threshold, colnames):
     """
     This is the match for when you simultaneously detect sources over
@@ -259,7 +283,9 @@ def finish_matching(tab, colnames):
     av=Table(np.full((len(tab),len(colnames)),np.nan), names=colnames)
 
     for name in colnames:
-        if not (all_cols:=find_colnames(tab,name)): continue
+        all_cols=find_colnames(tab,name)
+        #if not (all_cols:=find_colnames(tab,name)): continue
+        if not all_cols: continue
         col=Column(None, name=name)
         ar=tab2array(tab, colnames=all_cols)
         if name=="flux":
