@@ -281,6 +281,7 @@ def reindex(table):
     if "Catalogue Number" in table.colnames: table.remove_column("Catalogue Number")
     column=Column(["CN%d"%i for i in range(len(table))], name="Catalogue Number")
     table.add_column(column,index=0)
+    return table
 
 if __name__ == "__main__":
     import glob

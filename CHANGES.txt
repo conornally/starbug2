@@ -1,3 +1,6 @@
+v0.2.14:
+	Genreal: 
+		I broke export_table earlier, I have now fixed it
 v0.2.13:
 	General:
 		Removed the := operator
