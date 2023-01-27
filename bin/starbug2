@@ -26,9 +26,15 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
        --clean-table       a.fits : Clean up an individual table
        --generate-run      *.fits : Generate a simple run script
        --version                  : Print starbug2 version
+
+   --> typical runs
+      $~ starbug2 -vD -p file.param image.fits      //Source detect on image with a parameter file
+      $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
+      $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
+
 """
 import os,sys,getopt
-sys.stdout.write("loading..\r")
+sys.stdout.write("changing blue bulb..\r")
 import pkg_resources
 #import starbug2 
 from starbug2.utils import *
@@ -255,9 +261,11 @@ if __name__=="__main__":
             colnames+=[ name for name in param["MATCH_COLS"].split() if name not in colnames]
 
             av,full=dither_match( [sb.detections for sb in starbugs] , threshold=param["MATCH_THRESH"], colnames=colnames)
+            print(av)
 
             N=len(starbugs)-param["RM_MATCH"]
             mask=( (av["NUM"]>N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
+            print(mask)
 
             printf("-> %s-ap*...\n"%(fname))
             av.meta.update(header)

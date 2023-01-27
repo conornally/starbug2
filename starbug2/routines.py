@@ -6,7 +6,7 @@ import sys
 import time
 import numpy as np
 import pkg_resources
-from scipy.stats import norm, mode
+from scipy.stats import norm#, mode
 from scipy.optimize import curve_fit
 
 from astropy.io import fits
@@ -185,7 +185,8 @@ class APPhot_Routine():
             dat=mask.multiply(image)
             dat=sigma_clip(dat[dat>0 & np.isfinite(dat)], sigma=sig_sky)
             if len(dat): ##sometimes all the surrounding pixels are nan OR above SIGSKY value??
-                self.catalogue["sky"][i]=mode(dat)[0]
+                #self.catalogue["sky"][i]=mode(dat)[0]
+                self.catalogue["sky"][i]=np.median(dat)
 
 
         self.catalogue["eflux"]=phot["aperture_sum_err"]

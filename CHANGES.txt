@@ -1,6 +1,9 @@
 v0.2.14:
-	Genreal: 
-		I broke export_table earlier, I have now fixed it
+	General: 
+		>	I broke export_table earlier, I have now fixed it
+		>	Fixing scipy mode future warning
+	DOCS:
+		>	Beginning to rework the manual
 v0.2.13:
 	General:
 		Removed the := operator

@@ -173,7 +173,9 @@ class StarbugBase(object):
         if self.detections is None:
             perror("No detection source file loaded (-d file-ap.fits)\n")
             return
-        dat=self.detections[("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")]
+        colnames=list( name for name in ("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak") if name in self.detections.colnames)
+        dat=self.detections[colnames]
+        #dat=self.detections[("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")]
         #######################
         # APERTURE PHOTOMETRY #
         #######################

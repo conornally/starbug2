@@ -93,13 +93,14 @@ def _match(cat1, cat2):
 
     return skycoord2.match_to_catalog_3d(skycoord1)
 
-def generic_match(catalogues, threshold=0.25):
+def generic_match(catalogues, threshold=0.25, add_src=True):
     """
     """
     threshold=threshold*u.arcsec
     base=Table(None)
 
     for n,cat in enumerate(catalogues,1):
+        if "Catalogue Number" in cat.colnames: cat.remove_column("Catalogue Number")
         if not len(base):
             tmp=cat.copy()
         else:
@@ -109,10 +110,11 @@ def generic_match(catalogues, threshold=0.25):
             for src,IDX,sep in zip(cat,idx,d2d):
                 if (sep<=threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
                     tmp[IDX]=src
-                else:   ##BAD MATCH / NEW SOURCE
+                elif add_src:   ##BAD MATCH / NEW SOURCE
                     tmp.add_row( src )
         tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
         base=hstack((base,tmp))
+    print(base)
     return base
 
 
@@ -146,6 +148,7 @@ def dither_match(catalogues, threshold, colnames):
         tmp.rename_columns( colnames, list("%s_%d"%(name,n) for name in colnames))
         base=hstack((base,tmp))
         base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
+    
     return finish_matching(base, colnames)
 
 def cascade_match(catalogues, threshold, colnames):

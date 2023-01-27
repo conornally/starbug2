@@ -20,7 +20,7 @@ def init_starbug(dname):
     INPUT:
         dname : data directory
     """
-    #generate_psfs(dname)
+    generate_psfs(dname)
 
     printf("Downloading APPCORR CRDS files. NB: \x1b[1mTHESE MAY NOT BE THE LATEST!\x1b[0m\n")
     wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_miri_apcorr_0005.fits", "%s/apcorr_miri.fits"%dname)
