@@ -21,10 +21,11 @@ from photutils.background import Background2D, SExtractorBackground, BackgroundB
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from photutils.detection import StarFinderBase, DAOStarFinder
 from photutils.psf.groupstars import DAOGroup
-from photutils.psf import IterativelySubtractedPSFPhotometry
+from photutils.psf import BasicPSFPhotometry, IterativelySubtractedPSFPhotometry, FittableImageModel
 from photutils.psf.sandbox import DiscretePRF
+
 from photutils.datasets import make_model_sources_image, make_random_models_table
-from starbug2.utils import loading, split_fname, tabppend, printf, perror, extnames
+from starbug2.utils import loading, split_fname, tabppend, printf, perror, extnames, warn
 from starbug2 import *
 
 
@@ -192,11 +193,11 @@ class APPhot_Routine():
         self.catalogue["eflux"]=phot["aperture_sum_err"]
         self.catalogue["flux"]=apcorr*(phot["aperture_sum"] - (self.catalogue["sky"]*apertures.area))
 
-        col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint32, name="flag")
+        col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint16, name="flag")
         if dqflags is not None:
             self.log("-> flagging unlikely sources\n")
             for i, mask in enumerate(apertures.to_mask(method="center")):
-                dat=np.array(mask.multiply(dqflags),np.uint32)
+                dat=np.array(mask.multiply(dqflags),np.uint16)
                 if np.sum( dat & (DQ_DO_NOT_USE|DQ_SATURATED)): col[i]|=SRC_BAD
                 if np.sum( dat & DQ_JUMP_DET): col[i]|=SRC_JMP
         self.catalogue.add_column(col)
@@ -248,35 +249,9 @@ class APPhot_Routine():
             sys.stdout.flush()
 
 
-class _grouping(DAOGroup):
-    """
-    Overwritten DAOGroup that just holds the number of groups
-    for use in verbose loading of psfphot routine
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.ngroups=0
-    def __call__(self, *args):
-        res=super().__call__(*args)
-        self.ngroups=max(res["group_id"])
-        return res
-
-class _fitmodel(LevMarLSQFitter):
-    load=None
-    def __init__(self, grouper=None, verbose=1):
-        super().__init__()
-        self.grouper=grouper
-        if verbose:
-            self.load=loading(1, msg="fitting psfs")
-
-    def __call__(self, *args, **kwargs):
-        if self.grouper and self.load:
-            self.load.setlen(self.grouper.ngroups)
-            self.load()
-            self.load.show()
-        return super().__call__(*args,**kwargs)
-
 class BackGround_Estimate_Routine(BackgroundBase):
+    """
+    """
     bgd=None
     sourcelist=None
     def __init__(self, sourcelist, boxsize=2, fwhm=2, verbose=0, bgd=None):#mask_r0=7, mask_r1=9
@@ -304,10 +279,9 @@ class BackGround_Estimate_Routine(BackgroundBase):
         X,Y=np.ogrid[:data.shape[1], :data.shape[0]]
         peaks=self.calc_peaks(data)
 
-        rlist=np.sqrt(peaks**0.7)*self.fwhm/1.5
+        rlist=np.sqrt(peaks**0.7)*self.fwhm/1.5 ## <-- that works but hmm
         D=50
         load=loading(len(self.sourcelist), msg="masking sources")
-        #fp=open("out.reg","w")
         for r,src in zip(rlist,self.sourcelist):
 
             rin=1.5*r
@@ -327,10 +301,6 @@ class BackGround_Estimate_Routine(BackgroundBase):
             tmp[mask]=np.median(data[_Y,_X][annuli_mask])
             _data[_Y,_X]=tmp
 
-            #fp.write("circle %f %f %f # color=red  \n"%( src["xcentroid"]+1, src["ycentroid"]+1, r))
-            #fp.write("circle %f %f %f # color=green\n"%( src["xcentroid"]+1, src["ycentroid"]+1, rin))
-            #fp.write("circle %f %f %f # color=green\n"%( src["xcentroid"]+1, src["ycentroid"]+1, rout))
-
             load()
             load.show() ## This will slow the thing down quite a lot
         self.bgd=Background2D(_data, self.boxsize).background
@@ -341,49 +311,85 @@ class BackGround_Estimate_Routine(BackgroundBase):
         if self.bgd is None: self.__call__(data)
         return self.bgd
 
+class _grouping(DAOGroup):
+    """
+    Overwritten DAOGroup that just holds the number of groups
+    for use in verbose loading of psfphot routine
+    >>> This is now a bit redundant after photoutils added progress_bar=true
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ngroups=0
+    def __call__(self, *args):
+        res=super().__call__(*args)
+        self.ngroups=max(res["group_id"])
+        return res
 
-class PSFPhot_Routine(IterativelySubtractedPSFPhotometry):
+class _fitmodel(LevMarLSQFitter):
+    load=None
+    def __init__(self, grouper=None, verbose=1):
+        super().__init__()
+        self.grouper=grouper
+        if verbose:
+            self.load=loading(1, msg="fitting psfs")
+
+    def __call__(self, *args, **kwargs):
+        if self.grouper and self.load:
+            self.load.setlen(self.grouper.ngroups)
+            self.load()
+            self.load.show()
+        return super().__call__(*args,**kwargs)
+
+
+class PSFPhot_Routine(BasicPSFPhotometry):
     """
     PSF Photometry routine called by starbug
-    It almost exactly matches DAOPhotRoutine however has some
-    verbose progress bar outputs so you can check if the program is
-    still running
     """
-    def __init__(self, crit_separation, fwhm, psf_model, fitshape,
-                 sig_sky=3, sig_src=5,
-                 sharplo=0.2, sharphi=1.0, roundlo=-1.0, roundhi=1.0,
-                 background=None, wcs=None, verbose=1):
+    def __init__(self, crit_separation, psf_model, fitshape,
+            #sig_sky=3, sig_src=5,
+            #sharplo=0.2, sharphi=1.0, roundlo=-1.0, roundhi=1.0,
+            force_fit=False, dposition_threshold=2, background=None, wcs=None, verbose=1):
+
+        self.force_fit=force_fit        
+        self.dpos_thresh=dposition_threshold
 
         group_maker=_grouping(crit_separation=crit_separation)
         bkg_estimator=BackGround_Estimate_Routine(None, bgd=background)
-        finder=Detection_Routine(sig_src=sig_src, sig_sky=sig_sky, fwhm=fwhm,
-                sharplo=sharplo, sharphi=sharphi, roundlo=roundlo, roundhi=roundhi,
-                wcs=wcs)
         fitter=_fitmodel(grouper=group_maker, verbose=verbose)
+        
+        if force_fit:
+            psf_model.fixed.update( {"x_0":True,"y_0":True} )
+            fitter.load.msg+=" (forced)"
 
         super().__init__(group_maker=group_maker, bkg_estimator=bkg_estimator,
                 psf_model=psf_model, fitshape=fitshape,
-                finder=finder, fitter=fitter, niters=1)
-        print("\x1b[33mWARNING: THIS IS UNDER DEVELOPMENT\x1b[0m")
+                finder=None, fitter=fitter)
 
     def _bkg(self, axis=None,masked=None):
         return self.background
 
-    def do_photometry(self, image, init_guesses=None):
-        """
-        if(init_guesses):
-            init_guesses.rename_column("xcentroid", "x_0")
-            init_guesses.rename_column("ycentroid", "y_0")
-        """ 
-        #if init_guesses: self.bkg_estimator.load_sources(init_guesses)
-        cat=super().do_photometry(image, init_guesses)
 
-        #cat.remove_columns(("flux_0", "group_id", "x_fit", "y_fit"))
-        cat.remove_rows( cat["flux_fit"]<=0)
-        ###mag,magerr=flux2ABmag(
-        print("DO MAGCONV PROPERLY")
-        #cat.add_column(-2.5*np.log10(cat["flux_fit"]), name="mag_fit")
-        #cat.add_column((2.5/np.log(10))*(cat["flux_unc"]/cat["flux_fit"]), name="mag_unc")
+    def do_photometry(self, image, mask=None, init_guesses=None, progress_bar=False):
+        """
+        """ 
+        _cat=None
+        _fixcat=None
+
+        if init_guesses is None:
+            perror("Must include source list")
+            return None
+
+        cat=super().do_photometry(image, mask=mask, init_guesses=init_guesses, progress_bar=False)
+
+
+
+        cat.rename_column("flux_fit","flux")
+        if "flux_unc" not in cat.colnames:
+            cat.add_column(Column(np.full(len(cat),np.nan), name="eflux"))
+            perror("NO ERRORS??\n")
+        else: cat.rename_column("flux_unc","eflux")
+
+        cat.remove_rows( cat["flux"]<=0)
         return cat
 
 class Cleaning_Routine(object):
@@ -500,7 +506,7 @@ class ArtificialStar_Routine(object):
         """
         #printf("starting artificial star testing..\n")
         shape=np.array(image.shape)
-        psfsize=self.psf.prf_shape
+        psfsize=self.psf.shape
         if np.any( subimage_size>shape):
             perror("warning: subimage_size bigger than image dimensions\n")
             subimage_size=min(shape)
@@ -560,8 +566,41 @@ class ArtificialStar_Routine(object):
 
         return sources
 
+class SourceProperties:
+
+    def __init__(self, image, sourcelist):
+        self.image=image
+        self.sourcelist=sourcelist
+        if "RA" not in sourcelist.colnames or "DEC" not in sourcelist.colnames: 
+            perror("No WCS in sourcelist\n")
+
+    def calculate_crowding(self,N=10):
+        crowd=np.zeros(len(self.sourcelist))
+        load=loading(len(self.sourcelist),msg="calculating crowding", res=10)
+
+        for i,src in enumerate(self.sourcelist):
+            dist=np.sqrt( (src["RA"]-self.sourcelist["RA"])**2 + (src["DEC"]-self.sourcelist["DEC"])**2 )
+            dist.sort()
+            crowd[i]= sum( dist[1:N])
+            load();load.show()
+        return crowd
+
+    def calculate_sharpround(self, fwhm):
+        pass#daofind=DAOStarFinder(0, fwhm, sharplo=-999, sharphi=999, roundlo=-999, roundhi=999, xycoords=)
+
+
+
 if __name__=="__main__":
-    pass
+    tab=Table.read("/dat/ngc346/jwst/stage2/F444W/jw01227002001_02105_00001_nrcalong_cal_destrip-ap.fits")
+    crowding=SourceProperties(None, tab).calculate_crowding()
+    ii=np.argsort(crowding)[len(crowding)//2:]
+
+
+    import matplotlib.pyplot as plt
+    plt.scatter( tab["RA"],tab["DEC"], c='k')
+    plt.scatter( tab["RA"][ii],tab["DEC"][ii], c='r')
+    plt.show()
+
     #sb=StarbugBase("/home/conor/dat/NGC346/MIRAGE/Pipeline_Level3/ngc346-f115w-mosaic_i2d-cropped.fits")
     #sb.detect()
     #sb.photometry()

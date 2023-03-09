@@ -283,6 +283,16 @@ def reindex(table):
     table.add_column(column,index=0)
     return table
 
+def get_MJysr2Jy_scalefactor(ext):
+    """
+    Find the unit scale factor to convert an image from MJy/sr to Jy
+    """
+    scalefactor=1
+    if ext.header["BUNIT"]=="MJy/sr":
+        scalefactor=1e6*float(ext.header["PIXAR_SR"])
+    return scalefactor
+
+
 if __name__ == "__main__":
     import glob
     fnames=glob.glob("/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F335M/de-striped_jw01227002001_02101_0000*_nrc*long_cal.fits")

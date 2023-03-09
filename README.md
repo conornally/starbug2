@@ -67,5 +67,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
 ```
 
-See starbug-manual.pdf for more detailed instructions.
+See [starbug-manual](https://github.com/conornally/starbug2/blob/main/docs/starbug-manual.pdf) for more detailed instructions.
+
+
 

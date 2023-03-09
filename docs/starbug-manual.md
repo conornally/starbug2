@@ -1,7 +1,7 @@
 # StarBugII Manual
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.2.14
+Last updated: v0.2.15
 
 ## Installation
 
@@ -161,13 +161,26 @@ It situations where the background contains more complex dust emissions, or is h
 To remove (a significant number of) spurious sources and or resolved background galaxies, the geometric parameters `SHARP_HI/LO` and `ROUND_HI/LO` are available. Sharpness is a measure of how the peak of the source compares to the median within the FWHM. Cosmic rays are often very sharp and can be limited by lowering the upper limit. Whereas other artifacts often appear less sharp. It is worth opening the output source list `*-ap.fits` and plotting the distribution of `SHARPNESS`, usually there is a clear roughly normal distribution with wings - set `SHARP_HI` and `SHARP_LO` to cut off these wings. 
 Roundness is a measure of eccentricity of a source. The distribution should be symmetric (`ROUND_HI` and `ROUND_LO` and measures of the same thing in orthogonal directions). Sources centred on 0 are round or pointlike, whereas resolved galaxies are often towards the edges of the distribution.
 
-... to be continued 
-param
-detect 1 ++ test
-detect dither ++ test
-run.sh
-bgd
-psf
+### Introducing Dithers
+
+You should have now arrived on appropriate parameters but may still be finding that certain extraneous bad sources are squeaking through the cuts. The next method we can deploy to remove these is rolling in the set of dithers.
+We can detect simultaneously on a set of dithers and match the outputs together, removing any sources that don't appear a threshold number of times. 
+
+If you give a starbug instance a list of files to work on, it will by default run them in series and produce a separate source list for each. However we can parallelise and match with the `-n NUMBER_CORES` and `-M` options:
+
+```bash
+$~ starbug2 -vD -M -n 4 exposure1.fits exposure2.fits exposure3.fits exposure4.fits
+
+//General bash wildcarding etc. can also be used
+$~ starbug2 -vDMn4 exposure{1..4}.fits
+$~ starbug2 -vDMn4 exposure*.fits
+```
+The matched output will export into two catalogues: `exposure(1234)-apfull.fits` and `exposure(1234)-apmatch.fits`, the former being the complete catalogue containing every column, the latter being a condensed form that cuts sources without a threshold "NUM" value.
+
+### Aperture Photometry
+
+### PSF Photometry
+
 
 
 ## Source Flags

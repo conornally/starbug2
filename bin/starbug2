@@ -8,6 +8,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
    -d  --apfile  ap.fits : load a source detection (-ap.fits) file to skip the source detection step
    -D  --detect          : run source detection
    -f  --find            : attempt to find associated -ap -bgd files
+   -G  --geom            : calculate geometric stats on source list
    -h  --help            : display uasage information
    -M  --match           : match outputs from all input image files
    -n  --ncores      num : number of CPU cores to split process between
@@ -34,7 +35,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
 
 """
 import os,sys,getopt
-sys.stdout.write("changing blue bulb..\r")
+sys.stdout.write("loading..\r")
 import pkg_resources
 #import starbug2 
 from starbug2.utils import *
@@ -55,11 +56,12 @@ DOARTIFL=0x1000
 DOMATCH= 0x2000
 DOAPPHOT=0x4000
 DOBGDSUB=0x8000
+DOGEOM  =0x10000
 
-GENRATPSF =0x10000
-GENRATRUN =0x20000
-GENRATREG =0x40000
-INITSB    =0x80000
+GENRATPSF =0x100000
+GENRATRUN =0x200000
+GENRATREG =0x400000
+INITSB    =0x800000
 
 options=0
 
@@ -73,7 +75,7 @@ def usage():
     if not (options&VERBOSE): quit(__doc__.split('\n')[1])
     else: quit(__doc__)
 
-opts,args=getopt.getopt(sys.argv[1:],"ABCDfhMPSvb:d:n:o:p:s:", ("apphot","background", "clean", "detect", "find", "help", "match", "photom", "subbgd", "verbose", "xtest",
+opts,args=getopt.getopt(sys.argv[1:],"ABCDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "clean", "detect", "find", "geom", "help", "match", "photom", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
                                                       "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run"))
 
@@ -88,6 +90,7 @@ for opt,optarg in opts:
     if opt in ("-B","--background"): options|=DOBGDEST
     if opt in ("-C","--clean"):  options |=DOCLEAN
     if opt in ("-D","--detect"): options |= DODETECT
+    if opt in ("-G","--geom"): options |= DOGEOM
     if opt in ("-M","--match"):  options |= DOMATCH
     if opt in ("-P","--photom"): options |= DOPHOTOM
     if opt in ("-S","--subbgd"): options |= DOBGDSUB
@@ -198,7 +201,6 @@ import starbug2
 from starbug2.starbug import StarbugBase ## Ive put this here because it takes some time
 
 def fn(fname):
-    printf("%s\n"%fname)
     sb=None
     if os.path.exists(fname):
         dname,bname,ext=split_fname(fname)
@@ -219,6 +221,7 @@ def fn(fname):
             if options & DOCLEAN: sb.cleanup()
             if options & DOBGDEST: sb.bgd_estimate()
             if options & DOBGDSUB: sb.bgd_subtraction()
+            if options & DOGEOM: sb.source_geometry()
 
             if options & DOAPPHOT: sb.aperture_photometry()
             if options & DOPHOTOM:
@@ -253,15 +256,13 @@ if __name__=="__main__":
 
         param=load_params(pfile)
         header=starbugs[0].header
+        colnames=starbug2.match_cols
+        colnames+=[ name for name in param["MATCH_COLS"].split() if name not in colnames]
 
         if options&VERBOSE: printf("Matching outputs\n")
 
         if options&DODETECT:
-            colnames=starbug2.match_cols
-            colnames+=[ name for name in param["MATCH_COLS"].split() if name not in colnames]
-
             av,full=dither_match( [sb.detections for sb in starbugs] , threshold=param["MATCH_THRESH"], colnames=colnames)
-            print(av)
 
             N=len(starbugs)-param["RM_MATCH"]
             mask=( (av["NUM"]>N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
@@ -273,5 +274,9 @@ if __name__=="__main__":
             export_table(av[mask], fname="%s-apmatch.fits"%(fname), header=header)
 
         if options&DOPHOTOM:
-            perror("em sorry not implemented PSF tab matching yet\n")
+            av,full=dither_match( [sb.psfcatalogue for sb in starbugs], threshold=param["MATCH_THRESH"], colnames=colnames)
+            printf("-> %s-psf*...\n"%(fname))
+            av.meta.update(header)
+            export_table(hstack((av,full)), fname="%s-psffull.fits"%(fname), header=header)
+            export_table(av, fname="%s-psfmatch.fits"%(fname), header=header)
 

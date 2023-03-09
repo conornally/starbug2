@@ -3,7 +3,8 @@ from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.routines import *
 
-from astropy.table import hstack
+from astropy.table import hstack, vstack
+from photutils.psf import EPSFModel
 
 class StarbugBase(object):
     """
@@ -79,12 +80,17 @@ class StarbugBase(object):
             dname,bname,extension=split_fname(fname)
             if extension==".fits":
                 if os.path.exists(fname):
+                    self.log("loaded: \"%s\"\n"%fname)
                     image=fits.open(fname)
                     #self.output=dname
 
                     if ("FILTER" in image[0].header) and (image[0].header["FILTER"] in starbug2.filters.keys()):
                         self.filter=image[0].header["FILTER"]
-                    else: perror("Unable to dtermine image filter\n")
+                        self.log("photometric band: %s\n"%self.filter)
+                    else: perror("Unable to determine image filter\n")
+
+                    if "DETECTOR" in self.info.keys():
+                        self.log("detector module: %s\n"%self.info["DETECTOR"])
                         
                     ## I NEED TO DETERMINE BETTER WHAT STAGE IT IS IN
                     exts=extnames(image)
@@ -101,7 +107,7 @@ class StarbugBase(object):
                     else: perror("unable to determine jwst pipeline level\n")
 
 
-                    self.log("loaded: \"%s\"\n"%fname)
+                    #self.log("loaded: \"%s\"\n"%fname)
                     self.log("pipeline stage: %d\n"%self.stage)
 
                 else: perror("fits file \"%s\" does not exist\n"%fname)
@@ -116,17 +122,16 @@ class StarbugBase(object):
         """
         if not fname: fname=self.options["AP_FILE"]
         if os.path.exists(fname):
-            with fits.open(fname) as fp:
-                self.detections=Table(data=fp[1].data._get_raw_data())
-                self.log("loaded AP_FILE='%s'\n"%fname)
+            self.detections=Table().read(fname,format="fits")#data=fp[1].data._get_raw_data())
+            self.detections["flag"]=Column(self.detections["flag"], dtype=np.uint16)
+            self.log("loaded AP_FILE='%s'\n"%fname)
 
-                cn=self.detections.colnames
-                if not any( _ in cn for _ in ("xcentroid","ycentroid","x_0","y_0")):
-                    if all( _ in cn for _ in ("RA","DEC")):
-                        xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
-                        print(xy)
-                        self.detections.add_columns(xy,names=("xcentroid","ycentroid"),indexes=[0,0])
-                    else: perror("WARNING, unable to determine physical coordinates from detections table\n")
+            cn=self.detections.colnames
+            if not any( _ in cn for _ in ("xcentroid","ycentroid","x_0","y_0")):
+                if all( _ in cn for _ in ("RA","DEC")):
+                    xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
+                    self.detections.add_columns(xy,names=("xcentroid","ycentroid"),indexes=[0,0])
+                else: perror("WARNING, unable to determine physical coordinates from detections table\n")
         else: perror("AP_FILE='%s' does not exists\n"%fname)
 
     def load_bgdfile(self,fname=None):
@@ -148,7 +153,8 @@ class StarbugBase(object):
         """
         self.log("Detecting Sources\n")
         if self.image and self.filter:
-            FWHM=starbug2.filters[self.filter][2]
+            #FWHM=starbug2.filters[self.filter][2]
+            FWHM=starbug2.filters[self.filter].pFWHM
             detector=Detection_Routine( sig_src=self.options["SIGSRC"],
                                         sig_sky=self.options["SIGSKY"],
                                         fwhm=FWHM,
@@ -156,15 +162,17 @@ class StarbugBase(object):
                                         sharphi=self.options["SHARP_HI"],
                                         roundlo=self.options["ROUND_LO"],
                                         roundhi=self.options["ROUND_HI"],
-                                        wcs=WCS(self.image[1].header),
+                                        wcs=self.wcs,
                                         bgd2d=self.options["DOBGD2D"],
                                         boxsize=int(self.options["BOX_SIZE"]),
-                                        filtersize=int(self.options["FILTER_SIZE"]),
+                                        #filtersize=int(self.options["FILTER_SIZE"]),
                                         verbose=self.options["VERBOSE"])
 
             dat=detector(self.image["SCI"].data)
             colnames=("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")
             self.detections=dat[colnames]
+            crowd=SourceProperties(self.image["SCI"].data, dat[["RA","DEC"]]).calculate_crowding()
+            self.detections.add_column( crowd, name="crowding")
             self.aperture_photometry()
 
 
@@ -173,7 +181,7 @@ class StarbugBase(object):
         if self.detections is None:
             perror("No detection source file loaded (-d file-ap.fits)\n")
             return
-        colnames=list( name for name in ("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak") if name in self.detections.colnames)
+        colnames=list( name for name in ("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak", "crowding") if name in self.detections.colnames)
         dat=self.detections[colnames]
         #dat=self.detections[("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")]
         #######################
@@ -186,10 +194,11 @@ class StarbugBase(object):
         # Unit Conversion to Jy #
         ######################### 
         error=None
-        scalefactor=1
-        if self.image["SCI"].header["BUNIT"]=="MJy/sr":
-            scalefactor=1e6*float(self.image["SCI"].header["PIXAR_SR"])
-            self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
+
+        scalefactor=get_MJysr2Jy_scalefactor(self.image["SCI"])
+        self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
+        #if self.image["SCI"].header["BUNIT"]=="MJy/sr":
+            #scalefactor=1e6*float(self.image["SCI"].header["PIXAR_SR"])
 
         image*=scalefactor
         if "ERR" in extnames(self.image) and np.shape(self.image["ERR"]):
@@ -245,6 +254,7 @@ class StarbugBase(object):
         Saves the result as an ImageHDU self.background
         """
         self.log("Estimating Background\n")
+        #image=self.image["SCI"].data.copy() / self.image["SCI"].header["PHOTMJSR"]
         if self.detections:
             xname="xcentroid" if "xcentroid" in self.detections.colnames else "x_0"
             yname="ycentroid" if "ycentroid" in self.detections.colnames else "y_0"
@@ -256,9 +266,11 @@ class StarbugBase(object):
             sources=sources[ sources[yname]<self.image["SCI"].header["NAXIS2"]]
             bgd=BackGround_Estimate_Routine(sources, 
                                             boxsize=int(self.options["BOX_SIZE"]),
-                                            fwhm=starbug2.filters[self.filter][2],
+                                            #fwhm=starbug2.filters[self.filter][2],
+                                            fwhm=starbug2.filters[self.filter].pFWHM,
                                             verbose=self.options["VERBOSE"])
-            self.background=fits.ImageHDU(data=bgd(self.image[1].data))
+            self.background=fits.ImageHDU(data=bgd(self.image["SCI"].data), header=self.wcs.to_header())
+            self.background.header["BUNIT"]="DN"
         else:
             perror("unable to estimate background, no source list loaded\n")
 
@@ -277,7 +289,7 @@ class StarbugBase(object):
         """
         Full photometry routine
         Saves the result as a table self.psfcatalogue
-        Additionally it appends a residual Image onto the self.residuals HDUList
+        // Additionally it appends a residual Image onto the self.residuals HDUList
         """
         if self.detections is None:
             perror("unable to run photometry: no source list loaded\n")
@@ -289,26 +301,25 @@ class StarbugBase(object):
 
         if self.image and self.filter:
             self.log("Running PSF Photometry")
-            fname=os.path.expandvars("%s/%s.fits"%(self.options["PSFDIR"], self.filter))
+
+            ###################################
+            # Collect relevent files and data #
+            ###################################
+
+            image=self.image["SCI"].data.copy() / self.image["SCI"].header["PHOTMJSR"] #https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
+            bgd = self.background.data.copy() / self.image["SCI"].header["PHOTMJSR"] 
+
+            fname=os.path.expandvars("%s/%s%s.fits"%(self.options["PSFDIR"], self.filter, self.info["DETECTOR"]))
             self.log(" <-- %s\n"%fname)
             with fits.open(fname) as fp:
-                psf_model=DiscretePRF(fp[0].data)
+                psf_model=FittableImageModel(fp[1].data)
+                psf_model=EPSFModel(fp[1].data)
+                size=psf_model.shape[0]
+                if not size%2: size-=1
 
-                print(psf_model.fixed)
-                psf_model.fixed["x_0"]=False
-                psf_model.fixed["y_0"]=False
-            phot=PSFPhot_Routine(   self.options["CRIT_SEP"],
-                                    starbug2.filters[self.filter][2],
-                                    psf_model,
-                                    psf_model.prf_shape,
-                                    sig_sky=self.options["SIGSKY"],
-                                    sig_src=self.options["SIGSRC"],
-                                    sharplo=self.options["SHARP_LO"],
-                                    sharphi=self.options["SHARP_HI"],
-                                    roundlo=self.options["ROUND_LO"],
-                                    roundhi=self.options["ROUND_HI"],
-                                    background=self.background.data,
-                                    wcs=self.wcs)
+            #########################
+            # Sort out Init guesses #
+            #########################
 
             init_guesses=self.detections.copy()
 
@@ -319,16 +330,64 @@ class StarbugBase(object):
             init_guesses=init_guesses[ init_guesses["y_0"]>=0 ]
             init_guesses=init_guesses[ init_guesses["x_0"]<self.image["SCI"].header["NAXIS1"]]
             init_guesses=init_guesses[ init_guesses["y_0"]<self.image["SCI"].header["NAXIS2"]]
+            init_guesses=init_guesses[["x_0","y_0","flux",self.filter, "flag"]]
+            init_guesses.rename_column("flux","flux_0")
+            init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
+            init_guesses=init_guesses[init_guesses["flux_0"]>0]
+
+            
+            ###########
+            # Run Fit #
+            ###########
+
+            _psf_cat=None
+            _fixpsf_cat=None
+
+            if not self.options["FORCE_POS"]:
+                dpos= self.options["DPOS_THRESH"] / np.sqrt( self.image["SCI"].header["PIXAR_A2"])
+                self.log("--> position fit threshold [pix]: %.2g\n"%dpos)
+
+                phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=0)
+                _psf_cat=phot(image,init_guesses=init_guesses)
+                d = (_psf_cat["x_0"]-_psf_cat["x_fit"])**2.0 + (_psf_cat["y_0"]-_psf_cat["y_fit"])**2.0
+                ii=np.where(d>=dpos**2.0)
+                init_guesses=init_guesses[ii]
+                _psf_cat.remove_rows(ii)
+                if len(init_guesses): self.log("--> number bad position fits: %d\n"%len(init_guesses))
+
+            if len(init_guesses):
+                phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=1)
+                _fixpsf_cat=phot(image,init_guesses=init_guesses)
+                _fixpsf_cat["flag"] |= starbug2.SRC_FIX
+
+            if _psf_cat is not None and _fixpsf_cat is not None: psf_cat=vstack((_psf_cat,_fixpsf_cat))
+            elif _psf_cat is None: psf_cat=_fixpsf_cat
+            else: psf_cat=_psf_cat
+
+            ra,dec=self.wcs.all_pix2world(psf_cat["x_fit"], psf_cat["y_fit"],0)
+            psf_cat.add_column( Column(ra, name="RA"), index=1)
+            psf_cat.add_column( Column(dec, name="DEC"), index=2)
+
+            ######################
+            # Photometric offset # takes the top 50% least crowded sources
+            ######################
+
+            #crowd=SourceProperties(self.image["SCI"].data, psf_cat[["RA","DEC"]]).calculate_crowding()
+            #ii=np.argsort(crowd)[len(crowd)//2:]
+            #apmag,_=flux2ABmag(psf_cat["apflux"],None,filter=self.filter)
+            mag,magerr=flux2ABmag(psf_cat["flux"],psf_cat["eflux"],filter=self.filter)
+            #dmag= np.nanmean( mag[ii]-apmag[ii] )
+            #mag-=dmag
+            #self.log("Photometric offset: %f\n"%dmag)
 
 
-            init_guesses=init_guesses[["x_0","y_0"]]
+            psf_cat.add_column(mag,name=self.filter)
+            psf_cat.add_column(magerr,name="e%s"%self.filter)
 
-            with open("out.reg","w") as fp:
-                for line in init_guesses:
-                    fp.write("circle %f %f 3\n"%( line["x_0"]+1, line["y_0"]+1))
-            self.psfcatalogue=tabppend(self.psfcatalogue, phot(self.image[1].data, init_guesses=init_guesses))
-            self.residuals.append(phot.get_residual_image())
-            self.background=fits.ImageHDU(data=phot.bkg_estimator.bgd, name="BACKGROUND") ##So is it supposed to be a fits image or a numpy array?!
+            self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
+            self.psfcatalogue.meta=dict(self.header.items())
+            #self.residuals.append(phot.get_residual_image())
+            self.background=fits.ImageHDU(data=phot.bkg_estimator.bgd, name="BACKGROUND", header=self.wcs.to_header()) ##So is it supposed to be a fits image or a numpy array?!
 
     def cleanup(self):
         """
@@ -363,7 +422,7 @@ class StarbugBase(object):
 
         detector=Detection_Routine( sig_src=self.options["SIGSRC"],
                                     sig_sky=self.options["SIGSKY"],
-                                    fwhm=starbug2.filters[self.filter][2],
+                                    fwhm=starbug2.filters[self.filter].pFWHM,
                                     sharplo=self.options["SHARP_LO"],
                                     sharphi=self.options["SHARP_HI"],
                                     roundlo=self.options["ROUND_LO"],
@@ -372,9 +431,9 @@ class StarbugBase(object):
                                     verbose=0)
 
         phot=PSFPhot_Routine(   self.options["CRIT_SEP"],
-                                starbug2.filters[self.filter][2],
+                                starbug2.filters[self.filter].pFWHM,
                                 psf_model,
-                                psf_model.prf_shape,
+                                psf_model.shape,
                                 sig_sky=self.options["SIGSKY"],
                                 sig_src=self.options["SIGSRC"],
                                 sharplo=self.options["SHARP_LO"],
@@ -387,7 +446,7 @@ class StarbugBase(object):
         art=ArtificialStar_Routine(detector, phot, psf_model)
         self.log("Artificial Star Testing (n=%d)\n"%(self.options["NUMBER_ARTIFICIAL_STARS"]))
         result=art.run(self.image[1].data, ntests=self.options["NUMBER_ARTIFICIAL_STARS"], flux_range=(self.options["MIN_FLUX"], self.options["MAX_FLUX"]),
-                subimage_size=self.options["SUBIMAGE_SIZE"], separation_thresh=self.options["SEPARATION_THRESH"], fwhm=starbug2.filters[self.filter][2])
+                subimage_size=self.options["SUBIMAGE_SIZE"], separation_thresh=self.options["SEPARATION_THRESH"], fwhm=starbug2.filters[self.filter].pFWHM)
         export_table(result, "/tmp/artificialstars.fits")
 
     def export(self, outdir=None):
@@ -418,14 +477,20 @@ class StarbugBase(object):
         #hdulist=[fits.PrimaryHDU(header=header)]
         hdulist=[fits.PrimaryHDU()]
         for n,res in enumerate(self.residuals,1):
-            im=fits.ImageHDU(data=res,name="RESIDUAL%d"%n)
+            im=fits.ImageHDU(data=res,name="RESIDUAL%d"%n, header=self.wcs.to_header())
             #im.header.update(header)
             hdulist.append(im)
 
         if len(hdulist)>1: 
             fits.HDUList(hdulist).writeto("%s/%s-res.fits"%(outdir,fname), overwrite=True)
 
-
+    def source_geometry(self):
+        """
+        Calculate source geometry stats for a given image and source list
+        """
+        if self.detections is None: perror("No source file loaded\n")
+        else:
+            warn("source geometry not implemented yet\n")
 
     def verify(self):
         """
@@ -449,7 +514,7 @@ class StarbugBase(object):
             status=1
 
         else:
-            if not os.path.exists("%s/%s.fits"%(dname, self.filter)):
+            if not os.path.exists("%s/%s%s.fits"%(dname, self.filter, self.info["DETECTOR"])):
                 warn()
                 perror("Unable to locate filter PSF for '%s'\n"%self.filter)
                 status=1

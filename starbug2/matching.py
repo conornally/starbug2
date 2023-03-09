@@ -195,6 +195,13 @@ def cascade_match(catalogues, threshold, colnames):
     return finish_matching(base, colnames)
 
 def band_match(catalogues, threshold, colnames):
+    """
+    Given a list of catalogues (with filter names in the meta data), match them
+    in order of decreasing astrometric accuracy. 
+    If F115W, F444W, F770W are input, the F115W centroid positions will be 
+    taken as "correct". If a source is not resolved in this band, the next most 
+    astrometrically accurate position is taken, i.e. F444W
+    """
     threshold=threshold*u.arcsec
     colnames= list( name for name in catalogues[0].colnames if name in colnames)
     ### ORDER the tables into the correct order (increasing wavelength)
@@ -282,7 +289,7 @@ def finish_matching(tab, colnames):
     """
     Averaging all the values. Combining source flags and building a NUM column
     """
-    flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint32)
+    flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint16)
     av=Table(np.full((len(tab),len(colnames)),np.nan), names=colnames)
 
     for name in colnames:
@@ -303,7 +310,7 @@ def finish_matching(tab, colnames):
             col=Column(np.nanmax(ar,axis=1),name=name)
         elif name=="flag":
             col=Column(flags, name=name)
-            for fcol in ar.T: col|=fcol.astype(np.uint32)
+            for fcol in ar.T: col|=fcol.astype(np.uint16)
         else: col=Column(np.nanmedian(ar, axis=1),name=name)
         
         av[name]=col

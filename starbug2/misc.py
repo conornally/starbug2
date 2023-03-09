@@ -43,16 +43,36 @@ def generate_psfs(dname):
 
         printf("Generating PSFs --> %s\n"%dname)
 
-        load=loading(len(starbug2.filters))
-        for fltr,line in starbug2.filters.items():
-            load.msg=fltr
-            load.show()
-            
-            nc = webbpsf.NIRCam() if line[5]==starbug2.NIRCAM else webbpsf.MIRI()
-            nc.filter=fltr
-            psf=nc.calc_psf()
-            load()
-            fits.PrimaryHDU(data=psf[1].data, header=psf[1].header).writeto("%s/%s.fits"%(dname, fltr), overwrite=True)
+        load=loading(145)
+        load.show()
+        for fltr,_f in starbug2.filters.items():
+            if _f.instr==starbug2.NIRCAM:
+                instr=webbpsf.NIRCam
+                if _f.length==starbug2.SHORT: detectors=["NRCA1","NRCA2","NRCA3","NRCA4","NRCB1","NRCB2","NRCB3","NRCB4"]
+                else: detectors=["NRCA5","NRCB5"]
+            else:
+                instr=webbpsf.MIRI
+                detectors=[None]
+
+            for det in detectors:
+                model=instr()
+                model.filter=fltr
+                if det: model.detector=det
+                load.msg="%6s %5s"%(fltr,det)
+                #if det=="NRCA5": det="NRCALONG"
+                #if det=="NRCB5": det="NRCBLONG"
+                if det is None: det=""
+                model.calc_psf()[1].writeto("%s/%s%s.fits"%(dname,fltr,det), overwrite=True)
+                if '5' in det: 
+                    _det=det.replace('5',"LONG")
+                    model.calc_psf()[1].writeto("%s/%s%s.fits"%(dname,fltr,_det), overwrite=True)
+                load();load.show()
+                
+            #nc = webbpsf.NIRCam() if line[5]==starbug2.NIRCAM else webbpsf.MIRI()
+            #nc.filter=fltr
+            #psf=nc.calc_psf()
+            #load()
+            #fits.PrimaryHDU(data=psf[1].data, header=psf[1].header).writeto("%s/%s.fits"%(dname, fltr), overwrite=True)
         load.show()
     else:perror("WARNING: Cannot generate PSFs, no environment variable 'WEBBPSF_PATH', please see https://webbpsf.readthedocs.io/en/latest/installation.html\n")
 
