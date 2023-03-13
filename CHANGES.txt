@@ -1,3 +1,5 @@
+v0.2.17:
+	Fixing some readme information
 v0.2.16:
     PSF:
         >   generate residual between forced and free xy fits
