@@ -1,7 +1,6 @@
 import time
 import os, sys, numpy as np
 from parse import parse
-from scipy.optimize import minimize
 from astropy.table import Table,hstack,Column
 from astropy.io import fits
 import starbug2

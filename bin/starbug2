@@ -204,12 +204,13 @@ def fn(fname):
     sb=None
     if os.path.exists(fname):
         dname,bname,ext=split_fname(fname)
+        if ncores>1: puts(fname)
 
         if options&FINDFILE:
             ap="%s/%s-ap.fits"%(dname,bname)
             bgd="%s/%s-bgd.fits"%(dname,bname)
-            if os.path.exists(ap): setdict["AP_FILE"]=ap
-            if os.path.exists(bgd): setdict["BGD_FILE"]=bgd
+            if os.path.exists(ap)  and not setdict.get("AP_FILE"):  setdict["AP_FILE"]=ap
+            if os.path.exists(bgd) and not setdict.get("BGD_FILE"): setdict["BGD_FILE"]=bgd
 
         if ext==".fits":
             if options&VERBOSE: setdict["VERBOSE"]=1
@@ -266,7 +267,6 @@ if __name__=="__main__":
 
             N=len(starbugs)-param["RM_MATCH"]
             mask=( (av["NUM"]>N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
-            print(mask)
 
             printf("-> %s-ap*...\n"%(fname))
             av.meta.update(header)

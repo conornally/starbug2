@@ -1,5 +1,17 @@
+v0.2.16:
+    PSF:
+        >   generate residual between forced and free xy fits
+		>	new PSF param options 
+			FORCE_POS
+			DPOS_THRESH
+			GEN_RESIDUAL
+	GENERAL:
+		>	can set HDUNAME in param file
+		>	residuals are now just a single hdu 
 v0.2.15:
-	
+    PSF:
+        >   split forced and free xy position
+
 v0.2.14:
 	General: 
 		>	I broke export_table earlier, I have now fixed it

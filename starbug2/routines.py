@@ -304,7 +304,6 @@ class BackGround_Estimate_Routine(BackgroundBase):
             load()
             load.show() ## This will slow the thing down quite a lot
         self.bgd=Background2D(_data, self.boxsize).background
-        #fp.close()
         return self.bgd
 
     def calc_background(self,data, axis=None, masked=None):
@@ -383,13 +382,13 @@ class PSFPhot_Routine(BasicPSFPhotometry):
 
 
 
-        cat.rename_column("flux_fit","flux")
+        #cat.rename_column("flux_fit","flux")
         if "flux_unc" not in cat.colnames:
             cat.add_column(Column(np.full(len(cat),np.nan), name="eflux"))
             perror("NO ERRORS??\n")
         else: cat.rename_column("flux_unc","eflux")
 
-        cat.remove_rows( cat["flux"]<=0)
+        #cat.remove_rows( cat["flux_fit"]<=0)
         return cat
 
 class Cleaning_Routine(object):
@@ -568,7 +567,7 @@ class ArtificialStar_Routine(object):
 
 class SourceProperties:
 
-    def __init__(self, image, sourcelist):
+    def __init__(self, image, sourcelist, verbose=1):
         self.image=image
         self.sourcelist=sourcelist
         if "RA" not in sourcelist.colnames or "DEC" not in sourcelist.colnames: 
@@ -582,7 +581,8 @@ class SourceProperties:
             dist=np.sqrt( (src["RA"]-self.sourcelist["RA"])**2 + (src["DEC"]-self.sourcelist["DEC"])**2 )
             dist.sort()
             crowd[i]= sum( dist[1:N])
-            load();load.show()
+            load()
+            if self.verbose: load.show()
         return crowd
 
     def calculate_sharpround(self, fwhm):
