@@ -20,15 +20,18 @@ pip install starbug2
 git clone https://github.com/conornally/starbug2.git
 python -m build
 pip install .
+
+...
+
+echo 'export "WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY"' >> ~/.bashrc
+starbug2 --init
 ```
 
 After the package is installed, there are a few steps required to initialise Starbug.
 
-**WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on https://webbpsf.readthedocs.io/en/latest/installation.html however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then add append to your .bashrc (or equivalent) `export "WEBBPSF=PATH/TO/DIRECTORY"`.
+**WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on https://webbpsf.readthedocs.io/en/latest/installation.html however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then add append to your .bashrc (or equivalent) `export "WEBBPSF_PATH=PATH/TO/DIRECTORY"`.
 
-**PSFDIR** This is the folder where starbug stores its relevant data files. By default this is "${HOME}/.local/share/starbug". Make sure this folder exists, or if you wish to save them elsewhere, change the folder (permanently) in "starbug2/starbug2/param/default.param [PSFDIR]", or (temporarily) in a local starbug.param file.
-
-**PSF FILES** Starbug requires PSF files to be generated for the filters you are using. To do so, run `starbug2 --generate-psf` and they will be generated into "PSFDIR"
+**PSF FILES** Starbug requires PSF files to be generated for the filters you are using. To do so, run `starbug2 --init` and they will be generated into "PSFDIR={HOME}/.local/share/starbug"
 
 ## Usage
 

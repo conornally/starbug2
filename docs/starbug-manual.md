@@ -11,7 +11,7 @@ $~ pip install starbug2
 
 After the package is installed, there are a few steps required to initialise Starbug.
 
-**WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on [webbpsf homepage](https://webbpsf.readthedocs.io/en/latest/installation.html) however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then append to your .bashrc (or equivalent) `export "WEBBPSF=PATH/TO/DIRECTORY"`.
+**WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on [webbpsf homepage](https://webbpsf.readthedocs.io/en/latest/installation.html) however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then append to your .bashrc (or equivalent) `export "WEBBPSF_PATH=PATH/TO/DIRECTORY"`.
 
 StarbugII has a command that should initialise everything else. It will create the folder `${HOME}/.local/share/starbug` and download/generate relevant files. It will take approx. 5 minutes to complete.
 ```bash
