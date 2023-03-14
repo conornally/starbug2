@@ -2,6 +2,18 @@ import warnings
 from astropy.utils.exceptions import AstropyWarning
 warnings.simplefilter("ignore",category=AstropyWarning)
 
+logo="""
+         __     __.       
+        / ___ /.. /        
+    ___---.      \         
+  ./=== \  \.     |        
+  | (O)  |  |     |        
+   \._._/ ./     (\)       
+  /   ---\ _____./ \       
+---      ___       ---      
+               
+"""
+
 
 ## HASHDEFS
 MIRI=1

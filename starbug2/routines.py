@@ -570,6 +570,7 @@ class SourceProperties:
     def __init__(self, image, sourcelist, verbose=1):
         self.image=image
         self.sourcelist=sourcelist
+        self.verbose=verbose
         if "RA" not in sourcelist.colnames or "DEC" not in sourcelist.colnames: 
             perror("No WCS in sourcelist\n")
 

@@ -215,7 +215,7 @@ class StarbugBase(object):
             dat=detector(self.image.data)
             colnames=("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")
             self.detections=dat[colnames]
-            crowd=SourceProperties(self.image.data, dat[["RA","DEC"]], verbose=self.verbose).calculate_crowding()
+            crowd=SourceProperties(self.image.data, dat[["RA","DEC"]], verbose=self.options["VERBOSE"]).calculate_crowding()
             self.detections.add_column( crowd, name="crowding")
             self.aperture_photometry()
 

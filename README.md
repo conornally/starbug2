@@ -1,7 +1,7 @@
 # StarBugII
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.2.14
+Last updated: v0.2.17
 
 **NOTE** This is still under heavy development, PSFs from JWST have not been officially released and as such, only aperture photometry can be used robustly.
 
@@ -20,18 +20,19 @@ pip install starbug2
 git clone https://github.com/conornally/starbug2.git
 python -m build
 pip install .
-
-...
-
-echo 'export "WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY"' >> ~/.bashrc
-starbug2 --init
 ```
+
 
 After the package is installed, there are a few steps required to initialise Starbug.
 
 **WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on https://webbpsf.readthedocs.io/en/latest/installation.html however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then add append to your .bashrc (or equivalent) `export "WEBBPSF_PATH=PATH/TO/DIRECTORY"`.
 
 **PSF FILES** Starbug requires PSF files to be generated for the filters you are using. To do so, run `starbug2 --init` and they will be generated into "PSFDIR={HOME}/.local/share/starbug"
+
+```
+echo 'export "WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY"' >> ~/.bashrc
+starbug2 --init
+```
 
 ## Usage
 

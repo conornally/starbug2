@@ -293,7 +293,4 @@ def get_MJysr2Jy_scalefactor(ext):
 
 
 if __name__ == "__main__":
-    import glob
-    fnames=glob.glob("/home/conor/dat/NGC346/JWST/stage2-destriped/de-striped_F335M/de-striped_jw01227002001_02101_0000*_nrc*long_cal.fits")
-    fname=combine_fnames(fnames)
-    print(fname)
+    print(starbug2.logo)
