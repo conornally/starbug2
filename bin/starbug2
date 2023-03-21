@@ -142,7 +142,8 @@ for opt,optarg in opts:
         table=Table.read(optarg,format="fits")#load_table(optarg)
         options|=STOPPROC
 
-    if opt=="--version": quit("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version)
+    #if opt=="--version": quit("%s >starbug2-v%s"%(starbug2.logo%pkg_resources.get_distribution("starbug2").version))
+    if opt=="--version": quit(starbug2.logo%("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version))
 
     if opt=="--generate-run": 
         options|=(GENRATRUN|STOPPROC)

@@ -187,7 +187,7 @@ class APPhot_Routine():
             dat=sigma_clip(dat[dat>0 & np.isfinite(dat)], sigma=sig_sky)
             if len(dat): ##sometimes all the surrounding pixels are nan OR above SIGSKY value??
                 #self.catalogue["sky"][i]=mode(dat)[0]
-                self.catalogue["sky"][i]=np.median(dat)
+                self.catalogue["sky"][i]=np.ma.median(dat)
 
 
         self.catalogue["eflux"]=phot["aperture_sum_err"]
@@ -197,7 +197,7 @@ class APPhot_Routine():
         if dqflags is not None:
             self.log("-> flagging unlikely sources\n")
             for i, mask in enumerate(apertures.to_mask(method="center")):
-                dat=np.array(mask.multiply(dqflags),np.uint16)
+                dat=np.array(mask.multiply(dqflags),np.uint32)
                 if np.sum( dat & (DQ_DO_NOT_USE|DQ_SATURATED)): col[i]|=SRC_BAD
                 if np.sum( dat & DQ_JUMP_DET): col[i]|=SRC_JMP
         self.catalogue.add_column(col)
@@ -368,6 +368,7 @@ class PSFPhot_Routine(BasicPSFPhotometry):
         return self.background
 
 
+    #def do_photometry(self, image, init_guesses=None):
     def do_photometry(self, image, mask=None, init_guesses=None, progress_bar=False):
         """
         """ 
@@ -375,10 +376,11 @@ class PSFPhot_Routine(BasicPSFPhotometry):
         _fixcat=None
 
         if init_guesses is None:
-            perror("Must include source list")
+            perror("Must include source list\n")
             return None
 
         cat=super().do_photometry(image, mask=mask, init_guesses=init_guesses, progress_bar=False)
+        #cat=super().do_photometry(image, init_guesses=init_guesses)
 
 
 

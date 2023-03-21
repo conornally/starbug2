@@ -2,17 +2,16 @@ import warnings
 from astropy.utils.exceptions import AstropyWarning
 warnings.simplefilter("ignore",category=AstropyWarning)
 
-logo="""
-         __     __.       
-        / ___ /.. /        
-    ___---.      \         
-  ./=== \  \.     |        
-  | (O)  |  |     |        
-   \._._/ ./     (\)       
-  /   ---\ _____./ \       
----      ___       ---      
-               
-"""
+logo="""\
+ STARBUGII         *          *  __  *  __   - * --   - 
+ ---------               *      / ___ /    \   --  -      - 
+ JWST photometry in        *___---.    .___/  -   --   -
+ complex crowded fields   ./=== \  \.     \      * 
+                          | (O)  |  |     |           *
+ conor nally               \._._/ ./    _(\)   *   
+ conor.nally@ed.ac.uk     /   ~--\ ----~   \      *
+                        ---      ___       ---      
+ > %s"""
 
 
 ## HASHDEFS

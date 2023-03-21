@@ -351,7 +351,7 @@ class StarbugBase(object):
             ###################################
 
             image=self._image["SCI"].data.copy() / self._image["SCI"].header["PHOTMJSR"] #https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
-            bgd = self.background.data.copy() / self._image["SCI"].header["PHOTMJSR"] 
+            bgd = self.background.data.copy()# / self._image["SCI"].header["PHOTMJSR"] 
 
             fname=os.path.expandvars("%s/%s%s.fits"%(self.options["PSFDIR"], self.filter, self.info["DETECTOR"]))
             self.log(" <-- %s\n"%fname)
@@ -377,7 +377,6 @@ class StarbugBase(object):
             init_guesses.rename_column("flux","flux_0")
             init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
             init_guesses=init_guesses[init_guesses["flux_0"]>0]
-
             
             ###########
             # Run Fit #
@@ -392,6 +391,7 @@ class StarbugBase(object):
 
                 phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=0)
                 _psf_cat=phot(image,init_guesses=init_guesses)
+                print(_psf_cat)
                 d = (_psf_cat["x_0"]-_psf_cat["x_fit"])**2.0 + (_psf_cat["y_0"]-_psf_cat["y_fit"])**2.0
                 ii=np.where(d>=dpos**2.0)
                 init_guesses=init_guesses[ii]

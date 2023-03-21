@@ -1,7 +1,7 @@
 # StarBugII
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.2.17
+Last updated: v0.2.18
 
 **NOTE** This is still under heavy development, PSFs from JWST have not been officially released and as such, only aperture photometry can be used robustly.
 
@@ -30,7 +30,7 @@ After the package is installed, there are a few steps required to initialise Sta
 **PSF FILES** Starbug requires PSF files to be generated for the filters you are using. To do so, run `starbug2 --init` and they will be generated into "PSFDIR={HOME}/.local/share/starbug"
 
 ```
-echo 'export "WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY"' >> ~/.bashrc
+echo "export 'WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY'" >> ~/.bashrc
 starbug2 --init
 ```
 
