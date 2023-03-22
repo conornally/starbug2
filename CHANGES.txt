@@ -1,3 +1,8 @@
+v0.2.19:
+    PSF:
+        >   I fixed the fitting!
+    General:
+        >   fixed some verbose outputs
 v0.2.18:
 	bugs:
 		>	SourceProperties verbose flag

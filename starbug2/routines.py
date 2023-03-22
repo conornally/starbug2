@@ -236,8 +236,8 @@ class APPhot_Routine():
 
         line=t_apcorr[(np.abs(t_apcorr["eefraction"]-encircled_energy)).argmin()]
         if verbose:
-            printf("Best matching encircled energy %.1f, with radius %g pixels\n"%(line["eefraction"],line["radius"]))
-            printf("Using aperture correction: %f\n"%line["apcorr"])
+            printf("-> best matching encircled energy %.1f, with radius %g pixels\n"%(line["eefraction"],line["radius"]))
+            printf("-> using aperture correction: %f\n"%line["apcorr"])
 
         return line["apcorr"], line["radius"]
 
@@ -281,7 +281,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
 
         rlist=np.sqrt(peaks**0.7)*self.fwhm/1.5 ## <-- that works but hmm
         D=50
-        load=loading(len(self.sourcelist), msg="masking sources")
+        load=loading(len(self.sourcelist), msg="masking sources", res=10)
         for r,src in zip(rlist,self.sourcelist):
 
             rin=1.5*r
@@ -302,7 +302,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
             _data[_Y,_X]=tmp
 
             load()
-            load.show() ## This will slow the thing down quite a lot
+            if self.verbose: load.show() ## This will slow the thing down quite a lot
         self.bgd=Background2D(_data, self.boxsize).background
         return self.bgd
 
@@ -335,8 +335,9 @@ class _fitmodel(LevMarLSQFitter):
     def __call__(self, *args, **kwargs):
         if self.grouper and self.load:
             self.load.setlen(self.grouper.ngroups)
-            self.load()
-            self.load.show()
+            if self.load is not None:
+                self.load()
+                self.load.show()
         return super().__call__(*args,**kwargs)
 
 
