@@ -183,7 +183,7 @@ class APPhot_Routine():
 
         self.log("-> calculating photometric errors\n")
         for i,mask in enumerate(annulus_aperture.to_mask(method="center")):
-            dat=mask.multiply(image)
+            dat=np.array(mask.multiply(image),dtype=float)
             dat=sigma_clip(dat[dat>0 & np.isfinite(dat)], sigma=sig_sky)
             if len(dat): ##sometimes all the surrounding pixels are nan OR above SIGSKY value??
                 #self.catalogue["sky"][i]=mode(dat)[0]
@@ -197,9 +197,12 @@ class APPhot_Routine():
         if dqflags is not None:
             self.log("-> flagging unlikely sources\n")
             for i, mask in enumerate(apertures.to_mask(method="center")):
-                dat=np.array(mask.multiply(dqflags),np.uint32)
-                if np.sum( dat & (DQ_DO_NOT_USE|DQ_SATURATED)): col[i]|=SRC_BAD
-                if np.sum( dat & DQ_JUMP_DET): col[i]|=SRC_JMP
+                _tmp=mask.multiply(dqflags)
+                if _tmp is not None:
+                    dat=np.array(_tmp,dtype=np.uint32)
+                    if np.sum( dat & (DQ_DO_NOT_USE|DQ_SATURATED)): col[i]|=SRC_BAD
+                    if np.sum( dat & DQ_JUMP_DET): col[i]|=SRC_JMP
+                #else: col[i]|=SRC_UKN
         self.catalogue.add_column(col)
         return self.catalogue
 

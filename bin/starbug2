@@ -263,7 +263,7 @@ if __name__=="__main__":
 
         if options&VERBOSE: printf("Matching outputs\n")
 
-        if options&DODETECT:
+        if options&(DODETECT|DOAPPHOT):
             av,full=dither_match( [sb.detections for sb in starbugs] , threshold=param["MATCH_THRESH"], colnames=colnames)
 
             N=len(starbugs)-param["RM_MATCH"]
@@ -271,7 +271,8 @@ if __name__=="__main__":
 
             printf("-> %s-ap*...\n"%(fname))
             av.meta.update(header)
-            export_table(hstack((av,full)), fname="%s-apfull.fits"%(fname), header=header)
+            #export_table(hstack((av,full)), fname="%s-apfull.fits"%(fname), header=header)
+            export_table(full, fname="%s-apfull.fits"%(fname), header=header)
             export_table(av[mask], fname="%s-apmatch.fits"%(fname), header=header)
 
         if options&DOPHOTOM:

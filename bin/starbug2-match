@@ -1,8 +1,9 @@
 #!/usr/bin/python3 -Wignore
 """Starbug2 Matching
-usage: starbug2-match [-Bhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
+usage: starbug2-match [-Bfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
     -D  --dither             : match in "DITHER" mode (preserves a column for every frame)
+    -f  --full               : export full catalogue
     -G  --generic            : match in "GENERIC" mode
     -h  --help               : show help message
     -o  --output  file.fits  : output matched catalogue
@@ -11,6 +12,7 @@ usage: starbug2-match [-Bhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits
 """
 
 import os,sys,getopt,glob
+import numpy as np
 import pkg_resources
 from astropy.io import fits
 from astropy.table import Table, hstack
@@ -25,6 +27,8 @@ BANDMATCH   =0x04
 DITHERMATCH =0x08
 GENERICMATCH=0x10
 
+EXPFULL = 0x100
+
 options=0
 
 parameter={}
@@ -36,7 +40,7 @@ def usage():
     if options& VERBOSE: quit(__doc__)
     else: quit( __doc__.split("\n")[1])
 
-opts,args=getopt.getopt(sys.argv[1:], "BDGhvo:p:s:", ("band","dither", "generic", "help","verbose",
+opts,args=getopt.getopt(sys.argv[1:], "BDfGhvo:p:s:", ("band","dither","full", "generic", "help","verbose",
                                                 "output=", "param=", "set="))
 
 for opt,optarg in opts:
@@ -44,6 +48,9 @@ for opt,optarg in opts:
     if opt in ("-v", "--verbose"): options|=VERBOSE
     if opt in ("-o", "--output"): output=optarg
     if opt in ("-p", "--param"): pfile=optarg
+
+    if opt in ("-f","--full"): options|=EXPFULL
+
 
     if opt in ("-s","--set"): 
         if '=' in optarg:
@@ -81,17 +88,20 @@ if options & BANDMATCH:
 else:
     if options & DITHERMATCH: av,full=matching.dither_match(tables, parameters["MATCH_THRESH"], colnames)
     if options & GENERICMATCH: 
-        av=None
-        full=matching.generic_match(tables,parameters["MATCH_THRESH"],True)
-    else:                     av,full=matching.cascade_match(tables, parameters["MATCH_THRESH"], colnames)
+        full=matching.generic_match(tables,threshold=parameters["MATCH_THRESH"], add_src=True)
+        av=None#_=matching.finish_matching(full, colnames=tables[0].colnames)
+    else:
+        av,full=matching.cascade_match(tables, parameters["MATCH_THRESH"], colnames)
 
-    if av:
-        av.meta.update(tables[0].meta)
+
+    full=Table(full,dtype=[float]*len(full.colnames)).filled(np.nan) ## fill empty values with null
+
+    if av: av.meta.update(tables[0].meta)
 
     if output is None:
         output=utils.combine_fnames( [ name for name in args] , ntrys=100)
     dname,fname,ext=utils.split_fname(output)
 
-    utils.printf("-> %s/%s*"%(dname,fname))
-    utils.export_table(hstack((av,full)),fname="%s/%sfull.fits"%(dname,fname))
+    utils.printf("-> %s/%s*\n"%(dname,fname))
+    if options&EXPFULL: utils.export_table(full,fname="%s/%sfull.fits"%(dname,fname))
     if av: utils.export_table(av,"%s/%smatch.fits"%(dname,fname))

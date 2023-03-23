@@ -1,7 +1,7 @@
 # StarBugII
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.2.18
+Last updated: v0.3.0
 
 **NOTE** This is still under heavy development, PSFs from JWST have not been officially released and as such, only aperture photometry can be used robustly.
 
@@ -38,7 +38,7 @@ starbug2 --init
 
 ```bash
 Starbug II - JWST PSF photometry
-usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.param] [-s opt=val] image.fits ...
+usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
    -b  --bgdfile         : load background (-bgd.fits) file
@@ -46,6 +46,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
    -d  --apfile  ap.fits : load a source detection (-ap.fits) file to skip the source detection step
    -D  --detect          : run source detection
    -f  --find            : attempt to find associated -ap -bgd files
+   -G  --geom            : calculate geometric stats on source list
    -h  --help            : display uasage information
    -M  --match           : match outputs from all input image files
    -n  --ncores      num : number of CPU cores to split process between
@@ -70,6 +71,8 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
 ```
+
+
 
 See [starbug-manual](https://github.com/conornally/starbug2/blob/main/docs/starbug-manual.pdf) for more detailed instructions.
 

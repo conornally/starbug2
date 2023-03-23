@@ -104,6 +104,7 @@ def generic_match(catalogues, threshold=0.25, add_src=True):
         if not len(base):
             tmp=cat.copy()
         else:
+            tmp=Table(tmp,dtype=[float]*len(tmp.colnames)).filled(np.nan) ## fill empty values with null
             idx,d2d,_=_match(base,cat)
             tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames)
 
@@ -114,7 +115,7 @@ def generic_match(catalogues, threshold=0.25, add_src=True):
                     tmp.add_row( src )
         tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
         base=hstack((base,tmp))
-    print(base)
+        #base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan) ## fill empty values with null
     return base
 
 

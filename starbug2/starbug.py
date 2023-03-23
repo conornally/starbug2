@@ -167,7 +167,11 @@ class StarbugBase(object):
         if not fname: fname=self.options["AP_FILE"]
         if os.path.exists(fname):
             self.detections=Table().read(fname,format="fits")#data=fp[1].data._get_raw_data())
-            self.detections["flag"]=Column(self.detections["flag"], dtype=np.uint16)
+            names=self.detections.colnames
+
+            if "flag" in names:
+                self.detections["flag"]=Column(self.detections["flag"], dtype=np.uint16)
+
             self.log("loaded AP_FILE='%s'\n"%fname)
 
             cn=self.detections.colnames
@@ -191,13 +195,18 @@ class StarbugBase(object):
             self.log("loaded BGD_FILE='%s'\n"%fname)
         else: perror("BGD_FILE='%s' does not exists\n"%fname)
 
+    def load_psf(self,fname=None):
+        """
+        """
+        pass
+
     def detect(self):
         """
         Full source detection routine
         Saves the result as a table self.detections
         """
         self.log("Detecting Sources\n")
-        if self._image and self.filter:
+        if self.image and self.filter:
             #FWHM=starbug2.filters[self.filter][2]
             FWHM=starbug2.filters[self.filter].pFWHM
             detector=Detection_Routine( sig_src=self.options["SIGSRC"],
@@ -344,14 +353,14 @@ class StarbugBase(object):
             perror("unable to run photometry: no background estimation loaded\n")
             return
 
-        if self._image and self.filter:
+        if self.image and self.filter:
             self.log("Running PSF Photometry")
 
             ###################################
             # Collect relevent files and data #
             ###################################
 
-            image=self._image["SCI"].data.copy()/ self._image["SCI"].header["PHOTMJSR"] #https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
+            image=self.image.data.copy()/ self.image.header["PHOTMJSR"] #https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
             bgd = self.background.data.copy()# / self._image["SCI"].header["PHOTMJSR"] 
 
             fname=os.path.expandvars("%s/%s%s.fits"%(self.options["PSFDIR"], self.filter, self.info["DETECTOR"]))
@@ -372,8 +381,8 @@ class StarbugBase(object):
 
             init_guesses=init_guesses[ init_guesses["x_0"]>=0 ]
             init_guesses=init_guesses[ init_guesses["y_0"]>=0 ]
-            init_guesses=init_guesses[ init_guesses["x_0"]<self._image["SCI"].header["NAXIS1"]]
-            init_guesses=init_guesses[ init_guesses["y_0"]<self._image["SCI"].header["NAXIS2"]]
+            init_guesses=init_guesses[ init_guesses["x_0"]<self.image.header["NAXIS1"]]
+            init_guesses=init_guesses[ init_guesses["y_0"]<self.image.header["NAXIS2"]]
             init_guesses=init_guesses[["x_0","y_0","flux",self.filter, "flag"]]
             init_guesses.rename_column("flux","flux_0")
             init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
@@ -388,7 +397,7 @@ class StarbugBase(object):
             _fixpsf_cat=None
 
             if not self.options["FORCE_POS"]:
-                dpos= self.options["DPOS_THRESH"] / np.sqrt( self._image["SCI"].header["PIXAR_A2"])
+                dpos= self.options["DPOS_THRESH"] / np.sqrt( self.image.header["PIXAR_A2"])
                 self.log("-> position fit threshold [pix]: %.2g\n"%dpos)
 
                 phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
@@ -479,7 +488,7 @@ class StarbugBase(object):
                                     sharphi=self.options["SHARP_HI"],
                                     roundlo=self.options["ROUND_LO"],
                                     roundhi=self.options["ROUND_HI"],
-                                    wcs=WCS(self._image[1].header),
+                                    wcs=WCS(self.image.header),
                                     verbose=0)
 
         phot=PSFPhot_Routine(   self.options["CRIT_SEP"],
@@ -492,12 +501,12 @@ class StarbugBase(object):
                                 sharphi=self.options["SHARP_HI"],
                                 roundlo=self.options["ROUND_LO"],
                                 roundhi=self.options["ROUND_HI"],
-                                wcs=WCS(self._image[1].header),
+                                wcs=WCS(self.image.header),
                                 verbose=0)
 
         art=ArtificialStar_Routine(detector, phot, psf_model)
         self.log("Artificial Star Testing (n=%d)\n"%(self.options["NUMBER_ARTIFICIAL_STARS"]))
-        result=art.run(self._image[1].data, ntests=self.options["NUMBER_ARTIFICIAL_STARS"], flux_range=(self.options["MIN_FLUX"], self.options["MAX_FLUX"]),
+        result=art.run(self.image.data, ntests=self.options["NUMBER_ARTIFICIAL_STARS"], flux_range=(self.options["MIN_FLUX"], self.options["MAX_FLUX"]),
                 subimage_size=self.options["SUBIMAGE_SIZE"], separation_thresh=self.options["SEPARATION_THRESH"], fwhm=starbug2.filters[self.filter].pFWHM)
         export_table(result, "/tmp/artificialstars.fits")
 

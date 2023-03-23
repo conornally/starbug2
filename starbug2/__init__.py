@@ -28,6 +28,7 @@ SRC_BAD=0x01
 SRC_JMP=0x02
 SRC_VAR=0x04 ##source frame mean >5% differnet than median
 SRC_FIX=0x08 ##psf fit with fixed centroid
+SRC_UKN=0x10 ##source unknown
 
 
 ##DQ FLAGS
@@ -36,7 +37,7 @@ DQ_SATURATED =0x02
 DQ_JUMP_DET  =0x04
 
 ## DEFAULT MATCHING COLS
-match_cols=["RA","DEC","flag","flux","eflux", "stdflux"]
+match_cols=["RA","DEC","flag","flux","eflux", "stdflux", "crowding"]
 
 # ZERO POINT...
 ZP={   "F070W"	:[3631,0],
