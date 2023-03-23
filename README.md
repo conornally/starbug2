@@ -3,8 +3,6 @@
 JWST PSF photometry in dusty crowded fields.
 Last updated: v0.3.0
 
-**NOTE** This is still under heavy development, PSFs from JWST have not been officially released and as such, only aperture photometry can be used robustly.
-
 [![Python application](https://github.com/conornally/starbug2/actions/workflows/python-app.yml/badge.svg)](https://github.com/conornally/starbug2/actions/workflows/python-app.yml)
 [![PyPI version fury.io](https://badge.fury.io/py/starbug2.svg)](https://pypi.python.org/pypi/starbug2/)
 [![Latest release](https://badgen.net/github/release/conornally/starbug2)](https://github.com/conornally/starbug2/releases)
@@ -13,26 +11,30 @@ Last updated: v0.3.0
 ## Installation
 
 ```bash
-pip install starbug2
+$~ pip install starbug2
 
 --- OR ---
 
-git clone https://github.com/conornally/starbug2.git
-python -m build
-pip install .
+$~ git clone https://github.com/conornally/starbug2.git
+$~ cd starbug2
+$~ python -m build
+$~ pip install .
 ```
-
 
 After the package is installed, there are a few steps required to initialise Starbug.
 
 **WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on https://webbpsf.readthedocs.io/en/latest/installation.html however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then add append to your .bashrc (or equivalent) `export "WEBBPSF_PATH=PATH/TO/DIRECTORY"`.
 
-**PSF FILES** Starbug requires PSF files to be generated for the filters you are using. To do so, run `starbug2 --init` and they will be generated into "PSFDIR={HOME}/.local/share/starbug"
+**DATA FILES** Starbug needs to generate the WEBBPSFs, and collect some CRDS, to do this run `starbug2 --init`. It will generate these files by default into "${HOME}/.local/share/starbug" however if you wish to use a different directory, set the environment variable "STARBUG_DATDIR" to the desired destination.
 
+```bash
+$~ echo "export 'WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY'" >> ~/.bashrc
+$~ echo "export 'STARBUG_DATDIR=PATH/TO/DESTINATION'" >> ~/.bashrc
+
+$~ starbug2 --init
 ```
-echo "export 'WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY'" >> ~/.bashrc
-starbug2 --init
-```
+
+Finally verify the installation by running `starbug2 --version`
 
 ## Usage
 

@@ -140,7 +140,7 @@ def load_params(fname):
                     pass
 
                 ## Special case values
-                if key=="PSFDIR": value=os.path.expandvars(value)
+                #if key=="PSFDIR": value=os.path.expandvars(value)
                 config[key]=value
     else:
         perror("config file \"%s\" does not exist\n"%fname)

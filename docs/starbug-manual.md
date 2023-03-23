@@ -1,7 +1,7 @@
 # StarBugII Manual
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.2.15
+Last updated: v0.3.0
 
 ## Installation
 
@@ -13,12 +13,15 @@ After the package is installed, there are a few steps required to initialise Sta
 
 **WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on [webbpsf homepage](https://webbpsf.readthedocs.io/en/latest/installation.html) however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then append to your .bashrc (or equivalent) `export "WEBBPSF_PATH=PATH/TO/DIRECTORY"`.
 
-StarbugII has a command that should initialise everything else. It will create the folder `${HOME}/.local/share/starbug` and download/generate relevant files. It will take approx. 5 minutes to complete.
+**DATA FILES** Starbug needs to generate the WEBBPSFs, and collect some CRDS, to do this run `starbug2 --init`. It will generate these files by default into "${HOME}/.local/share/starbug" however if you wish to use a different directory, set the environment variable "STARBUG_DATDIR" to the desired destination.
+
 ```bash
+$~ echo "export 'WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY'" >> ~/.bashrc
+$~ echo "export 'STARBUG_DATDIR=PATH/TO/DESTINATION'" >> ~/.bashrc
 $~ starbug2 --init
 
 //verify it starts up without issue
-$~ starbug2 -vh 
+$~ starbug2 --version
 ```
 
 ### TAB Completion
@@ -26,12 +29,11 @@ $~ starbug2 -vh
 StarbugII has a bash completion script `starbug2/extras/starbug2.completion`. This can be installed directly into `/etc/bash_completion.d/` or `"source /PATH/TO/COMPLETION/FILE"` can be place within your .bashrc. Unfortunately this completion script works only in bash shells.
 
 
-
 ## Usage
 
 ```bash
 Starbug II - JWST PSF photometry
-usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.param] [-s opt=val] image.fits ...
+usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
    -b  --bgdfile         : load background (-bgd.fits) file
@@ -39,6 +41,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
    -d  --apfile  ap.fits : load a source detection (-ap.fits) file to skip the source detection step
    -D  --detect          : run source detection
    -f  --find            : attempt to find associated -ap -bgd files
+   -G  --geom            : calculate geometric stats on source list
    -h  --help            : display uasage information
    -M  --match           : match outputs from all input image files
    -n  --ncores      num : number of CPU cores to split process between
@@ -51,7 +54,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-o directory] [-p file.pa
 
    --> Single run commands
        --init                     : Initialise Starbug (post install)
-       --generate-psf             : Generate ALL the PSF files to "PSFDIR"
+       --generate-psf             : Generate ALL the PSF files to "STARBUG_DATDIR"
        --local-param              : Make a local copy of the default parameter file
        --generate-region   a.fits : Make a ds9 region file with a detection file
        --clean-table       a.fits : Clean up an individual table
@@ -84,8 +87,6 @@ As of the current version. If your parameter file doesnt fit the template of the
 | NAME             | DTYPE        | DESCRIPTION                                                           |
 |------------------|--------------|---------------------------------------------------------------------------------|
 | VERBOSE          | INT 0:1      | Include verbose outputs.                                              |
-| NULLVAL          | FLOAT        | (depr.) Output table NULL value.                                      |
-| PSFDIR           | STR          | Folder where package data is stored. This will expand environment variables (${HOME} -> /home/dlister). |
 | OUTDIR           | STR          | Folder to output to.                                                  |
 |------------------|--------------|-----------------------------------------------------------------------|
 | SIGSKY           | FLOAT >0     | Number of sigma below which pixels gets removed as sky. In images with bright diffuse emissions, drop this value slowly, in steps of ~0.1 and watch the number of sources detected increase, but be careful of false detections of bright spots. |
@@ -114,7 +115,11 @@ As of the current version. If your parameter file doesnt fit the template of the
 |------------------|--------------|-----------------------------------------------------------------------|
 | AP_FILE          | STR          | Load source list file (-ap.fits) into starbug. This is equivalent to `-d file-ap.fits`.|
 | BGD_FILE         | STR          | Load background estimation file (-bgd.fits) into starbug. This is equivalent to `-b file-bgd.fits`.|
-| CRIT_SEP         | INT >0 | DESCRIPTION |
+| CRIT_SEP         | INT >0       | DESCRIPTION |
+| FORCE_POS        | INT 0:1      | Conduct forced centroid photometry, if set no (0) then starbug will also fit centroid positions |
+| DPOS_THRESH      | FLOAT >0 [arcsec] | If PSF photometry fits centroid positions that deviate from the original positions by a threshold greater than this value (in units arcsec), these sources will have PSFs refit with forced centroids. |
+| PSF_FITSIZE      | INT >0       | Set a custom PSF to fit, by default it will take the dimensions of the WEBBPSF file. |
+| GEN_RESIDUAL     | INT 0:1      | Generate a residual images with the fitted PSFs removed. |
 |------------------|--------------|-----------------------------------------------------------------------|
 | MATCH_THRESH     | FLOAT >0 [arcsec] | Separation threshold between coordinate during astrometric matching. Set low to avoid mismatching.|
 | MATCH_COLS       | STR,STR,..   | Comma separated list of columns to include in outputs during matching.  |

@@ -12,7 +12,7 @@ from astropy.io import fits
 ##########################
 # One time run functions #
 ##########################
-def init_starbug(dname):
+def init_starbug():
     """
     Initialise Starbug..
         - generate PSFs
@@ -20,21 +20,27 @@ def init_starbug(dname):
     INPUT:
         dname : data directory
     """
-    generate_psfs(dname)
+    printf("Initialising StarbugII\n")
+
+    dname=starbug2.DATDIR
+    printf("-> using %s=%s\n"%( "STARBUG_DATDIR" if os.getenv("STARBUG_DATDIR") else "DEFAULT_DIR", dname))
+    generate_psfs()
 
     printf("Downloading APPCORR CRDS files. NB: \x1b[1mTHESE MAY NOT BE THE LATEST!\x1b[0m\n")
     wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_miri_apcorr_0005.fits", "%s/apcorr_miri.fits"%dname)
     wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_nircam_apcorr_0004.fits", "%s/apcorr_nircam.fits"%dname)
+    puts("Downloading The Junior Colour Encyclopedia of Space\n")
 
 
-def generate_psfs(dname):
+def generate_psfs():
     """
     Generate the psf files inside a given directory
     INPUT: 
         dname : directory to generate into
                 if None then it will generate them into the folder given
-                in loaded parameter file "PSFDIR"
+                in loaded parameter file starbug2.DATDIR
     """
+    dname=starbug2.DATDIR
     import webbpsf
     if os.getenv("WEBBPSF_PATH"): 
         dname=os.path.expandvars(dname)
@@ -73,7 +79,6 @@ def generate_psfs(dname):
             #psf=nc.calc_psf()
             #load()
             #fits.PrimaryHDU(data=psf[1].data, header=psf[1].header).writeto("%s/%s.fits"%(dname, fltr), overwrite=True)
-        load.show()
     else:perror("WARNING: Cannot generate PSFs, no environment variable 'WEBBPSF_PATH', please see https://webbpsf.readthedocs.io/en/latest/installation.html\n")
 
 def generate_runscript(fnames, args="starbug2 "):
@@ -84,6 +89,7 @@ def generate_runscript(fnames, args="starbug2 "):
 
     fp=open(RUNFILE,"w")
     fp.write("#!/bin/bash\n")
+    fp.write("CMDS=\"-vf\"\n")
     for fname in fnames:
         if os.path.exists(fname):
             dname,name,ext=split_fname(fname)
@@ -101,7 +107,7 @@ def generate_runscript(fnames, args="starbug2 "):
         for ob,visits in obs.items():
             for visit,dets in visits.items():
                 for det,exps in dets.items():
-                    s=args +"-n%d "%len(exps)
+                    s=args +"${CMDS} -n%d "%len(exps)
                     for exp in exps: s+="%s "%exp[0].header["FILENAME"]
                     fp.write("%s\n"%s)
     fp.close()

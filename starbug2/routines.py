@@ -353,6 +353,7 @@ class PSFPhot_Routine(BasicPSFPhotometry):
             #sharplo=0.2, sharphi=1.0, roundlo=-1.0, roundhi=1.0,
             force_fit=False, dposition_threshold=2, background=None, wcs=None, verbose=1):
 
+        self.verbose=verbose
         self.force_fit=force_fit        
         self.dpos_thresh=dposition_threshold
 
@@ -362,7 +363,7 @@ class PSFPhot_Routine(BasicPSFPhotometry):
         
         if force_fit:
             psf_model.fixed.update( {"x_0":True,"y_0":True} )
-            fitter.load.msg+=" (forced)"
+            if fitter.load is not None: fitter.load.msg+=" (forced)"
 
         super().__init__(group_maker=group_maker, bkg_estimator=bkg_estimator,
                 psf_model=psf_model, fitshape=fitshape,
@@ -383,6 +384,7 @@ class PSFPhot_Routine(BasicPSFPhotometry):
             perror("Must include source list\n")
             return None
 
+        if self.verbose: printf("-> fitting %d sources\n"%len(init_guesses))
         cat=super().do_photometry(image, mask=mask, init_guesses=init_guesses, progress_bar=False)
         #cat=super().do_photometry(image, init_guesses=init_guesses)
 

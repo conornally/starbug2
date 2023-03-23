@@ -167,14 +167,13 @@ class StarbugBase(object):
         if not fname: fname=self.options["AP_FILE"]
         if os.path.exists(fname):
             self.detections=Table().read(fname,format="fits")#data=fp[1].data._get_raw_data())
-            names=self.detections.colnames
+            cn=self.detections.colnames
 
-            if "flag" in names:
+            if "flag" in cn:
                 self.detections["flag"]=Column(self.detections["flag"], dtype=np.uint16)
 
             self.log("loaded AP_FILE='%s'\n"%fname)
 
-            cn=self.detections.colnames
             if not any( _ in cn for _ in ("xcentroid","ycentroid","x_0","y_0")):
                 if all( _ in cn for _ in ("RA","DEC")):
                     xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
@@ -270,8 +269,8 @@ class StarbugBase(object):
         skyin= self.options["SKY_RIN"]
         skyout=self.options["SKY_ROUT"]
 
-        if   self.info["INSTRUME"]=="NIRCAM": fname="%s/apcorr_nircam.fits"%self.options["PSFDIR"]
-        elif self.info["INSTRUME"]=="MIRI":   fname="%s/apcorr_miri.fits"%self.options["PSFDIR"]
+        if   self.info["INSTRUME"]=="NIRCAM": fname="%s/apcorr_nircam.fits"%starbug2.DATDIR
+        elif self.info["INSTRUME"]=="MIRI":   fname="%s/apcorr_miri.fits"%starbug2.DATDIR
         else: perror("No apcorr file available for instrument\n")
 
         if self.options["FIT_APP_R"]:
@@ -363,7 +362,7 @@ class StarbugBase(object):
             image=self.image.data.copy()/ self.image.header["PHOTMJSR"] #https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
             bgd = self.background.data.copy()# / self._image["SCI"].header["PHOTMJSR"] 
 
-            fname=os.path.expandvars("%s/%s%s.fits"%(self.options["PSFDIR"], self.filter, self.info["DETECTOR"]))
+            fname=os.path.expandvars("%s/%s%s.fits"%(starbug2.DATDIR, self.filter, self.info["DETECTOR"]))
             self.log(" <-- %s\n"%fname)
             with fits.open(fname) as fp:
                 psf_model=FittableImageModel(fp[1].data)
@@ -396,10 +395,10 @@ class StarbugBase(object):
             _psf_cat=None
             _fixpsf_cat=None
 
+
             if not self.options["FORCE_POS"]:
                 dpos= self.options["DPOS_THRESH"] / np.sqrt( self.image.header["PIXAR_A2"])
                 self.log("-> position fit threshold [pix]: %.2g\n"%dpos)
-
                 phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
                 _psf_cat=phot(image,init_guesses=init_guesses)
                 d = (_psf_cat["x_0"]-_psf_cat["x_fit"])**2.0 + (_psf_cat["y_0"]-_psf_cat["y_fit"])**2.0
@@ -477,7 +476,7 @@ class StarbugBase(object):
         >>> This needs to get the background loaded into it somewhere!!
         """
 
-        fname=os.path.expandvars("%s/%s.fits"%(self.options["PSFDIR"], self.filter))
+        fname=os.path.expandvars("%s/%s.fits"%(starbug2.DATDIR, self.filter))
         with fits.open(fname) as fp:
             psf_model=DiscretePRF(fp[0].data)
 
@@ -573,10 +572,10 @@ class StarbugBase(object):
             perror("Unknown filter '%s'\n"%self.filter)
             status=1
 
-        dname = os.path.expandvars(self.options["PSFDIR"])
+        dname = os.path.expandvars(starbug2.DATDIR)
         if not os.path.exists(dname):
             warn()
-            perror("Unable to locate PSFDIR='%s'\n"%dname)
+            perror("Unable to locate STARBUG_DATDIR='%s'\n"%dname)
             status=1
 
         else:

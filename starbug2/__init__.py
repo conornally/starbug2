@@ -3,15 +3,19 @@ from astropy.utils.exceptions import AstropyWarning
 warnings.simplefilter("ignore",category=AstropyWarning)
 
 logo="""\
- STARBUGII         *          *  __  *  __   - * --   - 
- ---------               *      / ___ /    \   --  -      - 
- JWST photometry in        *___---.    .___/  -   --   -
- complex crowded fields   ./=== \  \.     \      * 
-                          | (O)  |  |     |           *
- conor nally               \._._/ ./    _(\)   *   
+                   *          *  __  *  __   - * --   - 
+ STARBUGII               *      / ___ /    \   --  -      - 
+ ---------                 *___---.    .___/  -   --   -
+ JWST photometry in       ./=== \  \.     \      * 
+ complex crowded fields   | (O)  |  |     |           *
+                           \._._/ ./    _(\)   *   
  conor.nally@ed.ac.uk     /   ~--\ ----~   \      *
                         ---      ___       ---      
  > %s"""
+
+from os import getenv
+_=getenv("STARBUG_DATDIR") 
+DATDIR=_ if _ else "%s/.local/share/starbug"%(getenv("HOME"))
 
 
 ## HASHDEFS

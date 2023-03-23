@@ -21,7 +21,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory]
 
    --> Single run commands
        --init                     : Initialise Starbug (post install)
-       --generate-psf             : Generate ALL the PSF files to "PSFDIR"
+       --generate-psf             : Generate ALL the PSF files to "STARBUG_DATDIR"
        --local-param              : Make a local copy of the default parameter file
        --generate-region   a.fits : Make a ds9 region file with a detection file
        --clean-table       a.fits : Clean up an individual table
@@ -37,7 +37,6 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory]
 import os,sys,getopt
 sys.stdout.write("loading..\r")
 import pkg_resources
-#import starbug2 
 from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.matching import dither_match
@@ -84,7 +83,6 @@ for opt,optarg in opts:
     if opt in ("-p","--param"):   pfile= optarg
     if opt in ("-v","--verbose"):
         options|=VERBOSE
-        #setdict["VERBOSE"]=1
 
     if opt in ("-A","--apphot"): options |= DOAPPHOT
     if opt in ("-B","--background"): options|=DOBGDEST
@@ -105,7 +103,6 @@ for opt,optarg in opts:
 
     if opt in ("-f","--find"): options|=FINDFILE
     if opt in ("-n","--ncores"): ncores=int(optarg)
-        #options &= ~VERBOSE
 
     if opt in ("-o","--output"):
         if os.path.exists(optarg): 
@@ -142,7 +139,6 @@ for opt,optarg in opts:
         table=Table.read(optarg,format="fits")#load_table(optarg)
         options|=STOPPROC
 
-    #if opt=="--version": quit("%s >starbug2-v%s"%(starbug2.logo%pkg_resources.get_distribution("starbug2").version))
     if opt=="--version": quit(starbug2.logo%("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version))
 
     if opt=="--generate-run": 
@@ -154,7 +150,7 @@ for opt,optarg in opts:
 
 if ncores>1: options&= ~VERBOSE
 
-
+## Load parameter files
 if pfile==None:
     if os.path.exists("./starbug.param"):pfile="starbug.param"
     else:
@@ -165,13 +161,13 @@ init_parameters=load_params(pfile)
 init_parameters.update(setdict)
 
 if options&INITSB:
-    init_starbug(init_parameters["PSFDIR"])
+    init_starbug()
 
 if options&GENRATPSF:
-    generate_psfs(init_parameters["PSFDIR"])
+    generate_psfs()
 
 if options&GENRATRUN:
-    cmd="starbug2 -vf "#"+ " ".join( ["-vf"])
+    cmd="starbug2 "#"+ " ".join( ["-vf"])
     generate_runscript(args, cmd)
 
 if options&GENRATREG:
@@ -239,8 +235,10 @@ def fn(fname):
 if __name__=="__main__":
     printf("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
 
-    pool=multiprocessing.Pool(processes=ncores)
-    starbugs=pool.map(fn,args)
+    if ncores==1: starbugs=[ fn(fname) for fname in args ]
+    else:
+        pool=multiprocessing.Pool(processes=ncores)
+        starbugs=pool.map(fn,args)
 
     for n,sb in enumerate(starbugs): 
         if not sb: perror("FAILED: %s\n"%args[n])
