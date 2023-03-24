@@ -21,6 +21,7 @@ class StarbugBase(object):
     psfcatalogue=None
     residuals=None
     background=None
+    psf=None
     _image=None
     _nHDU=-1
     wcs=None
@@ -192,12 +193,33 @@ class StarbugBase(object):
         if os.path.exists(fname):
             self.background=fits.open(fname)[1]
             self.log("loaded BGD_FILE='%s'\n"%fname)
-        else: perror("BGD_FILE='%s' does not exists\n"%fname)
+        else: perror("BGD_FILE='%s' does not exist\n"%fname)
 
     def load_psf(self,fname=None):
         """
+        Load a PSF_FILE to be used during photometry
+        INPUT:
+            fname : psf.fits
         """
-        pass
+        status=0
+        if not fname:
+            fltr=starbug2.filters[self.filter]
+            dtname=self.info["DETECTOR"]
+            if dtname=="MULTIPLE":
+                if   fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.SHORT: dtname="NRCA1"
+                elif fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.LONG:  dtname="NRCALONG"
+                elif fltr.instr==starbug2.MIRI:  dtname=""
+            fname="%s/%s%s.fits"%(starbug2.DATDIR,self.filter,dtname)
+        if os.path.exists(fname):
+            fp=fits.open(fname)
+            self.psf=fp[1].data ####hmm
+            fp.close()
+            self.log("loaded PSF_FILE='%s'\n"%(fname))
+        else: 
+            perror("PSF_FILE='%s' does not exist\n"%fname)
+            status=1
+        return status
+
 
     def detect(self):
         """
@@ -352,23 +374,26 @@ class StarbugBase(object):
             perror("unable to run photometry: no background estimation loaded\n")
             return
 
-        if self.image and self.filter:
-            self.log("Running PSF Photometry")
+        if self.psf is None and self.load_psf(self.options["PSF_FILE"]):
+            perror("unable to run photometry: no PSF loaded\n")
+            return
+
+        if self.image:
+            self.log("Running PSF Photometry\n")
 
             ###################################
             # Collect relevent files and data #
             ###################################
 
             image=self.image.data.copy()/ self.image.header["PHOTMJSR"] #https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
-            bgd = self.background.data.copy()# / self._image["SCI"].header["PHOTMJSR"] 
+            bgd = self.background.data.copy() / self.image.header["PHOTMJSR"] 
 
-            fname=os.path.expandvars("%s/%s%s.fits"%(starbug2.DATDIR, self.filter, self.info["DETECTOR"]))
-            self.log(" <-- %s\n"%fname)
-            with fits.open(fname) as fp:
-                psf_model=FittableImageModel(fp[1].data)
-                #psf_model=EPSFModel(fp[1].data)
-                size=psf_model.shape[0]
-                if not size%2: size-=1
+            psf_model=FittableImageModel(self.psf)
+            #psf_model=EPSFModel(fp[1].data)
+            if self.options["PSF_SIZE"]>0: size=self.options["PSF_SIZE"]
+            else: size=psf_model.shape[0]
+            if not size%2: size-=1
+            self.log("-> psf size: %d\n"%size)
 
             #########################
             # Sort out Init guesses #
@@ -383,10 +408,11 @@ class StarbugBase(object):
             init_guesses=init_guesses[ init_guesses["x_0"]<self.image.header["NAXIS1"]]
             init_guesses=init_guesses[ init_guesses["y_0"]<self.image.header["NAXIS2"]]
             init_guesses=init_guesses[["x_0","y_0","flux",self.filter, "flag"]]
-            init_guesses.rename_column("flux","flux_0")
-            init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
-            init_guesses=init_guesses[init_guesses["flux_0"]>0]
-            init_guesses.remove_column("flux_0")
+            init_guesses.remove_column("flux")
+            #init_guesses.rename_column("flux","flux_0")
+            #init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
+            #init_guesses=init_guesses[init_guesses["flux_0"]>0]
+            #init_guesses.remove_column("flux_0")
             
             ###########
             # Run Fit #
@@ -394,7 +420,6 @@ class StarbugBase(object):
 
             _psf_cat=None
             _fixpsf_cat=None
-
 
             if not self.options["FORCE_POS"]:
                 dpos= self.options["DPOS_THRESH"] / np.sqrt( self.image.header["PIXAR_A2"])
@@ -579,10 +604,11 @@ class StarbugBase(object):
             status=1
 
         else:
-            if not os.path.exists("%s/%s%s.fits"%(dname, self.filter, self.info["DETECTOR"])):
-                warn()
-                perror("Unable to locate filter PSF for '%s'\n"%self.filter)
-                status=1
+            pass
+            #if not os.path.exists("%s/%s%s.fits"%(dname, self.filter, self.info["DETECTOR"])):
+            #        warn()
+            #        perror("Unable to locate filter PSF for '%s'\n"%self.filter)
+            #        status=1
         
         if not os.path.exists((dname:=os.path.expandvars(self.options["OUTDIR"]))):
             warn()

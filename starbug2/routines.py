@@ -306,6 +306,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
 
             load()
             if self.verbose: load.show() ## This will slow the thing down quite a lot
+        if self.verbose: printf("-> estimating bgd2d\n")
         self.bgd=Background2D(_data, self.boxsize).background
         return self.bgd
 

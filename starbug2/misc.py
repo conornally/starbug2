@@ -49,7 +49,7 @@ def generate_psfs():
 
         printf("Generating PSFs --> %s\n"%dname)
 
-        load=loading(145)
+        load=loading(145, msg="initialising")
         load.show()
         for fltr,_f in starbug2.filters.items():
             if _f.instr==starbug2.NIRCAM:

@@ -115,10 +115,11 @@ As of the current version. If your parameter file doesnt fit the template of the
 |------------------|--------------|-----------------------------------------------------------------------|
 | AP_FILE          | STR          | Load source list file (-ap.fits) into starbug. This is equivalent to `-d file-ap.fits`.|
 | BGD_FILE         | STR          | Load background estimation file (-bgd.fits) into starbug. This is equivalent to `-b file-bgd.fits`.|
+| PSF_FILE         | STR          | DESCRIPTION |
 | CRIT_SEP         | INT >0       | DESCRIPTION |
 | FORCE_POS        | INT 0:1      | Conduct forced centroid photometry, if set no (0) then starbug will also fit centroid positions |
 | DPOS_THRESH      | FLOAT >0 [arcsec] | If PSF photometry fits centroid positions that deviate from the original positions by a threshold greater than this value (in units arcsec), these sources will have PSFs refit with forced centroids. |
-| PSF_FITSIZE      | INT >0       | Set a custom PSF to fit, by default it will take the dimensions of the WEBBPSF file. |
+| PSF_SIZE         | INT >0       | Set a custom PSF to fit, by default it will take the dimensions of the WEBBPSF file. |
 | GEN_RESIDUAL     | INT 0:1      | Generate a residual images with the fitted PSFs removed. |
 |------------------|--------------|-----------------------------------------------------------------------|
 | MATCH_THRESH     | FLOAT >0 [arcsec] | Separation threshold between coordinate during astrometric matching. Set low to avoid mismatching.|
