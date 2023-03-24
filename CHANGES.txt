@@ -3,6 +3,7 @@ v0.3.0:
         >   Trying to edit MANIFEST.in to include files properly
 		>	Loading in a sourcelist will ignore flag column if it doesnt exist
 		>	Removing PSFDIR from param file and exchanging it for an optional environment variable
+		>	Little bit of drafted work in the docs
 v0.2.19:
     PSF:
         >   I fixed the fitting!

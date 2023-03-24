@@ -174,18 +174,112 @@ We can detect simultaneously on a set of dithers and match the outputs together,
 If you give a starbug instance a list of files to work on, it will by default run them in series and produce a separate source list for each. However we can parallelise and match with the `-n NUMBER_CORES` and `-M` options:
 
 ```bash
+
+$~ starbug2 -vD -M exposure1.fits exposure2.fits exposure3.fits exposure4.fits
+
+// parallelised 
 $~ starbug2 -vD -M -n 4 exposure1.fits exposure2.fits exposure3.fits exposure4.fits
 
 //General bash wildcarding etc. can also be used
 $~ starbug2 -vDMn4 exposure{1..4}.fits
 $~ starbug2 -vDMn4 exposure*.fits
 ```
-The matched output will export into two catalogues: `exposure(1234)-apfull.fits` and `exposure(1234)-apmatch.fits`, the former being the complete catalogue containing every column, the latter being a condensed form that cuts sources without a threshold "NUM" value.
+The matched output will export into two catalogues: `exposure(1234)-apfull.fits` and `exposure(1234)-apmatch.fits`, the former being the complete catalogue containing every column, the latter being a condensed form that cuts sources without a threshold "NUM" value. If parameter **RM_MATCH** is set then the `-apmatch.fits` catalogue will remove any sources that haven't been detected in at least that many exposures.
+
+### Loading a Source List
+
+Once a source has been created, it can be loaded back into starbug. Source lists don't have to be in a specific shape or form or have been created by starbug however they must include positional columns. These can be pixel coordinates **x_0 y_0** or **xcentroid ycentroid** which will be used before any world coordinates **RA DEC**.
+There are several methods to loading a source list into starbug to work on. It will sometimes be referred to as an AP file.
+Most commonly it will occur in the command line using the argument `-d` or `--apfile` which will take require the name of the fits table after.
+
+```bash
+$~ starbug2 -d sourcelist.fits ....
+```
+
+If the source list is being used for many starbug runs, it can be added to the parameter file **AP_FILE**=/PATH/TO/FILE. This will take lower priority than loading it from the command line, so it can be overloaded at runtime.
+
+Finally, starbug can automagically find a source list associated with an image file with the `-f` or `--find`  command line option. This will look for a fits table with "-ap.fits" added to the image filename. For example "image.fits" will try and locate "image-ap.fits". 
+
+```bash
+$~ starbug2 -vf image.fits
+>>>	loaded AP_FILE='./image-ap.fits'
+```
+
+Source lists are required by several starbug routines; Aperture Photometry, Background Estimation, PSF Photometry. Either generated before, or all the routines can be rolled in and conducted in the same starbug run.
 
 ### Aperture Photometry
 
+Aperture photometry is conducted as part of the source detection step, however it can be ran in isolation is required with `-A` or `--apphot`:
+
+```bash
+$~ starbug2 -vA -d sources.fits image.fits
+
+// or on several files
+$~ starbug2 -vA -d sources.fits image1.fits image2.fits ...
+```
+
+There are two modes that aperture photometry can be ran in. Setting an aperture radius or scaling the radius with percentage encircle energy. The former allows for constant radii between all the photometric bands within a dataset but introduces errors on the fit of the aperture correction which will deteriorate at very small, or large radii. Instead we can scale the aperture radius with encircled energy, this will change the aperture radius for every photometric band but will have a more solid aperture correction solution. To switch between modes, toggle **FIT_APP_R** in the parameter file, (0 ignores aperture radius and uses encircled energy, 1 ignores encircled energy and uses aperture radius).
+
+If using the fixed aperture radius method, then **APPHOT_R** sets this value in pixel units. Alternatively set the fraction encircled energy with **ENCENERGY** using a number between zero and 1.
+Regardless of the photometric method, set the sky annulus radii with **SKY_IN SKY_OUT** in pixel units.
+
+### Background Estimation
+
+To run the background estimation routine, first load or generate a source list and use the `-B` or `--background` argument. The resulting background file "(-bgd)" can be reloaded into starbug similarly to a source list with `-b` or `--bgdfile` or `-f` in the command line or **BGD_FILE** in the parameter file.
+
+```bash
+$~ starbug2 -d sources.fits -B image.fits
+
+//run together to create a sourcelist and bgd file
+$~ starbug2 -vBD image.fits
+
+//load it into starbug later
+$~ starbug2 -b image-bgd.fits ...
+```
+
+
 ### PSF Photometry
 
+
+\newpage
+
+## A Full Run Through (in command line)
+
+```bash
+$~ ls
+>	F115W/ F200W/ F444W
+
+$~ cd F444W; ls
+>	image1_1.fits image1_2.fits image1_3.fits image1_4.fits
+>	image2_1.fits image2_2.fits image2_3.fits image2_4.fits
+
+//determine good parameters
+$~ starbug2 --local-param
+$~ starbug2 -vD image1_1.fits
+$~ starbug2 --generate-run image*_{1..4}.fits
+
+>>> set CMDS to desired routines (something like '-DMn4')
+$~ source run.sh
+$~ starbug2-match -oF444W-ap.fits *-apmatch.fits
+
+//now with a global sourcelist, we can do some background estimation and PSF photometry
+$~ starbug2 -vd F444W-apmatch.fits -B image1_{1..4}.fits 
+$~ starbug2 -vd F444W-apmatch.fits -fPMn4 image1_{1..4}.fits
+
+>>> OR using run.sh set CMDS again (something like '-vd F444W-ap.fits -BPMn4')
+$~ starbug2-match -oF444W-psf.fits *-psfmatch.fits
+```
+
+Run a similar set of commands for each photometric band, then match the outputs
+
+```bash
+$~ starbug2-match -vB -o out-psf.fits F115W/F115W-psf.fits F200W/F200W-psf.fits F444W/F444W-psf.fits
+```
+
+
+
+
+\newpage
 
 
 ## Source Flags
@@ -198,6 +292,8 @@ Sources are given quality flags at various points in starbug routines. These fla
 |`0x01`| SRC_BAD   | Source aperture contains a pixel marked as saturate or bad                                         |
 |`0x02`| SRC_JMP   | Source aperture contains a pixel marked with a jump during integration (possible cosmic ray)       |
 |`0x04`| SRC_VAR   | Source has an asymmetric flux distribution between matches (mean and median more than 5% different)|
+|`0x08`| SRC_FIX   | Source has PSF photometry with a forced position                                                   |
+|`0x10`| SRC_UKN   | Something was wrong..                                                                              |
 
 ## FAQ
 
