@@ -4,6 +4,7 @@ v0.3.0:
 		>	PSF loading should now account or "MULTIPLE" DETECTOR key in mosaics
 		>	added PSF_SIZE so can reduce the size fo the psf fitting, this speeds everything up a lot
         >   changed bgd BUNIT to DN
+		>	Removed init flux guess for now
     General:
         >   Trying to edit MANIFEST.in to include files properly
 		>	Loading in a sourcelist will ignore flag column if it doesnt exist

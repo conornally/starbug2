@@ -390,7 +390,7 @@ class StarbugBase(object):
 
             psf_model=FittableImageModel(self.psf)
             #psf_model=EPSFModel(fp[1].data)
-            if self.options["PSF_SIZE"]>0: size=self.options["PSF_SIZE"]
+            if self.options["PSF_SIZE"]>0: size=int(self.options["PSF_SIZE"])
             else: size=psf_model.shape[0]
             if not size%2: size-=1
             self.log("-> psf size: %d\n"%size)
@@ -410,7 +410,7 @@ class StarbugBase(object):
             init_guesses=init_guesses[["x_0","y_0","flux",self.filter, "flag"]]
             init_guesses.remove_column("flux")
             #init_guesses.rename_column("flux","flux_0")
-            #init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
+            init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
             #init_guesses=init_guesses[init_guesses["flux_0"]>0]
             #init_guesses.remove_column("flux_0")
             
@@ -468,6 +468,7 @@ class StarbugBase(object):
             #mag-=dmag
             #self.log("Photometric offset: %f\n"%dmag)
 
+            print(psf_cat)
             psf_cat.add_column(mag,name=self.filter)
             psf_cat.add_column(magerr,name="e%s"%self.filter)
             self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
