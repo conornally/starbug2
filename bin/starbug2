@@ -39,8 +39,6 @@ sys.stdout.write("loading..\r")
 import pkg_resources
 from starbug2.utils import *
 from starbug2.misc import *
-from starbug2.matching import dither_match
-import multiprocessing
 
 VERBOSE= 0x01
 KILLPROC=0x02
@@ -196,6 +194,8 @@ if options&KILLPROC:
 
 import starbug2
 from starbug2.starbug import StarbugBase ## Ive put this here because it takes some time
+from starbug2.matching import dither_match
+from multiprocessing import Pool
 
 def fn(fname):
     sb=None
@@ -237,7 +237,7 @@ if __name__=="__main__":
 
     if ncores==1: starbugs=[ fn(fname) for fname in args ]
     else:
-        pool=multiprocessing.Pool(processes=ncores)
+        pool=Pool(processes=ncores)
         starbugs=pool.map(fn,args)
 
     for n,sb in enumerate(starbugs): 
