@@ -468,7 +468,6 @@ class StarbugBase(object):
             #mag-=dmag
             #self.log("Photometric offset: %f\n"%dmag)
 
-            print(psf_cat)
             psf_cat.add_column(mag,name=self.filter)
             psf_cat.add_column(magerr,name="e%s"%self.filter)
             self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
