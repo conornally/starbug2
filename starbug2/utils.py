@@ -9,8 +9,8 @@ import requests
 printf=sys.stdout.write
 perror=sys.stderr.write
 puts=lambda s:printf("%s\n"%s)
-warn=lambda s:perror("\x1b[33m%s\x1b[0m"%s)
 sbold=lambda s:"\x1b[1m%s\x1b[0m"%s
+warn=lambda :perror(sbold("Warning: "))
 
 def strnktn(s,n,c):
     for _ in range(n): s+=c

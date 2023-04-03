@@ -193,6 +193,7 @@ def cascade_match(catalogues, threshold, colnames):
                         tmp.add_row(src[colnames]) ##i can purely use add_row to simplifiy the code
         tmp.rename_columns(colnames, list("%s_%d"%(name,n) for name in colnames))
         base=hcascade((base,tmp), colnames=colnames)
+    base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
     return finish_matching(base, colnames)
 
 def band_match(catalogues, threshold, colnames):
@@ -306,7 +307,7 @@ def finish_matching(tab, colnames):
             ## if median and mean are >5% different, flag as SRC_VAR
             flags[ np.abs(median-col)>(col/5.0)] |= starbug2.SRC_VAR
         elif name== "eflux":
-            col=Column(np.nansum(ar*ar, axis=1), name=name)
+            col=Column(np.sqrt(np.nansum(ar*ar, axis=1)), name=name)
         elif name=="stdflux": 
             col=Column(np.nanmax(ar,axis=1),name=name)
         elif name=="flag":

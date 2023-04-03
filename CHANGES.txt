@@ -1,3 +1,13 @@
+v0.3.1:
+	Detection:
+		problem: some sources are being discarded because they have nan rnd/shp values. I dont know why they have calculated badly
+		>	Used SourceProperties to fit shapes at the end of the routine
+        >   Tring to remove the need for WCS in the detection
+            >>> Need to finalise match threshold
+	SourceProperties:
+		>	Plugging in source properties routine
+			>>> Crowding
+			>>>	DAOPHOT stats
 v0.3.0:
     PSF:
         >   load_psf: can now load a non default PSF_FILE

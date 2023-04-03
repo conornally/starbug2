@@ -7,7 +7,6 @@ VERBOSE =0       // (0:false 1:true)
 OUTDIR	=. //.
 HDUNAME =  //If using a non standard HDU name, name it here (str or int)
 
-
 ## DETECTETION - Aperture photomtry
 SIGSKY		=2.0  // (float>0) 
 SIGSRC		=5.0  // (float>0) Source value mininmum N sigma above background
@@ -45,6 +44,9 @@ FORCE_POS   =0     //Force centroid position (1) or allow psf fitting to fit pos
 DPOS_THRESH =0.1   //If allowed to fit position, max separation (arcsec) from source list centroid
 PSF_SIZE    =-1    //Set fit size of psf (>0) or -1 to take PSF file dimensions
 GEN_RESIDUAL=0     //generate a residual image
+
+## SOURCE STATS
+CALC_CROWD  =1     //Run crowding metric calculation (execution time scales N^2)
 
 ## CATALOGUE MATCHING
 MATCH_THRESH =0.1  					//when combining background subtraction catalogue, minimum separation (arcsec) of centroids to be considered separate sources

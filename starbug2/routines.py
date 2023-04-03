@@ -13,7 +13,7 @@ from astropy.io import fits
 from astropy.stats import SigmaClip, sigma_clipped_stats, sigma_clip
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
-from astropy.table import Column, Table
+from astropy.table import Column, Table, QTable, hstack
 import astropy.units as u
 from astropy.modeling.fitting import LevMarLSQFitter
 
@@ -25,7 +25,7 @@ from photutils.psf import BasicPSFPhotometry, IterativelySubtractedPSFPhotometry
 from photutils.psf.sandbox import DiscretePRF
 
 from photutils.datasets import make_model_sources_image, make_random_models_table
-from starbug2.utils import loading, split_fname, tabppend, printf, perror, extnames, warn
+from starbug2.utils import loading, split_fname, tabppend, printf, perror, extnames, warn, export_region
 from starbug2 import *
 
 
@@ -38,10 +38,9 @@ class Detection_Routine(StarFinderBase):
     Each run the background subtraction is differemt, bringing out a
     different set of sources
     """
-    progress=0
     def __init__(self,  sig_src=5, sig_sky=3, fwhm=1,
                         sharplo=0.2, sharphi=1, roundlo=-1, roundhi=1,
-                        wcs=None, match_threshold=1.0, verbose=0,
+                        match_threshold=1.0, verbose=0,
                         bgd2d=1, boxsize=2, filtersize=3):
         self.sig_src=sig_src
         self.sig_sky=sig_sky
@@ -51,8 +50,7 @@ class Detection_Routine(StarFinderBase):
         self.roundhi=roundhi
         self.roundlo=roundlo
 
-        self.wcs=wcs
-        self.match_threshold=match_threshold*u.arcsec
+        self.match_threshold=u.Quantity(match_threshold)*u.dimensionless_unscaled
         self.catalogue=None
         self.verbose=verbose
 
@@ -76,10 +74,10 @@ class Detection_Routine(StarFinderBase):
         mean,median,std=sigma_clipped_stats(data,sigma=self.sig_sky)
         if clean:
             daofind=DAOStarFinder(std*self.sig_src, self.fwhm, sharplo=self.sharplo, sharphi=self.sharphi,
-                    roundlo=self.roundlo, roundhi=self.roundhi, xycoords=xycoords)
+                    roundlo=self.roundlo, roundhi=self.roundhi, peakmax=np.inf, xycoords=xycoords)
         else: ## i dont want it to lose sharp/round values on the final run
-            daofind=DAOStarFinder(std*self.sig_src, self.fwhm, sharplo=-999, sharphi=999,
-                    roundlo=-999, roundhi=999, xycoords=xycoords)
+            daofind=DAOStarFinder(-np.inf, self.fwhm, sharplo=-np.inf, sharphi=np.inf,
+                    roundlo=-np.inf, roundhi=np.inf, peakmax=np.inf, xycoords=xycoords)
 
         return daofind(data - bkg)
 
@@ -93,21 +91,42 @@ class Detection_Routine(StarFinderBase):
         into the main catalogue. This will append a source if its matched separation
         is above the threshold self.match_threshold
         """
+        #added=0
+        #b_ra, b_dec = self.wcs.all_pix2world( base["xcentroid"], base["ycentroid"], 0)
+        #c_ra, c_dec = self.wcs.all_pix2world( cat["xcentroid"], cat["ycentroid"], 0)
+
+        #base_sky=SkyCoord(b_ra*u.degree, b_dec*u.degree)
+        #cat_sky=SkyCoord(c_ra*u.degree, c_dec*u.degree)
+        #_,separation,_=cat_sky.match_to_catalog_3d(base_sky)
+        #for src,sep in zip(cat,separation):
+        #    if sep>self.match_threshold:
+        #        base.add_row(src)
+        #        added+=1
+        #return added
+
+        export_region(base, fname="/tmp/base.reg", colour="red")
+        export_region(cat,  fname="/tmp/cat.reg",  colour="green")
+
+
         added=0
-        b_ra, b_dec = self.wcs.all_pix2world( base["xcentroid"], base["ycentroid"], 0)
-        c_ra, c_dec = self.wcs.all_pix2world( cat["xcentroid"], cat["ycentroid"], 0)
-
-        base_sky=SkyCoord(b_ra*u.degree, b_dec*u.degree)
-        cat_sky=SkyCoord(c_ra*u.degree, c_dec*u.degree)
-
+        base_sky=SkyCoord(x=base["xcentroid"], y=base["ycentroid"], z=np.zeros(len(base)), representation_type="cartesian")
+        cat_sky=SkyCoord(x=cat["xcentroid"], y=cat["ycentroid"], z=np.zeros(len(cat)), representation_type="cartesian")
         _,separation,_=cat_sky.match_to_catalog_3d(base_sky)
-        for src,sep in zip(cat,separation):
-            if sep>self.match_threshold:
+        mask=(separation.to_value()>1)
+        try: export_region(cat[mask],fname="/tmp/new.reg",colour="cyan")
+        except:pass
+        for src,sep in zip(cat,separation.to_value()):
+            if sep>1:#1 pixel?
                 base.add_row(src)
                 added+=1
+        input("pause")
         return added
 
     def find_stars(self, data, mask=None):
+        """
+        """
+        if data is None: return None
+
         self.catalogue=self.detect(data)
         if self.verbose: printf("-> [PLAIN] pass: %d sources\n"%len(self.catalogue))
         sigma_clip = SigmaClip(sigma=self.sig_sky, maxiters=10)
@@ -122,14 +141,21 @@ class Detection_Routine(StarFinderBase):
             if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
 
         ## Now with xycoords DAOStarfinder will refit the sharp and round values at the detected locations
-        self.catalogue=self.detect(data, xycoords=np.array([self.catalogue["xcentroid"],self.catalogue["ycentroid"]]).T)#, clean=0)
-
+        #self.catalogue=self.detect(data, xycoords=np.array([self.catalogue["xcentroid"],self.catalogue["ycentroid"]]).T)#, clean=0)
+        tmp=SourceProperties(data,self.catalogue).calculate_geometry(self.fwhm)
+        if tmp: 
+            mask=(~np.isnan(tmp["xcentroid"]) & ~np.isnan(tmp["ycentroid"]))
+            mask &= ((tmp["sharpness"]>self.sharplo)
+                    &(tmp["sharpness"]<self.sharphi)
+                    &(tmp["roundness1"]>self.roundlo)
+                    &(tmp["roundness1"]<self.roundhi)
+                    &(tmp["roundness2"]>self.roundlo)
+                    &(tmp["roundness2"]<self.roundhi))
+            self.catalogue=tmp[mask]
+        
         if self.verbose: printf("Total: %d sources\n"%len(self.catalogue))
 
         self.catalogue.replace_column("id", Column(range(1,1+len(self.catalogue))))
-        ra,dec=self.wcs.all_pix2world(self.catalogue["xcentroid"], self.catalogue["ycentroid"],0)
-        self.catalogue.add_column( Column(ra, name="RA"), index=1)
-        self.catalogue.add_column( Column(dec, name="DEC"), index=2)
 
         return self.catalogue
 
@@ -244,8 +270,6 @@ class APPhot_Routine():
 
         return line["apcorr"], line["radius"]
 
-
-
     def log(self,msg):
         if self.verbose: 
             printf(msg)
@@ -277,7 +301,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
         return peaks
 
     def __call__(self, data):
-        if self.sourcelist is None: return self.bgd
+        if self.sourcelist is None or data is None: return self.bgd
         _data=np.copy(data)
         X,Y=np.ogrid[:data.shape[1], :data.shape[0]]
         peaks=self.calc_peaks(data)
@@ -516,7 +540,8 @@ class ArtificialStar_Routine(object):
         shape=np.array(image.shape)
         psfsize=self.psf.shape
         if np.any( subimage_size>shape):
-            perror("warning: subimage_size bigger than image dimensions\n")
+            warn()
+            perror("subimage_size bigger than image dimensions\n")
             subimage_size=min(shape)
         subimage_size=int(subimage_size)
 
@@ -574,29 +599,69 @@ class ArtificialStar_Routine(object):
 
         return sources
 
+
 class SourceProperties:
-
-    def __init__(self, image, sourcelist, verbose=1):
+    status=0
+    def __init__(self, image, sourcelist, filter=None, verbose=1):
         self.image=image
-        self.sourcelist=sourcelist
+        self.sourcelist=None
         self.verbose=verbose
-        if "RA" not in sourcelist.colnames or "DEC" not in sourcelist.colnames: 
-            perror("No WCS in sourcelist\n")
+    
+        if sourcelist and type(sourcelist) in (Table,QTable):
+            if len( set(("xcentroid","ycentroid")) & set(sourcelist.colnames))==2:
+                self.sourcelist=Table(sourcelist[["xcentroid","ycentroid"]])
+            elif len( set(("x_0","y_0")) & set(sourcelist.colnames))==2:
+                self.sourcelist=Table(sourcelist[["x_0","y_0"]])
+                self.sourcelist.rename_columns( ("x_0","y_0"), ("xcentroid","ycentroid"))
+            else: perror("no posisional columns in sourcelist\n")
+        else: perror("bad sourcelist type: %s\n"%type(sourcelist))
 
-    def calculate_crowding(self,N=10):
+
+    def __call__(self, do_crowd=1, **kwargs):
+        """
+
+        """
+        out=Table()#self.sourcelist.copy()
+        if do_crowd: ## This can be slow
+            out=hstack((out,Table([self.calculate_crowding(**kwargs)],names=["crowding"])))
+
+        out=hstack((out,self.calculate_geometry(**kwargs)))
+        return out
+
+    def calculate_crowding(self,N=10, **kwargs):
+        """
+        Crowding Index: Sum of magnitude of separation of N closest sources
+        """
+        if self.sourcelist is None: 
+            perror("no sourcelist\n")
+            return None
+
         crowd=np.zeros(len(self.sourcelist))
         load=loading(len(self.sourcelist),msg="calculating crowding", res=10)
 
         for i,src in enumerate(self.sourcelist):
-            dist=np.sqrt( (src["RA"]-self.sourcelist["RA"])**2 + (src["DEC"]-self.sourcelist["DEC"])**2 )
+            dist=np.sqrt( (src["xcentroid"]-self.sourcelist["xcentroid"])**2 + (src["ycentroid"]-self.sourcelist["ycentroid"])**2 )
             dist.sort()
             crowd[i]= sum( dist[1:N])
             load()
             if self.verbose: load.show()
         return crowd
 
-    def calculate_sharpround(self, fwhm):
-        pass#daofind=DAOStarFinder(0, fwhm, sharplo=-999, sharphi=999, roundlo=-999, roundhi=999, xycoords=)
+    def calculate_geometry(self, fwhm=2, **kwargs):
+        """
+
+        """
+        if self.sourcelist is None:
+            perror("no sourcelist\n")
+            return None
+        if self.verbose: printf("-> measuring source geometry\n")
+        xycoords=np.array((self.sourcelist["xcentroid"], self.sourcelist["ycentroid"])).T
+
+        daofind=DAOStarFinder(-np.inf, fwhm, sharplo=-np.inf, sharphi=np.inf, roundlo=-np.inf, roundhi=np.inf, xycoords=xycoords, peakmax=np.inf)
+        return daofind._get_raw_catalog(self.image).to_table()
+
+        
+
 
 
 
@@ -619,4 +684,8 @@ if __name__=="__main__":
     #sb.detect()
     #sb.photometry()
     #sb.export()
-    
+
+
+
+
+       

@@ -21,7 +21,9 @@ class StarbugBase(object):
     psfcatalogue=None
     residuals=None
     background=None
+    source_stats=None
     psf=None
+
     _image=None
     _nHDU=-1
     wcs=None
@@ -134,7 +136,7 @@ class StarbugBase(object):
                     if ("FILTER" in self.header) and (self.header["FILTER"] in starbug2.filters.keys()):
                         self.filter=self.header["FILTER"]
                         self.log("-> photometric band: %s\n"%self.filter)
-                    else: warn("Unable to determine image filter\n")
+                    else: warn();perror("Unable to determine image filter\n")
 
                     if "DETECTOR" in self.info.keys():
                         self.log("-> detector module: %s\n"%self.info["DETECTOR"])
@@ -149,15 +151,16 @@ class StarbugBase(object):
                     elif "WHT" in exts: self.stage=3 
                     elif "CALIBLEVEL" in self.image.header: self.stage=self.image.header["CALIBLEVEL"]
                     else: 
-                        warn("Unable to determine jwst pipeline level, assuming 3\n")
+                        warn();
+                        perror("Unable to determine jwst pipeline level, assuming 3\n")
                         self.stage=3
 
 
                     #self.log("loaded: \"%s\"\n"%fname)
                     self.log("-> pipeline stage: %d\n"%self.stage)
 
-                else: warn("fits file \"%s\" does not exist\n"%fname)
-            else: warn("included file must be FITS format\n")
+                else: warn();perror("fits file \"%s\" does not exist\n"%fname)
+            else: warn();perror("included file must be FITS format\n")
 
     def load_apfile(self,fname=None):
         """
@@ -181,6 +184,7 @@ class StarbugBase(object):
                     self.detections.add_columns(xy,names=("xcentroid","ycentroid"),indexes=[0,0])
                     self.log("-> using RADEC coordinates\n")
                 else: perror("WARNING, unable to determine physical coordinates from detections table\n")
+            if len( set(("x_0","y_0"))&set(self.detections.colnames))==2: self.detections.rename_columns(("x_0","y_0"),("xcentroid","ycentroid"))
         else: perror("AP_FILE='%s' does not exists\n"%fname)
 
     def load_bgdfile(self,fname=None):
@@ -228,7 +232,6 @@ class StarbugBase(object):
         """
         self.log("Detecting Sources\n")
         if self.image and self.filter:
-            #FWHM=starbug2.filters[self.filter][2]
             FWHM=starbug2.filters[self.filter].pFWHM
             detector=Detection_Routine( sig_src=self.options["SIGSRC"],
                                         sig_sky=self.options["SIGSKY"],
@@ -237,18 +240,19 @@ class StarbugBase(object):
                                         sharphi=self.options["SHARP_HI"],
                                         roundlo=self.options["ROUND_LO"],
                                         roundhi=self.options["ROUND_HI"],
-                                        wcs=self.wcs,
                                         bgd2d=self.options["DOBGD2D"],
                                         boxsize=int(self.options["BOX_SIZE"]),
-                                        #filtersize=int(self.options["FILTER_SIZE"]),
                                         verbose=self.options["VERBOSE"])
 
-            dat=detector(self.image.data)
-            colnames=("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak")
-            self.detections=dat[colnames]
-            crowd=SourceProperties(self.image.data, dat[["RA","DEC"]], verbose=self.options["VERBOSE"]).calculate_crowding()
-            self.detections.add_column( crowd, name="crowding")
+            self.detections=detector(self.image.data)["xcentroid","ycentroid","sharpness","roundness1","roundness2"]
+
+            ra,dec=self.wcs.all_pix2world(self.detections["xcentroid"], self.detections["ycentroid"],0)
+            self.detections.add_column( Column(ra, name="RA"), index=1)
+            self.detections.add_column( Column(dec, name="DEC"), index=2)
             self.aperture_photometry()
+
+            self.detections.meta=dict(self.header.items())
+            self.detections.meta.update({"ROUNTINE":"DETECT"})
 
 
     def aperture_photometry(self):
@@ -256,8 +260,14 @@ class StarbugBase(object):
         if self.detections is None:
             perror("No detection source file loaded (-d file-ap.fits)\n")
             return
-        colnames=list( name for name in ("RA","DEC","xcentroid","ycentroid","sharpness","roundness1","roundness2", "peak", "crowding") if name in self.detections.colnames)
-        dat=self.detections[colnames]
+        if len(set(("x_0","y_0","xcentroid","ycentroid")) & set(self.detections.colnames))<2:
+            perror("No pixel coordinates in source file\n")
+            return 
+
+        new_columns=("flux","eflux","sky", "flag", self.filter,"e%s"%self.filter)
+        self.detections.remove_columns( set(new_columns)&set(self.detections.colnames) )
+
+
         #######################
         # APERTURE PHOTOMETRY #
         #######################
@@ -279,8 +289,6 @@ class StarbugBase(object):
             error=self._image["ERR"].data
             error*=scalefactor
         else: error=np.sqrt(image)
-
-
 
         #######################
         # Aperture Correction #
@@ -307,20 +315,15 @@ class StarbugBase(object):
             mask=self._image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
             image[mask]=np.nan
             error[mask]=np.nan
-            ap_cat=apphot(dat, image, error=error, dqflags=self._image["DQ"].data, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+            ap_cat=apphot(self.detections, image, error=error, dqflags=self._image["DQ"].data, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
         else: ##stage 3 version
-            ap_cat=apphot(dat, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+            ap_cat=apphot(self.detections, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
         mag,magerr=flux2ABmag( ap_cat["flux"], ap_cat["eflux"], filter=self.filter)
         ap_cat.add_column(Column(mag,self.filter))
         ap_cat.add_column(Column(magerr,"e%s"%self.filter))
-
-        self.detections=hstack((dat,ap_cat))
-        self.detections.meta=dict(self.header.items())
-        self.detections.meta.update({"ROUNTINE":"DETECT"})
-
-        #else: perror("Failed to run aperture photometry")
+        self.detections=hstack((self.detections,ap_cat))
 
     def bgd_estimate(self):
         """
@@ -563,6 +566,12 @@ class StarbugBase(object):
             im=fits.ImageHDU(data=self.residuals, name="RES", header=self.header)
             im.header.update(self.wcs.to_header())
             im.writeto("%s/%s-res.fits"%(outdir,fname), overwrite=True)
+
+        if self.source_stats is not None:
+            reindex(self.source_stats)
+            hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.source_stats)]
+            fits.HDUList(hdulist).writeto("%s/%s-stat.fits"%(outdir,fname), overwrite=True)
+
         #hdulist=[fits.PrimaryHDU(header=header)]
         #hdulist=[fits.PrimaryHDU()]
         #for n,res in enumerate(self.residuals,1):
@@ -580,7 +589,20 @@ class StarbugBase(object):
         """
         if self.detections is None: perror("No source file loaded\n")
         else:
-            warn("source geometry not implemented yet\n")
+            self.log("Running Source Geometry\n")
+            slist=self.detections[["xcentroid","ycentroid"]].copy()
+            slist=slist[ slist["xcentroid"]>=0 ]
+            slist=slist[ slist["ycentroid"]>=0 ]
+            slist=slist[ slist["xcentroid"]<self.image.header["NAXIS1"]]
+            slist=slist[ slist["ycentroid"]<self.image.header["NAXIS2"]]
+
+            sp=SourceProperties(self.image.data, slist, verbose=self.options["VERBOSE"])
+            stat=sp(fwhm=starbug2.filters[self.filter].pFWHM, do_crowd=self.options["CALC_CROWD"])
+            #geom=sp.calculate_geometry(fwhm=starbug2.filters[self.filter].pFWHM)
+            
+            self.source_stats=hstack((slist,stat))
+
+
 
     def verify(self):
         """
@@ -590,7 +612,7 @@ class StarbugBase(object):
             1 - on fail
         """
         status=0
-        warn=lambda :perror(sbold("WARNING: "))
+        #warn=lambda :perror(sbold("WARNING: "))
 
         if self.filter not in starbug2.filters.keys():
             warn()
