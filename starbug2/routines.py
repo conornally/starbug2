@@ -110,7 +110,7 @@ class Detection_Routine(StarFinderBase):
         _,separation,_=cat_sky.match_to_catalog_3d(base_sky)
         mask=(separation.to_value()>1)
         for src,sep in zip(cat,separation.to_value()):
-            if sep>1:#1 pixel?
+            if sep>self.fwhm:#1 pixel?
                 base.add_row(src)
                 added+=1
         return added
