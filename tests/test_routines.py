@@ -3,7 +3,7 @@ from astropy.table import Table, hstack
 from astropy.io import fits
 from astropy.wcs import WCS
 
-image=fits.open("tests/dat/image.fits")
+#image=fits.open("tests/dat/image.fits")
 
 #def test_Detection_Routine_none():
 #    dt=routines.Detection_Routine()
