@@ -641,7 +641,7 @@ class StarbugBase(object):
         tmp=load_params("%sdefault.param"%pkg_resources.resource_filename("starbug2","param/"))
         if set(tmp.keys()) - set(self.options.keys()):
             warn()
-            perror("parameter file version mismatch. Run starbug --local-param to update\n")
+            perror("parameter file version mismatch. Run starbug --update-param to update\n")
             status=1
 
         return status

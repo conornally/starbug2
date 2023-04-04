@@ -1,3 +1,12 @@
+v0.3.4:
+    MISC:
+        >   adding --update-param
+v0.3.2/3:
+	Mainly bug fixes 
+    Source Detection:
+        >   Added the convolution method
+        >   Removing sourceExtractor method
+
 v0.3.1:
 	Detection:
 		problem: some sources are being discarded because they have nan rnd/shp values. I dont know why they have calculated badly

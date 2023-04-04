@@ -8,6 +8,8 @@ import numpy as np
 import pkg_resources
 from scipy.stats import norm#, mode
 from scipy.optimize import curve_fit
+from scipy.ndimage import convolve
+from skimage.feature import match_template
 
 from astropy.io import fits
 from astropy.stats import SigmaClip, sigma_clipped_stats, sigma_clip
@@ -16,6 +18,7 @@ from astropy.coordinates import SkyCoord
 from astropy.table import Column, Table, QTable, hstack
 import astropy.units as u
 from astropy.modeling.fitting import LevMarLSQFitter
+from astropy.convolution import RickerWavelet2DKernel
 
 from photutils.background import Background2D, SExtractorBackground, BackgroundBase
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
@@ -126,24 +129,50 @@ class Detection_Routine(StarFinderBase):
 
         #self.match(self.catalogue, self.detect(data, MedianBackground(sigma_clip=sigma_clip)))
 
-        self.match(self.catalogue, self.detect(data, SExtractorBackground(sigma_clip=sigma_clip)))
-        if self.verbose: printf("-> [SExTr] pass: %d sources\n"%len(self.catalogue))
+        #self.match(self.catalogue, self.detect(data, SExtractorBackground(sigma_clip=sigma_clip)))
+        #if self.verbose: printf("-> [SExTr] pass: %d sources\n"%len(self.catalogue))
 
-        if self.bgd2d:
-            self.match(self.catalogue, self.detect(data, self._bkg2d))
-            if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
+        #if self.bgd2d:
+        self.match(self.catalogue, self.detect(data, self._bkg2d))
+        if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
+
+        ## 2nd order differential detection
+        mean,median,std=sigma_clipped_stats(data,sigma=self.sig_sky)
+        mask=np.where(np.isnan(data))
+        data[mask]=median
+
+        kernel=RickerWavelet2DKernel(1)
+        conv=convolve(data, kernel)
+        corr=match_template(conv/np.amax(conv), kernel.array)
+        _detections=self.detect(corr)
+        _detections["xcentroid"]+=kernel.shape[0]//2
+        _detections["ycentroid"]+=kernel.shape[0]//2
+        self.match(self.catalogue, _detections)
+        if self.verbose: printf("-> [CONVL] pass: %d sources\n"%len(self.catalogue))
+
+        #import matplotlib.pyplot as plt
+        #from astropy.visualization import ZScaleInterval as zs
+        #fig,(ax1,ax2,ax3)=plt.subplots(1,3,figsize=(30,10), sharex=True, sharey=True)
+        #ax1.imshow(zs()(data))
+        #ax2.imshow(zs()(conv))
+        #ax3.imshow(zs()(corr))
+        #ax1.scatter(_detections["xcentroid"],_detections["ycentroid"], s=80, facecolors='none', edgecolors='r')
+        #ax3.scatter(_detections["xcentroid"]-kernel.shape[0]//2,_detections["ycentroid"]-kernel.shape[0]//2, s=80, facecolors='none', edgecolors='r')
+        #plt.show()
+
+        
 
         ## Now with xycoords DAOStarfinder will refit the sharp and round values at the detected locations
         #self.catalogue=self.detect(data, xycoords=np.array([self.catalogue["xcentroid"],self.catalogue["ycentroid"]]).T)#, clean=0)
-        tmp=SourceProperties(data,self.catalogue).calculate_geometry(self.fwhm)
+        tmp=SourceProperties(data,self.catalogue, verbose=self.verbose).calculate_geometry(self.fwhm)
         if tmp: 
             mask=(~np.isnan(tmp["xcentroid"]) & ~np.isnan(tmp["ycentroid"]))
-            mask &= ((tmp["sharpness"]>self.sharplo)
-                    &(tmp["sharpness"]<self.sharphi)
-                    &(tmp["roundness1"]>self.roundlo)
-                    &(tmp["roundness1"]<self.roundhi)
-                    &(tmp["roundness2"]>self.roundlo)
-                    &(tmp["roundness2"]<self.roundhi))
+            #mask &= ((tmp["sharpness"]>self.sharplo)
+            #        &(tmp["sharpness"]<self.sharphi)
+            #        &(tmp["roundness1"]>self.roundlo)
+            #        &(tmp["roundness1"]<self.roundhi)
+            #        &(tmp["roundness2"]>self.roundlo)
+            #        &(tmp["roundness2"]<self.roundhi))
             self.catalogue=tmp[mask]
         
         if self.verbose: printf("Total: %d sources\n"%len(self.catalogue))

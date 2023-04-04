@@ -137,7 +137,8 @@ def load_params(fname):
                 key=key.strip()
                 value=value.strip()
                 try:
-                    value=float(value)
+                    if '.' in value: value=float(value)
+                    else: value=int(value)
                 except:
                     pass
 
@@ -227,7 +228,7 @@ def hcascade(tables, colnames=None):
             if any(empty): tab.remove_columns(np.array(cols)[empty])
 
         cols=find_colnames(tab,name)#[ colname for colname in tab.colnames if name in colname]
-        tab.rename_columns(cols, ["%s_%d"%(name,i+1) for i in range(len(cols))])
+        if cols: tab.rename_columns(cols, ["%s_%d"%(name,i+1) for i in range(len(cols))])
     return tab
 
 def extnames(hdulist): return list(ext.name for ext in hdulist)

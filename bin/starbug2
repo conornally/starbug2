@@ -21,11 +21,12 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory]
 
    --> Single run commands
        --init                     : Initialise Starbug (post install)
-       --generate-psf             : Generate ALL the PSF files to "STARBUG_DATDIR"
        --local-param              : Make a local copy of the default parameter file
+       --update-param             : Update an out-of-date local parameter file
+       --generate-psf             : Generate ALL the PSF files to "STARBUG_DATDIR"
        --generate-region   a.fits : Make a ds9 region file with a detection file
-       --clean-table       a.fits : Clean up an individual table
        --generate-run      *.fits : Generate a simple run script
+       --clean-table       a.fits : Clean up an individual table
        --version                  : Print starbug2 version
 
    --> typical runs
@@ -59,6 +60,7 @@ GENRATPSF =0x100000
 GENRATRUN =0x200000
 GENRATREG =0x400000
 INITSB    =0x800000
+UPDATEPRM =0x1000000
 
 options=0
 
@@ -74,7 +76,7 @@ def usage():
 
 opts,args=getopt.getopt(sys.argv[1:],"ABCDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "clean", "detect", "find", "geom", "help", "match", "photom", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
-                                                      "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run"))
+                                                      "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run", "update-param"))
 
 for opt,optarg in opts:
     if opt in ("-h","--help"):    usage()
@@ -122,6 +124,8 @@ for opt,optarg in opts:
 
     if opt=="--init": options|=(INITSB|STOPPROC)
     if opt=="--generate-psf": options|=(GENRATPSF|STOPPROC)
+    if opt=="--update-param": options|=(UPDATEPRM|STOPPROC)
+    if opt=="--generate-run": options|=(GENRATRUN|STOPPROC)
 
     if opt=="--local-param":
         os.system("cp %s/default.param starbug.param"%pkg_resources.resource_filename("starbug2","param/"))
@@ -139,8 +143,6 @@ for opt,optarg in opts:
 
     if opt=="--version": quit(starbug2.logo%("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version))
 
-    if opt=="--generate-run": 
-        options|=(GENRATRUN|STOPPROC)
 
 ##############################################
 # Options set, verify/run one time functions #
@@ -167,6 +169,9 @@ if options&GENRATPSF:
 if options&GENRATRUN:
     cmd="starbug2 "#"+ " ".join( ["-vf"])
     generate_runscript(args, cmd)
+
+if options&UPDATEPRM:
+    update_paramfile(pfile)
 
 if options&GENRATREG:
     fname=misc.get("REGION_TAB")
