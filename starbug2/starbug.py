@@ -548,6 +548,7 @@ class StarbugBase(object):
 
         dname,fname,ext=split_fname(self.fname)
         if self.detections: 
+            self.detections.meta["FILTER"]=self.filter
             reindex(self.detections)
             hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.detections)]
             fits.HDUList(hdulist).writeto("%s/%s-ap.fits"%(outdir,fname), overwrite=True)

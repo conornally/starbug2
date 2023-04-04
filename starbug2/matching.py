@@ -100,7 +100,7 @@ def generic_match(catalogues, threshold=0.25, add_src=True):
     base=Table(None)
 
     for n,cat in enumerate(catalogues,1):
-        if "Catalogue Number" in cat.colnames: cat.remove_column("Catalogue Number")
+        if "Catalogue_Number" in cat.colnames: cat.remove_column("Catalogue_Number")
         if not len(base):
             tmp=cat.copy()
         else:

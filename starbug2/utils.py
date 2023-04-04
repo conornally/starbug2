@@ -76,7 +76,7 @@ def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA
     """
     A handy function to convert the detections in a DS9 region file
     """
-
+    #tab=tab.copy()
     if xcol not in tab.colnames:
         xcols= list(filter(lambda s: 'x'==s[0],tab.colnames))
         if xcols:
@@ -92,6 +92,8 @@ def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA
             wcs=0
 
     
+
+
     if "flux" in tab.colnames and scale_radius: 
         r= (-40.0/np.log10(tab["flux"]))
         r[r<region_radius]=region_radius
@@ -277,8 +279,8 @@ def reindex(table):
     """
     Add indexes into a table
     """
-    if "Catalogue Number" in table.colnames: table.remove_column("Catalogue Number")
-    column=Column(["CN%d"%i for i in range(len(table))], name="Catalogue Number")
+    if "Catalogue_Number" in table.colnames: table.remove_column("Catalogue_Number")
+    column=Column(["CN%d"%i for i in range(len(table))], name="Catalogue_Number")
     table.add_column(column,index=0)
     return table
 

@@ -104,22 +104,15 @@ class Detection_Routine(StarFinderBase):
         #        added+=1
         #return added
 
-        export_region(base, fname="/tmp/base.reg", colour="red")
-        export_region(cat,  fname="/tmp/cat.reg",  colour="green")
-
-
         added=0
         base_sky=SkyCoord(x=base["xcentroid"], y=base["ycentroid"], z=np.zeros(len(base)), representation_type="cartesian")
         cat_sky=SkyCoord(x=cat["xcentroid"], y=cat["ycentroid"], z=np.zeros(len(cat)), representation_type="cartesian")
         _,separation,_=cat_sky.match_to_catalog_3d(base_sky)
         mask=(separation.to_value()>1)
-        try: export_region(cat[mask],fname="/tmp/new.reg",colour="cyan")
-        except:pass
         for src,sep in zip(cat,separation.to_value()):
             if sep>1:#1 pixel?
                 base.add_row(src)
                 added+=1
-        input("pause")
         return added
 
     def find_stars(self, data, mask=None):
