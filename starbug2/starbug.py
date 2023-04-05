@@ -213,8 +213,8 @@ class StarbugBase(object):
                 if   fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.SHORT: dtname="NRCA1"
                 elif fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.LONG:  dtname="NRCALONG"
                 elif fltr.instr==starbug2.MIRI:  dtname=""
-            fname="%s/%s%s.fits"%(starbug2.DATDIR,self.filter,dtname)
             if dtname=="MIRIMAGE": dtname=""
+            fname="%s/%s%s.fits"%(starbug2.DATDIR,self.filter,dtname)
         if os.path.exists(fname):
             fp=fits.open(fname)
             self.psf=fp[1].data ####hmm
