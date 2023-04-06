@@ -1,3 +1,6 @@
+v0.3.6:
+	PSF:
+		>	Trying to correct the sporadic PSF fit fail that occurs when -fP is given
 v0.3.4:
     MISC:
         >   adding --update-param
