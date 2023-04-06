@@ -39,6 +39,7 @@ Finally verify the installation by running `starbug2 --version`
 ## Usage
 
 ```bash
+
 Starbug II - JWST PSF photometry
 usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
@@ -61,17 +62,19 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory]
 
    --> Single run commands
        --init                     : Initialise Starbug (post install)
-       --generate-psf             : Generate ALL the PSF files to "PSFDIR"
        --local-param              : Make a local copy of the default parameter file
+       --update-param             : Update an out-of-date local parameter file
+       --generate-psf             : Generate ALL the PSF files to "STARBUG_DATDIR"
        --generate-region   a.fits : Make a ds9 region file with a detection file
-       --clean-table       a.fits : Clean up an individual table
        --generate-run      *.fits : Generate a simple run script
+       --clean-table       a.fits : Clean up an individual table
        --version                  : Print starbug2 version
 
    --> typical runs
       $~ starbug2 -vD -p file.param image.fits      //Source detect on image with a parameter file
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
+
 ```
 
 See [starbug-manual](https://github.com/conornally/starbug2/blob/main/docs/starbug-manual.md) for more detailed instructions.
@@ -79,5 +82,6 @@ See [starbug-manual](https://github.com/conornally/starbug2/blob/main/docs/starb
 ## TODO
 
 * Need to really figure out setup.cfg to include the extras files
+* MIRI Background masking
 
 

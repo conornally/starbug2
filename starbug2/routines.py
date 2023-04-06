@@ -1,7 +1,6 @@
 """
 Routines for Starbug
 """
-import os
 import sys
 import time
 import numpy as np
@@ -11,24 +10,20 @@ from scipy.optimize import curve_fit
 from scipy.ndimage import convolve
 from skimage.feature import match_template
 
-from astropy.io import fits
-from astropy.stats import SigmaClip, sigma_clipped_stats, sigma_clip
-from astropy.wcs import WCS
+from astropy.stats import sigma_clipped_stats, sigma_clip
 from astropy.coordinates import SkyCoord
 from astropy.table import Column, Table, QTable, hstack
-import astropy.units as u
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.convolution import RickerWavelet2DKernel
 
-from photutils.background import Background2D, SExtractorBackground, BackgroundBase
+from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from photutils.detection import StarFinderBase, DAOStarFinder
 from photutils.psf.groupstars import DAOGroup
-from photutils.psf import BasicPSFPhotometry, IterativelySubtractedPSFPhotometry, FittableImageModel
-from photutils.psf.sandbox import DiscretePRF
+from photutils.psf import BasicPSFPhotometry
 
 from photutils.datasets import make_model_sources_image, make_random_models_table
-from starbug2.utils import loading, split_fname, tabppend, printf, perror, extnames, warn, export_region
+from starbug2.utils import loading, printf, perror, warn
 from starbug2 import *
 
 
@@ -43,8 +38,7 @@ class Detection_Routine(StarFinderBase):
     """
     def __init__(self,  sig_src=5, sig_sky=3, fwhm=1,
                         sharplo=0.2, sharphi=1, roundlo=-1, roundhi=1,
-                        match_threshold=1.0, verbose=0,
-                        bgd2d=1, boxsize=2, filtersize=3):
+                        verbose=0, cleansrc=1, bgd2d=1, boxsize=2):
         self.sig_src=sig_src
         self.sig_sky=sig_sky
         self.fwhm = fwhm
@@ -52,40 +46,37 @@ class Detection_Routine(StarFinderBase):
         self.sharplo=sharplo
         self.roundhi=roundhi
         self.roundlo=roundlo
+        self.cleansrc=cleansrc
 
-        self.match_threshold=u.Quantity(match_threshold)*u.dimensionless_unscaled
-        self.catalogue=None
+        #self.match_threshold=u.Quantity(match_threshold)*u.dimensionless_unscaled
+        self.catalogue=Table()
         self.verbose=verbose
 
         self.bgd2d=bgd2d
         self.boxsize=boxsize
-        self.filtersize=filtersize
+        #self.filtersize=filtersize
 
-    def detect(self, data, bkg_estimator=None, xycoords=None, clean=1):
+    def detect(self, data, bkg_estimator=None, xycoords=None):
         """
-        docstring
+        The core detection step (DAOStarFinder
+        INPUT:  
+                data=array to detect on
+                bkg_estimator=background array the same shape as data array
+                xycorrds= table of initial guesses (xcentroid,ycentroid)
+        RETURNS:
+                Sourcelist Table
         """
         bkg=np.zeros(data.shape)
         if bkg_estimator:
             bkg=bkg_estimator(data)
-            """
-            try:
-                fits.PrimaryHDU(data=data-bkg).writeto("/tmp/bgd.fits",overwrite=True)
-            except: pass
-            """
 
-        mean,median,std=sigma_clipped_stats(data,sigma=self.sig_sky)
-        if clean:
-            daofind=DAOStarFinder(std*self.sig_src, self.fwhm, sharplo=self.sharplo, sharphi=self.sharphi,
-                    roundlo=self.roundlo, roundhi=self.roundhi, peakmax=np.inf, xycoords=xycoords)
-        else: ## i dont want it to lose sharp/round values on the final run
-            daofind=DAOStarFinder(-np.inf, self.fwhm, sharplo=-np.inf, sharphi=np.inf,
-                    roundlo=-np.inf, roundhi=np.inf, peakmax=np.inf, xycoords=xycoords)
-
+        _,_,std=sigma_clipped_stats(data,sigma=self.sig_sky)
+        daofind=DAOStarFinder(std*self.sig_src, self.fwhm, sharplo=self.sharplo, sharphi=self.sharphi,
+                roundlo=self.roundlo, roundhi=self.roundhi, peakmax=np.inf, xycoords=xycoords)
         return daofind(data - bkg)
 
     def _bkg2d(self, data):
-        return Background2D(data, self.boxsize, filter_size=self.filtersize).background
+        return Background2D(data, self.boxsize, filter_size=3).background
 
     def match(self, base, cat):
         """
@@ -94,24 +85,11 @@ class Detection_Routine(StarFinderBase):
         into the main catalogue. This will append a source if its matched separation
         is above the threshold self.match_threshold
         """
-        #added=0
-        #b_ra, b_dec = self.wcs.all_pix2world( base["xcentroid"], base["ycentroid"], 0)
-        #c_ra, c_dec = self.wcs.all_pix2world( cat["xcentroid"], cat["ycentroid"], 0)
-
-        #base_sky=SkyCoord(b_ra*u.degree, b_dec*u.degree)
-        #cat_sky=SkyCoord(c_ra*u.degree, c_dec*u.degree)
-        #_,separation,_=cat_sky.match_to_catalog_3d(base_sky)
-        #for src,sep in zip(cat,separation):
-        #    if sep>self.match_threshold:
-        #        base.add_row(src)
-        #        added+=1
-        #return added
 
         added=0
         base_sky=SkyCoord(x=base["xcentroid"], y=base["ycentroid"], z=np.zeros(len(base)), representation_type="cartesian")
         cat_sky=SkyCoord(x=cat["xcentroid"], y=cat["ycentroid"], z=np.zeros(len(cat)), representation_type="cartesian")
         _,separation,_=cat_sky.match_to_catalog_3d(base_sky)
-        mask=(separation.to_value()>1)
         for src,sep in zip(cat,separation.to_value()):
             if sep>self.fwhm:#1 pixel?
                 base.add_row(src)
@@ -120,27 +98,31 @@ class Detection_Routine(StarFinderBase):
 
     def find_stars(self, data, mask=None):
         """
+        Main function of Routine
+        FUNC:
+            This routine runs source detection several times, but on a different form
+            of the data array each time. Each form has been "skewed" somehow to brighten the
+            most faint sources and flatten the differential background.
+            1- Plain detections
+            2- Subtract Background estimation
+            3- RickerWave convolution
+
+        INPUT:
+            data=array to detect on
+            mask=pixels to mask out
         """
         if data is None: return None
+        if mask is None: mask=np.where(np.isnan(data))
+        _,median,_=sigma_clipped_stats(data,sigma=self.sig_sky)
+        data[mask]=median
 
         self.catalogue=self.detect(data)
         if self.verbose: printf("-> [PLAIN] pass: %d sources\n"%len(self.catalogue))
-        sigma_clip = SigmaClip(sigma=self.sig_sky, maxiters=10)
 
-        #self.match(self.catalogue, self.detect(data, MedianBackground(sigma_clip=sigma_clip)))
-
-        #self.match(self.catalogue, self.detect(data, SExtractorBackground(sigma_clip=sigma_clip)))
-        #if self.verbose: printf("-> [SExTr] pass: %d sources\n"%len(self.catalogue))
-
-        #if self.bgd2d:
         self.match(self.catalogue, self.detect(data, self._bkg2d))
         if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
 
         ## 2nd order differential detection
-        mean,median,std=sigma_clipped_stats(data,sigma=self.sig_sky)
-        mask=np.where(np.isnan(data))
-        data[mask]=median
-
         kernel=RickerWavelet2DKernel(1)
         conv=convolve(data, kernel)
         corr=match_template(conv/np.amax(conv), kernel.array)
@@ -150,30 +132,23 @@ class Detection_Routine(StarFinderBase):
         self.match(self.catalogue, _detections)
         if self.verbose: printf("-> [CONVL] pass: %d sources\n"%len(self.catalogue))
 
-        #import matplotlib.pyplot as plt
-        #from astropy.visualization import ZScaleInterval as zs
-        #fig,(ax1,ax2,ax3)=plt.subplots(1,3,figsize=(30,10), sharex=True, sharey=True)
-        #ax1.imshow(zs()(data))
-        #ax2.imshow(zs()(conv))
-        #ax3.imshow(zs()(corr))
-        #ax1.scatter(_detections["xcentroid"],_detections["ycentroid"], s=80, facecolors='none', edgecolors='r')
-        #ax3.scatter(_detections["xcentroid"]-kernel.shape[0]//2,_detections["ycentroid"]-kernel.shape[0]//2, s=80, facecolors='none', edgecolors='r')
-        #plt.show()
-
-        
-
         ## Now with xycoords DAOStarfinder will refit the sharp and round values at the detected locations
         #self.catalogue=self.detect(data, xycoords=np.array([self.catalogue["xcentroid"],self.catalogue["ycentroid"]]).T)#, clean=0)
         tmp=SourceProperties(data,self.catalogue, verbose=self.verbose).calculate_geometry(self.fwhm)
-        if tmp: 
-            mask=(~np.isnan(tmp["xcentroid"]) & ~np.isnan(tmp["ycentroid"]))
-            #mask &= ((tmp["sharpness"]>self.sharplo)
-            #        &(tmp["sharpness"]<self.sharphi)
-            #        &(tmp["roundness1"]>self.roundlo)
-            #        &(tmp["roundness1"]<self.roundhi)
-            #        &(tmp["roundness2"]>self.roundlo)
-            #        &(tmp["roundness2"]<self.roundhi))
-            self.catalogue=tmp[mask]
+        if tmp: self.catalogue=tmp
+
+        mask=(~np.isnan(self.catalogue["xcentroid"]) & ~np.isnan(self.catalogue["ycentroid"]))
+        self.catalogue.remove_rows(~mask)
+
+        mask = ((self.catalogue["sharpness"]>self.sharplo)
+               &(self.catalogue["sharpness"]<self.sharphi)
+               &(self.catalogue["roundness1"]>self.roundlo)
+               &(self.catalogue["roundness1"]<self.roundhi)
+               &(self.catalogue["roundness2"]>self.roundlo)
+               &(self.catalogue["roundness2"]<self.roundhi))
+        if self.cleansrc: 
+            if self.verbose: printf("-> cleaning %d+ unlikley point sources\n"%sum(~mask))
+            self.catalogue.remove_rows(~mask)
         
         if self.verbose: printf("Total: %d sources\n"%len(self.catalogue))
 
@@ -293,6 +268,9 @@ class APPhot_Routine():
         return line["apcorr"], line["radius"]
 
     def log(self,msg):
+        """
+        log message if in verbose mode
+        """
         if self.verbose: 
             printf(msg)
             sys.stdout.flush()
@@ -301,14 +279,13 @@ class APPhot_Routine():
 class BackGround_Estimate_Routine(BackgroundBase):
     """
     """
-    bgd=None
-    sourcelist=None
     def __init__(self, sourcelist, boxsize=2, fwhm=2, verbose=0, bgd=None):#mask_r0=7, mask_r1=9
         self.sourcelist=sourcelist
         self.boxsize=boxsize
         self.fwhm=fwhm
         self.verbose=verbose
         self.bgd=bgd
+        super().__init__()
 
     def calc_peaks(self,im):
         """
@@ -322,7 +299,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
             peaks[i]=np.nanmax( mask.multiply(im) )
         return peaks
 
-    def __call__(self, data):
+    def __call__(self, data, axis=None, masked=False):
         if self.sourcelist is None or data is None: return self.bgd
         _data=np.copy(data)
         X,Y=np.ogrid[:data.shape[1], :data.shape[0]]
@@ -396,9 +373,7 @@ class PSFPhot_Routine(BasicPSFPhotometry):
     PSF Photometry routine called by starbug
     """
     def __init__(self, crit_separation, psf_model, fitshape,
-            #sig_sky=3, sig_src=5,
-            #sharplo=0.2, sharphi=1.0, roundlo=-1.0, roundhi=1.0,
-            force_fit=False, dposition_threshold=2, background=None, wcs=None, verbose=1):
+            force_fit=False, dposition_threshold=2, background=None, verbose=1):
 
         self.verbose=verbose
         self.force_fit=force_fit        
@@ -416,11 +391,9 @@ class PSFPhot_Routine(BasicPSFPhotometry):
                 psf_model=psf_model, fitshape=fitshape,
                 finder=None, fitter=fitter)
 
-    def _bkg(self, axis=None,masked=None):
-        return self.background
+    #def _bkg(self, axis=None,masked=None):
+        #return self.background
 
-
-    #def do_photometry(self, image, init_guesses=None):
     def do_photometry(self, image, mask=None, init_guesses=None, progress_bar=False):
         """
         """ 
@@ -433,17 +406,12 @@ class PSFPhot_Routine(BasicPSFPhotometry):
 
         if self.verbose: printf("-> fitting %d sources\n"%len(init_guesses))
         cat=super().do_photometry(image, mask=mask, init_guesses=init_guesses, progress_bar=False)
-        #cat=super().do_photometry(image, init_guesses=init_guesses)
 
-
-
-        #cat.rename_column("flux_fit","flux")
         if "flux_unc" not in cat.colnames:
             cat.add_column(Column(np.full(len(cat),np.nan), name="eflux"))
             perror("NO ERRORS??\n")
         else: cat.rename_column("flux_unc","eflux")
 
-        #cat.remove_rows( cat["flux_fit"]<=0)
         return cat
 
 class Cleaning_Routine(object):

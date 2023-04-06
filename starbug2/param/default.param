@@ -7,12 +7,12 @@ VERBOSE =0       // (0:false 1:true)
 OUTDIR	=. //.
 HDUNAME =  //If using a non standard HDU name, name it here (str or int)
 
-## DETECTETION - Aperture photomtry
+## DETECTETION 
 SIGSKY		=2.0  // (float>0) 
 SIGSRC		=5.0  // (float>0) Source value mininmum N sigma above background
 BOX_SIZE	=2    // (int>0) Background estimation kernal size (pix)
-#FILTER_SIZE	=3    //.
 DOBGD2D     =1    // Run background2D estimation (usually finds more sources but takes time)
+CLEANSRC    =1    // Run source cleaning after detection (removes likely contaminants)
 SHARP_LO    = 0.4 // cutoff in detection
 SHARP_HI    = 0.9 // cutoff in detection
 ROUND_LO    =-1.0 // cutoff in detection
@@ -50,7 +50,7 @@ CALC_CROWD  =1     //Run crowding metric calculation (execution time scales N^2)
 
 ## CATALOGUE MATCHING
 MATCH_THRESH =0.1  					//when combining background subtraction catalogue, minimum separation (arcsec) of centroids to be considered separate sources
-MATCH_COLS = // EXTRA columns to include in output matched table i.e sharpness
+MATCH_COLS =                        // EXTRA columns to include in output matched table i.e sharpness
 RM_MATCH =-1                        // Remove any sources with less matches than N-RM_MATCH. (if -1, keep everything)
 
 ## ARTIFICAL STARS
