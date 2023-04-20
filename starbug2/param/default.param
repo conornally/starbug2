@@ -17,6 +17,7 @@ SHARP_LO    = 0.4 // cutoff in detection
 SHARP_HI    = 0.9 // cutoff in detection
 ROUND_LO    =-1.0 // cutoff in detection
 ROUND_HI    = 1.0 // cutoff in detection
+RICKER_R    = 1.0 // Radius (pix) of ricker wavelet 
 
 ## APERTURE PHOTOMOETRY
 APPHOT_R    =1.5   //Radius in number of pixels

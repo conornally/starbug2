@@ -127,7 +127,6 @@ def update_paramfile(fname):
     current_param=load_params(fname)
 
     if default_fname==fname:
-        #perror("cannot change default parameter file")
         return 
 
     if os.path.exists(fname):
@@ -158,7 +157,9 @@ def update_paramfile(fname):
 
             outline="%-24s"%("%-12s"%key+"= "+str(value))+" //"+comment+"\n"
             fpo.write(outline)
-
+        fpi.close()
+        fpo.close()
+        fpd.close()
         os.system("mv /tmp/starbug.param %s"%fname)
     else: perror("local parameter file '%s' does not exist\n"%fname)
 

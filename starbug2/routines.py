@@ -12,13 +12,13 @@ from skimage.feature import match_template
 
 from astropy.stats import sigma_clipped_stats, sigma_clip
 from astropy.coordinates import SkyCoord
-from astropy.table import Column, Table, QTable, hstack
+from astropy.table import Column, Table, QTable, hstack, vstack
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.convolution import RickerWavelet2DKernel
 
 from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
-from photutils.detection import StarFinderBase, DAOStarFinder
+from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
 from photutils.psf.groupstars import DAOGroup
 from photutils.psf import BasicPSFPhotometry
 
@@ -37,7 +37,7 @@ class Detection_Routine(StarFinderBase):
     different set of sources
     """
     def __init__(self,  sig_src=5, sig_sky=3, fwhm=1,
-                        sharplo=0.2, sharphi=1, roundlo=-1, roundhi=1,
+                        sharplo=0.2, sharphi=1, roundlo=-1, roundhi=1, ricker_r=1.0,
                         verbose=0, cleansrc=1, bgd2d=1, boxsize=2):
         self.sig_src=sig_src
         self.sig_sky=sig_sky
@@ -46,6 +46,7 @@ class Detection_Routine(StarFinderBase):
         self.sharplo=sharplo
         self.roundhi=roundhi
         self.roundlo=roundlo
+        self.ricker_r=ricker_r
         self.cleansrc=cleansrc
 
         #self.match_threshold=u.Quantity(match_threshold)*u.dimensionless_unscaled
@@ -56,7 +57,7 @@ class Detection_Routine(StarFinderBase):
         self.boxsize=boxsize
         #self.filtersize=filtersize
 
-    def detect(self, data, bkg_estimator=None, xycoords=None):
+    def detect(self, data, bkg_estimator=None, xycoords=None, method=None):
         """
         The core detection step (DAOStarFinder
         INPUT:  
@@ -70,10 +71,15 @@ class Detection_Routine(StarFinderBase):
         if bkg_estimator:
             bkg=bkg_estimator(data)
 
-        _,_,std=sigma_clipped_stats(data,sigma=self.sig_sky)
-        daofind=DAOStarFinder(std*self.sig_src, self.fwhm, sharplo=self.sharplo, sharphi=self.sharphi,
+        _,median,std=sigma_clipped_stats(data,sigma=self.sig_sky)
+        if method=="findpeaks":
+            return find_peaks(data-bkg, median+std*self.sig_src, box_size=11)
+
+        else:
+            find=DAOStarFinder(std*self.sig_src, self.fwhm, sharplo=self.sharplo, sharphi=self.sharphi,
                 roundlo=self.roundlo, roundhi=self.roundhi, peakmax=np.inf, xycoords=xycoords)
-        return daofind(data - bkg)
+            return find(data - bkg)
+
 
     def _bkg2d(self, data):
         return Background2D(data, self.boxsize, filter_size=3).background
@@ -90,11 +96,9 @@ class Detection_Routine(StarFinderBase):
         base_sky=SkyCoord(x=base["xcentroid"], y=base["ycentroid"], z=np.zeros(len(base)), representation_type="cartesian")
         cat_sky=SkyCoord(x=cat["xcentroid"], y=cat["ycentroid"], z=np.zeros(len(cat)), representation_type="cartesian")
         _,separation,_=cat_sky.match_to_catalog_3d(base_sky)
-        for src,sep in zip(cat,separation.to_value()):
-            if sep>self.fwhm:#1 pixel?
-                base.add_row(src)
-                added+=1
-        return added
+        mask= separation.to_value() >self.fwhm
+        return vstack((base,cat[mask]))
+
 
     def find_stars(self, data, mask=None):
         """
@@ -119,17 +123,18 @@ class Detection_Routine(StarFinderBase):
         self.catalogue=self.detect(data)
         if self.verbose: printf("-> [PLAIN] pass: %d sources\n"%len(self.catalogue))
 
-        self.match(self.catalogue, self.detect(data, self._bkg2d))
+        self.catalogue=self.match(self.catalogue, self.detect(data, self._bkg2d))
         if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
 
         ## 2nd order differential detection
-        kernel=RickerWavelet2DKernel(1)
+        kernel=RickerWavelet2DKernel(self.ricker_r)
         conv=convolve(data, kernel)
         corr=match_template(conv/np.amax(conv), kernel.array)
-        _detections=self.detect(corr)
-        _detections["xcentroid"]+=kernel.shape[0]//2
-        _detections["ycentroid"]+=kernel.shape[0]//2
-        self.match(self.catalogue, _detections)
+        _detections=self.detect(corr, method="findpeaks")
+        _detections["x_peak"]+=kernel.shape[0]//2
+        _detections["y_peak"]+=kernel.shape[0]//2
+        _detections.rename_columns( ("x_peak","y_peak"),("xcentroid","ycentroid"))
+        self.catalogue=self.match(self.catalogue, _detections)
         if self.verbose: printf("-> [CONVL] pass: %d sources\n"%len(self.catalogue))
 
         ## Now with xycoords DAOStarfinder will refit the sharp and round values at the detected locations

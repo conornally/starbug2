@@ -245,6 +245,7 @@ class StarbugBase(object):
                                         sharphi=self.options["SHARP_HI"],
                                         roundlo=self.options["ROUND_LO"],
                                         roundhi=self.options["ROUND_HI"],
+                                        ricker_r=self.options["RICKER_R"],
                                         bgd2d=self.options["DOBGD2D"],
                                         boxsize=int(self.options["BOX_SIZE"]),
                                         cleansrc=self.options["CLEANSRC"],
@@ -486,6 +487,8 @@ class StarbugBase(object):
             psf_cat.add_column(magerr,name="e%s"%self.filter)
             self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
             self.psfcatalogue.meta=dict(self.header.items())
+            self.psfcatalogue.meta["AP_FILE"]=self.options["AP_FILE"]
+            self.psfcatalogue.meta["BGD_FILE"]=self.options["BGD_FILE"]
             #self.background=fits.ImageHDU(data=phot.bkg_estimator.bgd, name="BACKGROUND", header=self.wcs.to_header()) ##So is it supposed to be a fits image or a numpy array?!
 
     def cleanup(self):

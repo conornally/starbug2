@@ -1,3 +1,9 @@
+v0.3.7:
+    Detection:
+        >   changing convolution detection method to find peaks
+		>	Added RICKER_R to params
+    Utils
+        >   I think update-param should be more robust..
 v0.3.6:
 	PSF:
 		>	Trying to correct the sporadic PSF fit fail that occurs when -fP is given
