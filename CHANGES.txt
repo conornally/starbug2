@@ -1,3 +1,7 @@
+v0.3.8:
+	PSF:
+		>	Bug(fix), recursion error during fitting source groups with more members than the
+			system recursion limit. For now the recursion limit has just been overrided.
 v0.3.7:
     Detection:
         >   changing convolution detection method to find peaks

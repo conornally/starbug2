@@ -1,7 +1,10 @@
 # file: starbug2
+#
 
 ## need to make this local at some point
-PARAMLIST="PARAM TEST VERBOSE PSFDIR OUTDIR HDUNAME SIGSKY SIGSRC BOX_SIZE DOBGD2D SHARP_LO SHARP_HI ROUND_LO ROUND_HI APPHOT_R ENCENERGY FIT_APP_R SKY_RIN SKY_ROUT ERROR_CUT SHARP_HI_SIG SHARP_LO_SIG ROUND_HI_SIG ROUND_LO_SIG BGD_R AP_FILE BGD_FILE CRIT_SEP FORCE_POS DPOS_THRESH PSF_FITSIZE GEN_RESIDUAL MATCH_THRESH MATCH_COLS RM_MATCH NUMBER_ARTIFICIAL_STARS SUBIMAGE_SIZE MIN_FLUX MAX_FLUX SEPARATION_THRESH REGION_COL REGION_SCAL REGION_RAD REGION_XCOL REGION_YCOL REGION_WCS"
+## cat starbug2/param/default.param | grep -v '\#' | awk '{print $1}' ORS=' '
+PARAMLIST="PARAM TEST  VERBOSE OUTDIR HDUNAME  SIGSKY SIGSRC BOX_SIZE DOBGD2D CLEANSRC SHARP_LO SHARP_HI ROUND_LO ROUND_HI RICKER_R  APPHOT_R ENCENERGY FIT_APP_R SKY_RIN SKY_ROUT  ERROR_CUT SHARP_HI_SIG SHARP_LO_SIG ROUND_HI_SIG ROUND_LO_SIG  BGD_R  AP_FILE BGD_FILE PSF_FILE CRIT_SEP FORCE_POS DPOS_THRESH PSF_SIZE GEN_RESIDUAL=0  CALC_CROWD  MATCH_THRESH MATCH_COLS RM_MATCH  NUMBER_ARTIFICIAL_STARS SUBIMAGE_SIZE MIN_FLUX MAX_FLUX SEPARATION_THRESH  REGION_COL REGION_SCAL REGION_RAD REGION_XCOL REGION_YCOL REGION_WCS "
+
 
 _starbug2 ()
 {
@@ -38,7 +41,7 @@ _starbug2 ()
 
 
     --*)
-		COMPREPLY=( $( compgen -W '--artific --background --bgdfile --clean --apfile --detect --find --help --match --ncores --output --param  --photom --set --verbose --generate-psf --local-param --generate-region --clean-table --generate-run --version' -- $cur ));;
+		COMPREPLY=( $( compgen -W '--apphot --background --bgdfile --clean --apfile --detect --find --geom --help --match --ncores --output --param --photom --set --subbgd --verbose --init --local-param --update-param --generate-psf --generate-region --generate-run --clean-table --version' -- $cur ));;
     -*)
         COMPREPLY=($(compgen -W '-A -B -C -D -f -h -P -v \
                                 -b -d -o -p -s ' -- $cur));;

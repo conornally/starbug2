@@ -26,7 +26,6 @@ from photutils.datasets import make_model_sources_image, make_random_models_tabl
 from starbug2.utils import loading, printf, perror, warn
 from starbug2 import *
 
-
 class Detection_Routine(StarFinderBase):
     """
     Detection routine- called by starbug
@@ -347,6 +346,13 @@ class _grouping(DAOGroup):
     Overwritten DAOGroup that just holds the number of groups
     for use in verbose loading of psfphot routine
     >>> This is now a bit redundant after photoutils added progress_bar=true
+
+    Issue:6 recursion during fitting.
+        >>> the fitting seems to include this recursive step within a given source of sources
+            if the group contains more members than the system recursion limit then it will
+            unceremonially crash on a recursion error.
+        >>> for now at least, I will give a warning that this would have occurred, but then 
+            ill override the recursion limit and avoid the crash. Hopefully
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -354,6 +360,17 @@ class _grouping(DAOGroup):
     def __call__(self, *args):
         res=super().__call__(*args)
         self.ngroups=max(res["group_id"])
+
+        #### hacking recursion error
+        for gid in set(res["group_id"]):
+            n_members=sum(res["group_id"]==gid)
+            if n_members > sys.getrecursionlimit():
+                warn()
+                perror("This run will exceed the recursion depth of the system. "
+                        "Starbug will intervene and override the recursion limit but "
+                        "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
+                        "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), n_members))
+                sys.setrecursionlimit(n_members)
         return res
 
 class _fitmodel(LevMarLSQFitter):
