@@ -1,6 +1,7 @@
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 warnings.simplefilter("ignore",category=AstropyWarning)
+warnings.simplefilter("ignore",category=RuntimeWarning) ## bit dodge that
 
 logo="""\
                    *          *  __  *  __   - * --   - 
@@ -41,7 +42,7 @@ DQ_SATURATED =0x02
 DQ_JUMP_DET  =0x04
 
 ## DEFAULT MATCHING COLS
-match_cols=["RA","DEC","flag","flux","eflux", "stdflux", "crowding"]
+match_cols=["RA","DEC","flag","flux","eflux", "stdflux", "NUM"]
 
 # ZERO POINT...
 ZP={   "F070W"	:[3631,0],

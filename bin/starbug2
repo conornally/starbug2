@@ -61,6 +61,7 @@ GENRATRUN =0x200000
 GENRATREG =0x400000
 INITSB    =0x800000
 UPDATEPRM =0x1000000
+DODEBUG   =0x2000000
 
 options=0
 
@@ -76,7 +77,8 @@ def usage():
 
 opts,args=getopt.getopt(sys.argv[1:],"ABCDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "clean", "detect", "find", "geom", "help", "match", "photom", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
-                                                      "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run", "update-param"))
+                                                      "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run", "update-param",
+                                                      "debug"))
 
 for opt,optarg in opts:
     if opt in ("-h","--help"):    usage()
@@ -126,6 +128,9 @@ for opt,optarg in opts:
     if opt=="--generate-psf": options|=(GENRATPSF|STOPPROC)
     if opt=="--update-param": options|=(UPDATEPRM|STOPPROC)
     if opt=="--generate-run": options|=(GENRATRUN|STOPPROC)
+    if opt=="--debug":
+        os.environ["SBIIDEBUG"]="/tmp/starbug.log"
+        open("/tmp/starbug.log","w").close()
 
     if opt=="--local-param":
         os.system("cp %s/default.param starbug.param"%pkg_resources.resource_filename("starbug2","param/"))

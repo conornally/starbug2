@@ -1,6 +1,7 @@
 """
 Routines for Starbug
 """
+import os
 import sys
 import time
 import numpy as np
@@ -130,10 +131,11 @@ class Detection_Routine(StarFinderBase):
         conv=convolve(data, kernel)
         corr=match_template(conv/np.amax(conv), kernel.array)
         _detections=self.detect(corr, method="findpeaks")
-        _detections["x_peak"]+=kernel.shape[0]//2
-        _detections["y_peak"]+=kernel.shape[0]//2
-        _detections.rename_columns( ("x_peak","y_peak"),("xcentroid","ycentroid"))
-        self.catalogue=self.match(self.catalogue, _detections)
+        if _detections:
+            _detections["x_peak"]+=kernel.shape[0]//2
+            _detections["y_peak"]+=kernel.shape[0]//2
+            _detections.rename_columns( ("x_peak","y_peak"),("xcentroid","ycentroid"))
+            self.catalogue=self.match(self.catalogue, _detections)
         if self.verbose: printf("-> [CONVL] pass: %d sources\n"%len(self.catalogue))
 
         ## Now with xycoords DAOStarfinder will refit the sharp and round values at the detected locations
@@ -354,9 +356,14 @@ class _grouping(DAOGroup):
         >>> for now at least, I will give a warning that this would have occurred, but then 
             ill override the recursion limit and avoid the crash. Hopefully
     """
+    logfile=None
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ngroups=0
+        if os.getenv("SBIIDEBUG"):
+            self.logfile=open(os.getenv("SBIIDEBUG"),'a')
+            self.logfile.write("# PSF Source Grouping\n")
+
     def __call__(self, *args):
         res=super().__call__(*args)
         self.ngroups=max(res["group_id"])
@@ -364,6 +371,9 @@ class _grouping(DAOGroup):
         #### hacking recursion error
         for gid in set(res["group_id"]):
             n_members=sum(res["group_id"]==gid)
+            if self.logfile:
+                self.logfile.write("GID:%d (%d)\n"%(gid,n_members))
+
             ## It seems to not quite hit the recursion limit
             ## Crashed on 980 with a limit of 1000, so im going to try 90%
             if n_members > (0.9*sys.getrecursionlimit()):
@@ -371,7 +381,7 @@ class _grouping(DAOGroup):
                 perror("This run will exceed the recursion depth of the system. "
                        "Starbug will intervene and override the recursion limit but "
                        "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
-                       "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), n_members))
+                       "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), int(1.1*n_members)))
                 sys.setrecursionlimit(int(1.1*n_members))
         return res
 

@@ -83,6 +83,4 @@ See [starbug-manual](https://github.com/conornally/starbug2/blob/main/docs/starb
 
 * Need to really figure out setup.cfg to include the extras files
 * MIRI Background masking
-* findpeaks on convl method
-* rickerwavelet radius
 * psf dither match dropping apMag

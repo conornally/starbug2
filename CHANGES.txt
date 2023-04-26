@@ -1,3 +1,10 @@
+v0.3.10:
+	PSF:
+		>	non conforming sourcelists now allowed
+	General:
+		>	If a apfile doesnt have sources or there isnt any overlap with the image, then
+			starbug.verify will fail that run
+
 v0.3.8:
 	PSF:
 		>	Bug(fix), recursion error during fitting source groups with more members than the

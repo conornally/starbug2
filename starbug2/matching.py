@@ -313,14 +313,17 @@ def finish_matching(tab, colnames):
         elif name=="flag":
             col=Column(flags, name=name)
             for fcol in ar.T: col|=fcol.astype(np.uint16)
+        elif name=="NUM":
+            col=Column(np.nansum(ar, axis=1), name=name)
         else: col=Column(np.nanmedian(ar, axis=1),name=name)
         
         av[name]=col
     mag,magerr=flux2ABmag(av["flux"],av["eflux"], tab.meta["FILTER"])
     av.add_column(mag,name=tab.meta["FILTER"])
     av.add_column(magerr,name="e%s"%tab.meta["FILTER"])
-    narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
-    av.add_column(Column(narr, name="NUM"))
+    if "NUM" not in av.colnames:
+        narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
+        av.add_column(Column(narr, name="NUM"))
     return (av,tab)
 
 

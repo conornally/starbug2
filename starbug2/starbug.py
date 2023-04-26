@@ -422,10 +422,19 @@ class StarbugBase(object):
             init_guesses=init_guesses[ init_guesses["y_0"]>=0 ]
             init_guesses=init_guesses[ init_guesses["x_0"]<self.image.header["NAXIS1"]]
             init_guesses=init_guesses[ init_guesses["y_0"]<self.image.header["NAXIS2"]]
-            init_guesses=init_guesses[["x_0","y_0","flux",self.filter, "flag"]]
+
+            ######
+            # Allow tables that dont have the correct columns through
+            ######
+            required=["x_0","y_0","flux",self.filter, "flag"]
+            for notfound in  set(required)-set(init_guesses.colnames):
+                dtype=np.uint16 if notfound=="flag" else float
+                init_guesses.add_column( Column( np.zeros(len(init_guesses)), name=notfound, dtype=dtype) )
+
+            init_guesses=init_guesses[required]
             init_guesses.remove_column("flux")
-            #init_guesses.rename_column("flux","flux_0")
             init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
+            #init_guesses.rename_column("flux","flux_0")
             #init_guesses=init_guesses[init_guesses["flux_0"]>0]
             #init_guesses.remove_column("flux_0")
 
@@ -643,6 +652,17 @@ class StarbugBase(object):
             warn()
             perror("parameter file version mismatch. Run starbug --update-param to update\n")
             status=1
+
+        if self.options["AP_FILE"] and self.detections is not None:
+            test=self.detections[["xcentroid","ycentroid"]]
+            test=test[ test["xcentroid"]>=0 ]
+            test=test[ test["ycentroid"]>=0 ]
+            test=test[ test["xcentroid"]<self.image.header["NAXIS1"]]
+            test=test[ test["ycentroid"]<self.image.header["NAXIS2"]]
+            if not len(test):
+                warn()
+                perror("Detection file empty or no sources overlap the image.\n")
+                status=1
 
         return status
 

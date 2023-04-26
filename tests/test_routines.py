@@ -3,32 +3,36 @@ from astropy.table import Table, hstack
 from astropy.io import fits
 from astropy.wcs import WCS
 
-#image=fits.open("tests/dat/image.fits")
+import os
+go=os.path.exists("tests/dat/image.fits")
+if go: image=fits.open("tests/dat/image.fits")
+else: image=None
 
-#def test_Detection_Routine_none():
-#    dt=routines.Detection_Routine()
-#    assert dt.find_stars(None) is None
-#
-#def test_Detection_Routine_crashes():
-#    dt=routines.Detection_Routine()
-#    out=dt.find_stars(image["SCI"].data)
-#    assert out is not None
-#
-#def test_BackGround_Estimate_Routine_none():
-#    bg=routines.BackGround_Estimate_Routine(None)
-#    assert bg(None) is None
-#
+def test_Detection_Routine_none():
+    dt=routines.Detection_Routine()
+    assert dt.find_stars(None) is None
+
+def test_Detection_Routine_crashes():
+    dt=routines.Detection_Routine()
+    if image:
+        out=dt.find_stars(image["SCI"].data)
+        assert out is not None
+
+def test_BackGround_Estimate_Routine_none():
+    bg=routines.BackGround_Estimate_Routine(None)
+    assert bg(None) is None
+
 #def test_BackGround_Estimate_Routine_crashes():
 #    pass
 #
 #
 #
 #
-#def test_SourceProperties_none():
-#    sp=routines.SourceProperties(None,None)
-#    assert sp.calculate_crowding() is None
-#    assert sp.calculate_geometry(1)==None
-#
+def test_SourceProperties_none():
+    sp=routines.SourceProperties(None,None)
+    assert sp.calculate_crowding() is None
+    assert sp.calculate_geometry(1)==None
+
 #def test_SourceProperties_crashes():
 #    ## yeh i know this isnt how youre supposed to test
 #    ## im just verifying it doesnt crash
