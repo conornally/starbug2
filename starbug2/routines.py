@@ -364,7 +364,9 @@ class _grouping(DAOGroup):
         #### hacking recursion error
         for gid in set(res["group_id"]):
             n_members=sum(res["group_id"]==gid)
-            if n_members > sys.getrecursionlimit():
+            ## It seems to not quite hit the recursion limit
+            ## Crashed on 980 with a limit of 1000, so im going to try 90%
+            if n_members > (0.9*sys.getrecursionlimit()):
                 warn()
                 perror("This run will exceed the recursion depth of the system. "
                        "Starbug will intervene and override the recursion limit but "
