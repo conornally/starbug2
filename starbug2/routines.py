@@ -367,10 +367,10 @@ class _grouping(DAOGroup):
             if n_members > sys.getrecursionlimit():
                 warn()
                 perror("This run will exceed the recursion depth of the system. "
-                        "Starbug will intervene and override the recursion limit but "
-                        "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
-                        "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), n_members))
-                sys.setrecursionlimit(n_members)
+                       "Starbug will intervene and override the recursion limit but "
+                       "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
+                       "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), n_members))
+                sys.setrecursionlimit(int(1.1*n_members))
         return res
 
 class _fitmodel(LevMarLSQFitter):
