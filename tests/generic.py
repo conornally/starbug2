@@ -1,40 +1,68 @@
-import numpy as np
-from astropy.io import fits
-from astropy.convolution import convolve, RickerWavelet2DKernel, Gaussian2DKernel
-from astropy.visualization import ZScaleInterval
-import matplotlib.pyplot as plt
-from scipy.signal import ricker
-from scipy.ndimage import convolve
-from skimage.feature import match_template
-from starbug2.routines import Detection_Routine
+#import numpy as np
+#from astropy.io import fits
+#from astropy.convolution import convolve, RickerWavelet2DKernel, Gaussian2DKernel
+#from astropy.visualization import ZScaleInterval
+#import matplotlib.pyplot as plt
+#from scipy.signal import ricker
+#from scipy.ndimage import convolve
+#from skimage.feature import match_template
+#from starbug2.routines import Detection_Routine
+#import os
+#import webbpsf
+#
+#instr=webbpsf.NIRCam()
+#instr.filter="F444W"
+#instr.calc_psf().writeto("/tmp/psf.fits",overwrite=True)
+##os.system("ds9 -multiframe /tmp/test.fits")
 
-dat=fits.open("/home/conor/dat/NGC346/JWST/forced/F444W/jw01227002001_02105_00001_nrcalong_destrip_jhat.fits")
-#dat=fits.open("/home/conor/dat/NGC346/JWST/stage3/F770W/jw01227-c1002_t005_miri_f770w_i2d.fits")
-#plt.imshow(ZScaleInterval()(dat[1].data))
+
+
+import time, os
+import multiprocessing
+
+def fnwait(t):
+    print("%d waiting:%d"%(os.getpid(),t))
+    time.sleep(t)
+    print("done waiting:%d"%t)
+
+    return 0
+
+with multiprocessing.Pool(3) as p:
+    p.map(fnwait,(10,11,12))
+    print('oh?')
+
+
+
+
+
+
+#dat=fits.open("/home/conor/dat/NGC346/JWST/forced/F444W/jw01227002001_02105_00001_nrcalong_destrip_jhat.fits")
+##dat=fits.open("/home/conor/dat/NGC346/JWST/stage3/F770W/jw01227-c1002_t005_miri_f770w_i2d.fits")
+##plt.imshow(ZScaleInterval()(dat[1].data))
+##plt.show()
+#
+#kernel = Gaussian2DKernel(x_stddev=2)
+#kernel = RickerWavelet2DKernel(1)
+#
+#mask=[np.where( dat[1].data==0)]
+#image=dat[1].data
+#mask=np.where(np.isnan(image))
+#image[mask]*=0
+#conv=convolve(image, kernel)
+#corr=match_template(conv/np.amax(conv), kernel.array)
+#offset=kernel.array.shape[0]//2
+#
+#
+#
+#tab=Detection_Routine(sig_src=3, sharplo=0.1, sharphi=1, verbose=1).find_stars(corr)
+#
+#fig,(ax1,ax2, ax3)=plt.subplots(1,3, figsize=(30,10), sharex=True, sharey=True)
+#
+#ax1.imshow(ZScaleInterval()(image),interpolation=None)
+#ax2.imshow(ZScaleInterval()(conv),interpolation=None)
+#ax3.imshow(ZScaleInterval()(corr),interpolation=None)
+#ax2.scatter( tab["xcentroid"]+offset, tab["ycentroid"]+offset, s=80, facecolors='none', edgecolors='r')
 #plt.show()
-
-kernel = Gaussian2DKernel(x_stddev=2)
-kernel = RickerWavelet2DKernel(1)
-
-mask=[np.where( dat[1].data==0)]
-image=dat[1].data
-mask=np.where(np.isnan(image))
-image[mask]*=0
-conv=convolve(image, kernel)
-corr=match_template(conv/np.amax(conv), kernel.array)
-offset=kernel.array.shape[0]//2
-
-
-
-tab=Detection_Routine(sig_src=3, sharplo=0.1, sharphi=1, verbose=1).find_stars(corr)
-
-fig,(ax1,ax2, ax3)=plt.subplots(1,3, figsize=(30,10), sharex=True, sharey=True)
-
-ax1.imshow(ZScaleInterval()(image),interpolation=None)
-ax2.imshow(ZScaleInterval()(conv),interpolation=None)
-ax3.imshow(ZScaleInterval()(corr),interpolation=None)
-ax2.scatter( tab["xcentroid"]+offset, tab["ycentroid"]+offset, s=80, facecolors='none', edgecolors='r')
-plt.show()
 
 
 

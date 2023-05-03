@@ -1,3 +1,8 @@
+v0.3.11:
+    General:
+        >   Printing stdout for first file of -n set, hoping this will help diagnose the silent crash when memory runs out
+	PSF:
+		>	fitting now happens on the array in Jy not DN
 v0.3.10:
 	PSF:
 		>	non conforming sourcelists now allowed

@@ -383,6 +383,7 @@ class _grouping(DAOGroup):
                        "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
                        "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), int(1.1*n_members)))
                 sys.setrecursionlimit(int(1.1*n_members))
+        if self.logfile: self.logfile.close()
         return res
 
 class _fitmodel(LevMarLSQFitter):

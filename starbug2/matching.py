@@ -225,7 +225,7 @@ def band_match(catalogues, threshold, colnames):
 
     ### Match in increasing wavelength order
     base=Table(None)
-    load=loading(sum( [len(t) for t in tables[mask][1:]]),"matching", res=10)
+    load=loading(sum( [len(t) for t in tables[mask][1:]]),"matching", res=100)
     for fltr,tab in zip(starbug2.filters.keys(),tables):
         if not tab: continue
         load.msg="matching:%s"%fltr

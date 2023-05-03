@@ -183,7 +183,13 @@ class StarbugBase(object):
 
             if not any( _ in cn for _ in ("xcentroid","ycentroid","x_0","y_0")):
                 if all( _ in cn for _ in ("RA","DEC")):
-                    xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
+                    try:
+                        xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
+                    except:
+                        warn()
+                        perror("Something went wrong converting WCS to pixels, trying wcs_world2pix next.\n")
+                        xy=self.wcs.wcs_world2pix(self.detections["RA"], self.detections["DEC"],0)
+
                     self.detections.add_columns(xy,names=("xcentroid","ycentroid"),indexes=[0,0])
                     self.log("-> using RADEC coordinates\n")
                 else: perror("WARNING, unable to determine physical coordinates from detections table\n")
@@ -396,10 +402,12 @@ class StarbugBase(object):
             image=self.image.data.copy()
             bgd = self.background.data.copy()
 
-            _bunit=self.image.header.get("BUNIT")
-            _scalefactor=self.image.header.get("PHOTMJSR")
-            if _scalefactor:#https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
-                self.log("-> PHOTMJSR: %f\n"%_scalefactor)
+            #_scalefactor=self.image.header.get("PHOTMJSR")#https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
+            #_bunit=self.image.header.get("BUNIT")
+                #self.log("-> PHOTMJSR: %f\n"%_scalefactor)
+            _scalefactor=get_MJysr2Jy_scalefactor(self.image)
+            if _scalefactor:
+                self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%_scalefactor)
                 image/=_scalefactor
                 bgd/=_scalefactor
 
@@ -667,9 +675,14 @@ class StarbugBase(object):
         return status
 
     def __getstate__(self):
+        self._image.close()
+        #if self.background: self.background.close()
         state=self.__dict__.copy()
         if "_image" in state:
             del state["_image"] ##Sorry but we cant have that
+        if "background" in state: ## This currently doesnt get reloaded
+            del state["background"]
+            
         return state
 
     def __setstate__(self, state):

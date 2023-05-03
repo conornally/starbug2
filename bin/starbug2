@@ -130,7 +130,7 @@ for opt,optarg in opts:
     if opt=="--generate-run": options|=(GENRATRUN|STOPPROC)
     if opt=="--debug":
         os.environ["SBIIDEBUG"]="/tmp/starbug.log"
-        open("/tmp/starbug.log","w").close()
+        #open("/tmp/starbug.log","w").close()
 
     if opt=="--local-param":
         os.system("cp %s/default.param starbug.param"%pkg_resources.resource_filename("starbug2","param/"))
@@ -153,7 +153,7 @@ for opt,optarg in opts:
 # Options set, verify/run one time functions #
 ##############################################
 
-if ncores>1: options&= ~VERBOSE
+#if ncores>1: options&= ~VERBOSE
 
 ## Load parameter files
 if pfile==None:
@@ -205,13 +205,13 @@ if options&KILLPROC:
 import starbug2
 from starbug2.starbug import StarbugBase ## Ive put this here because it takes some time
 from starbug2.matching import dither_match
-from multiprocessing import Pool
+from multiprocessing import get_context, Pool
 
 def fn(fname):
     sb=None
     if os.path.exists(fname):
         dname,bname,ext=split_fname(fname)
-        if ncores>1: puts(fname)
+        #if ncores>1: puts(fname)
 
         if options&FINDFILE:
             ap="%s/%s-ap.fits"%(dname,bname)
@@ -219,8 +219,19 @@ def fn(fname):
             if os.path.exists(ap)  and not setdict.get("AP_FILE"):  setdict["AP_FILE"]=ap
             if os.path.exists(bgd) and not setdict.get("BGD_FILE"): setdict["BGD_FILE"]=bgd
 
+        ## Sorting out the stdout
+        if options&VERBOSE:
+            setdict["VERBOSE"]=1
+            if ncores>1:
+                if fname==args[0]:
+                    printf("showing starbug stdout for \"%s\"\n"%fname)
+                else:
+                    setdict["VERBOSE"]=0
+                    puts("-> hiding \"%s\""%fname)
+        else:
+            puts(fname)
+
         if ext==".fits":
-            if options&VERBOSE: setdict["VERBOSE"]=1
             sb=StarbugBase(fname, pfile=pfile, options=setdict)
             
             if sb.verify(): return#quit("..quitting :(")
@@ -247,8 +258,9 @@ if __name__=="__main__":
 
     if ncores==1: starbugs=[ fn(fname) for fname in args ]
     else:
-        pool=Pool(processes=ncores)
-        starbugs=pool.map(fn,args)
+        pool=get_context("spawn").Pool(processes=ncores)
+        starbugs=pool.map(fn,args) ##
+        pool.close()
 
     for n,sb in enumerate(starbugs): 
         if not sb: perror("FAILED: %s\n"%args[n])
