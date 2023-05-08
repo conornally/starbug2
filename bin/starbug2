@@ -1,10 +1,9 @@
 #!/usr/bin/python3 -Wignore
 """Starbug II - JWST PSF photometry
-usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory] [-p file.param] [-s opt=val] image.fits ...
+usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
    -b  --bgdfile         : load background (-bgd.fits) file
-   -C  --clean           : run source cleaning before photometry 
    -d  --apfile  ap.fits : load a source detection (-ap.fits) file to skip the source detection step
    -D  --detect          : run source detection
    -f  --find            : attempt to find associated -ap -bgd files
@@ -75,7 +74,7 @@ def usage():
     if not (options&VERBOSE): quit(__doc__.split('\n')[1])
     else: quit(__doc__)
 
-opts,args=getopt.getopt(sys.argv[1:],"ABCDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "clean", "detect", "find", "geom", "help", "match", "photom", "subbgd", "verbose", "xtest",
+opts,args=getopt.getopt(sys.argv[1:],"ABDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "detect", "find", "geom", "help", "match", "photom", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
                                                       "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run", "update-param",
                                                       "debug"))
@@ -88,7 +87,7 @@ for opt,optarg in opts:
 
     if opt in ("-A","--apphot"): options |= DOAPPHOT
     if opt in ("-B","--background"): options|=DOBGDEST
-    if opt in ("-C","--clean"):  options |=DOCLEAN
+    #if opt in ("-C","--clean"):  options |=DOCLEAN
     if opt in ("-D","--detect"): options |= DODETECT
     if opt in ("-G","--geom"): options |= DOGEOM
     if opt in ("-M","--match"):  options |= DOMATCH
@@ -97,22 +96,22 @@ for opt,optarg in opts:
 
     if opt in ("-d","--apfile"):
         if os.path.exists(optarg): setdict["AP_FILE"]=optarg
-        else: perror("AP_FILE does not exist\n")
+        else: perror("AP_FILE \"%s\" does not exist\n"%optarg)
 
     if opt in ("-b","--bgdfile"):
         if os.path.exists(optarg): setdict["BGD_FILE"]=optarg
-        else: perror("BGD_FILE does not exist\n")
+        else: perror("BGD_FILE \"%s\" does not exist\n"%optarg)
 
     if opt in ("-f","--find"): options|=FINDFILE
     if opt in ("-n","--ncores"): ncores=int(optarg)
 
     if opt in ("-o","--output"):
-        if os.path.exists(optarg): 
-            output=optarg
-            setdict["OUTDIR"]=optarg
-        else:
-            perror("output directory '%s' does not exist\n"%optarg)
-            options|=KILLPROC
+        #if os.path.exists(optarg): 
+        output=optarg
+        setdict["OUTPUT"]=optarg
+        #else:
+            #perror("output directory '%s' does not exist\n"%optarg)
+            #options|=KILLPROC
 
     if opt in ("-s","--set"): 
         if '=' in optarg:
@@ -247,7 +246,7 @@ def fn(fname):
                 sb.photometry()
                 if options & DOCLEAN: sb.cleanup()
             if options & DOARTIFL: sb.artificial_stars()
-            sb.export(outdir=output)
+            #sb.export(outdir=output)
 
         else: perror("file must be type '.fits' not %s\n"%ext)
     else: perror("can't access %s\n"%fname)

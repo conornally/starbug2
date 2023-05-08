@@ -4,13 +4,12 @@ TEST = 0    //.
 
 ## GENERIC
 VERBOSE =0       // (0:false 1:true)
-OUTDIR	=. //.
-HDUNAME =  //If using a non standard HDU name, name it here (str or int)
+OUTPUT	=.       //Directory or filename to output to 
+HDUNAME =        //If using a non standard HDU name, name it here (str or int)
 
 ## DETECTETION 
 SIGSKY		=2.0  // (float>0) 
 SIGSRC		=5.0  // (float>0) Source value mininmum N sigma above background
-BOX_SIZE	=2    // (int>0) Background estimation kernal size (pix)
 DOBGD2D     =1    // Run background2D estimation (usually finds more sources but takes time)
 CLEANSRC    =1    // Run source cleaning after detection (removes likely contaminants)
 SHARP_LO    = 0.4 // cutoff in detection
@@ -35,6 +34,7 @@ ROUND_LO_SIG    =2  // after detection, number of sigma above gaussian mean to c
 
 ## BACKGROUNDESTIMATION
 BGD_R	=	0//.
+BOX_SIZE	=2    // (int>0) Background estimation kernal size (pix)
 
 ## PHOTOMETRY
 AP_FILE     =      //Detection file to use instead of detecting

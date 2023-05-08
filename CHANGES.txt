@@ -1,3 +1,11 @@
+v0.3.12:
+    Param:
+        >   Moved Boxsize to bgd estimation
+        >   Changed OUTDIR to OUTPUT and can now change basename of output files too
+    Detection and PSF:
+        >   Fixed output column order
+        >   Moved export table to ends of routines rather than in a separate export function
+        
 v0.3.11:
     General:
         >   Printing stdout for first file of -n set, hoping this will help diagnose the silent crash when memory runs out

@@ -143,7 +143,7 @@ def load_params(fname):
                     pass
 
                 ## Special case values
-                if key in ("AP_FILE","BGD_FILE","PSF_FILE"): value=os.path.expandvars(value)
+                if key in ("OUTPUT", "AP_FILE","BGD_FILE","PSF_FILE"): value=os.path.expandvars(value)
                 config[key]=value
     else:
         perror("config file \"%s\" does not exist\n"%fname)

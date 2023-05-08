@@ -17,7 +17,10 @@ class StarbugBase(object):
     """
     filter=None
     stage=0
+    outdir=""
     fname=None
+    bname=""
+
     detections=None
     psfcatalogue=None
     residuals=None
@@ -38,8 +41,11 @@ class StarbugBase(object):
         if not pfile: pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
         self.options=load_params(pfile)
         self.options.update(options)
-
         self.load_image(fname)   ## Load the fits image
+
+        if (tmp_outname:=self.options.get("OUTPUT")) and tmp_outname !='.':
+            self.outdir,self.bname,_=split_fname(tmp_outname)
+
         if self.options["AP_FILE"]: self.load_apfile() ## Load the source list if given
         if self.options["BGD_FILE"]: self.load_bgdfile()
 
@@ -127,7 +133,8 @@ class StarbugBase(object):
         """
         self.fname=fname
         if fname:
-            dname,bname,extension=split_fname(fname)
+            self.outdir,self.bname,extension=split_fname(fname)
+
             if extension==".fits":
                 if os.path.exists(fname):
                     self.log("loaded: \"%s\"\n"%fname)
@@ -260,12 +267,12 @@ class StarbugBase(object):
             self.detections=detector(self.image.data.copy())["xcentroid","ycentroid","sharpness","roundness1","roundness2"]
 
             ra,dec=self.wcs.all_pix2world(self.detections["xcentroid"], self.detections["ycentroid"],0)
-            self.detections.add_column( Column(ra, name="RA"), index=1)
-            self.detections.add_column( Column(dec, name="DEC"), index=2)
-            self.aperture_photometry()
-
+            self.detections.add_column( Column(ra, name="RA"), index=2)
+            self.detections.add_column( Column(dec, name="DEC"), index=3)
             self.detections.meta=dict(self.header.items())
             self.detections.meta.update({"ROUNTINE":"DETECT"})
+            self.aperture_photometry()
+
 
 
     def aperture_photometry(self):
@@ -337,6 +344,15 @@ class StarbugBase(object):
         ap_cat.add_column(Column(mag,self.filter))
         ap_cat.add_column(Column(magerr,"e%s"%self.filter))
         self.detections=hstack((self.detections,ap_cat))
+        #self.detections.meta=dict(self.header.items())
+        #self.detections.meta.update({"ROUNTINE":"DETECT"})
+
+        reindex(self.detections)
+        self.detections.meta["FILTER"]=self.filter
+        _fname="%s/%s-ap.fits"%(self.outdir, self.bname)
+        self.log("--> %s\n"%_fname)
+        fits.BinTableHDU( data=self.detections, header=self.header ).writeto(_fname, overwrite=True)
+
 
     def bgd_estimate(self):
         """
@@ -357,9 +373,15 @@ class StarbugBase(object):
                                             boxsize=int(self.options["BOX_SIZE"]),
                                             fwhm=starbug2.filters[self.filter].pFWHM,
                                             verbose=self.options["VERBOSE"])
-            self.background=fits.ImageHDU(data=bgd(self.image.data.copy()), header=self.wcs.to_header())
+            header=fits.Header({**self.header,**self.wcs.to_header()})
+            self.background=fits.ImageHDU(data=bgd(self.image.data.copy()), header=header)
+            _fname="%s/%s-bgd.fits"%(self.outdir, self.bname)
+            self.log("--> %s\n"%_fname)
+            self.background.writeto(_fname,overwrite=True)
         else:
             perror("unable to estimate background, no source list loaded\n")
+
+
 
     def bgd_subtraction(self):
         """
@@ -373,6 +395,7 @@ class StarbugBase(object):
         array= self.image.data - self.background.data
         self.residuals = array
         self._image[self._nHDU].data=array
+        fits.ImageHDU(data=self.residuals, name="RES", header=fits.Header({**self.header,**self.wcs.to_header()})).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
 
     def photometry(self):
         """
@@ -475,8 +498,8 @@ class StarbugBase(object):
             else: psf_cat=_psf_cat
 
             ra,dec=self.wcs.all_pix2world(psf_cat["x_fit"], psf_cat["y_fit"],0)
-            psf_cat.add_column( Column(ra, name="RA"), index=1)
-            psf_cat.add_column( Column(dec, name="DEC"), index=2)
+            psf_cat.add_column( Column(ra, name="RA"), index=2)
+            psf_cat.add_column( Column(dec, name="DEC"), index=3)
 
             ##################
             # Residual Image #
@@ -486,6 +509,7 @@ class StarbugBase(object):
                 self.log("-> generating residual\n")
                 residual = subtract_psf(image-bgd, psf_model, psf_cat[["x_fit","y_fit","flux_fit"]], subshape=(size,size))
                 self.residuals=residual
+                fits.ImageHDU(data=self.residuals, name="RES", header=fits.Header({**self.header,**self.wcs.to_header()})).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
 
             ######################
             # Photometric offset # takes the top 50% least crowded sources
@@ -506,7 +530,12 @@ class StarbugBase(object):
             self.psfcatalogue.meta=dict(self.header.items())
             self.psfcatalogue.meta["AP_FILE"]=self.options["AP_FILE"]
             self.psfcatalogue.meta["BGD_FILE"]=self.options["BGD_FILE"]
-            #self.background=fits.ImageHDU(data=phot.bkg_estimator.bgd, name="BACKGROUND", header=self.wcs.to_header()) ##So is it supposed to be a fits image or a numpy array?!
+
+            reindex(self.psfcatalogue)
+            _fname="%s/%s-psf.fits"%(self.outdir, self.bname)
+            self.log("--> %s\n"%_fname)
+            fits.BinTableHDU(data=self.psfcatalogue, header=self.header).writeto(_fname,overwrite=True)
+
 
     def cleanup(self):
         """
@@ -568,38 +597,39 @@ class StarbugBase(object):
                 subimage_size=self.options["SUBIMAGE_SIZE"], separation_thresh=self.options["SEPARATION_THRESH"], fwhm=starbug2.filters[self.filter].pFWHM)
         export_table(result, "/tmp/artificialstars.fits")
 
-    def export(self, outdir=None):
-        """
-        Export all the current catalogues
-        """
-        if not outdir: outdir=self.options["OUTDIR"]
-        if not os.path.exists("%s/"%outdir):
-            perror("output directory '%s' does not exist, using /tmp instead\n"%outdir)
-            outdir="/tmp"
+    #def export_residuals(self):
+    #def export(self, outdir=None):
+    #    """
+    #    Export all the current catalogues
+    #    """
+    #    if not outdir: outdir=self.options["OUTPUT"]
+    #    if not os.path.exists("%s/"%outdir):
+    #        perror("output directory '%s' does not exist, using /tmp instead\n"%outdir)
+    #        outdir="/tmp"
 
-        dname,fname,ext=split_fname(self.fname)
-        if self.detections:
-            self.detections.meta["FILTER"]=self.filter
-            reindex(self.detections)
-            hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.detections)]
-            fits.HDUList(hdulist).writeto("%s/%s-ap.fits"%(outdir,fname), overwrite=True)
-            #export_table(self.detections, fname="%s/%s-ap.fits"%(outdir,fname))
-        if self.psfcatalogue:
-            reindex(self.psfcatalogue)
-            hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.psfcatalogue)]
-            fits.HDUList(hdulist).writeto("%s/%s-psf.fits"%(outdir,fname), overwrite=True)
-            #export_table(self.psfcatalogue, fname="%s/%s-psf.fits"%(outdir,fname))
-        if self.background: 
-            #self.background.header.update(header)
-            self.background.writeto("%s/%s-bgd.fits"%(outdir,fname), overwrite=True)
-        if self.residuals is not None:
-            im=fits.ImageHDU(data=self.residuals, name="RES", header=self.header)
-            im.header.update(self.wcs.to_header())
-            im.writeto("%s/%s-res.fits"%(outdir,fname), overwrite=True)
-        if self.source_stats is not None:
-            reindex(self.source_stats)
-            hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.source_stats)]
-            fits.HDUList(hdulist).writeto("%s/%s-stat.fits"%(outdir,fname), overwrite=True)
+    #    dname,fname,ext=split_fname(self.fname)
+    #    if self.detections:
+    #        self.detections.meta["FILTER"]=self.filter
+    #        reindex(self.detections)
+    #        hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.detections)]
+    #        fits.HDUList(hdulist).writeto("%s/%s-ap.fits"%(outdir,fname), overwrite=True)
+    #        #export_table(self.detections, fname="%s/%s-ap.fits"%(outdir,fname))
+    #    if self.psfcatalogue:
+    #        reindex(self.psfcatalogue)
+    #        hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.psfcatalogue)]
+    #        fits.HDUList(hdulist).writeto("%s/%s-psf.fits"%(outdir,fname), overwrite=True)
+    #        #export_table(self.psfcatalogue, fname="%s/%s-psf.fits"%(outdir,fname))
+    #    if self.background: 
+    #        #self.background.header.update(header)
+    #        self.background.writeto("%s/%s-bgd.fits"%(outdir,fname), overwrite=True)
+    #    if self.residuals is not None:
+    #        im=fits.ImageHDU(data=self.residuals, name="RES", header=self.header)
+    #        im.header.update(self.wcs.to_header())
+    #        im.writeto("%s/%s-res.fits"%(outdir,fname), overwrite=True)
+    #    if self.source_stats is not None:
+    #        reindex(self.source_stats)
+    #        hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.source_stats)]
+    #        fits.HDUList(hdulist).writeto("%s/%s-stat.fits"%(outdir,fname), overwrite=True)
 
     def source_geometry(self):
         """
@@ -619,6 +649,10 @@ class StarbugBase(object):
             #geom=sp.calculate_geometry(fwhm=starbug2.filters[self.filter].pFWHM)
             
             self.source_stats=hstack((slist,stat))
+            _fname="%s/%s-stat.fits"%(self.outdir, self.bname)
+            self.log("--> %s\n"%_fname)
+            reindex(self.source_stats)
+            fits.BinTableHDU(data=self.source_stats,header=self.header).writeto(_fname, overwrite=True)
 
 
 
@@ -650,9 +684,9 @@ class StarbugBase(object):
             #        perror("Unable to locate filter PSF for '%s'\n"%self.filter)
             #        status=1
         
-        if not os.path.exists((dname:=os.path.expandvars(self.options["OUTDIR"]))):
+        if not os.path.exists(self.outdir):
             warn()
-            perror("Unable to locate OUTDIR='%s'\n"%dname)
+            perror("Unable to locate OUTPUT='%s'\n"%self.outdir)
             status=1
 
         tmp=load_params("%sdefault.param"%pkg_resources.resource_filename("starbug2","param/"))
