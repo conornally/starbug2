@@ -242,6 +242,25 @@ $~ starbug2 -b image-bgd.fits ...
 ### PSF Photometry
 
 
+
+
+
+
+### Instrumental Zero Points
+
+PSF photometry is much more accurate but is not output into physical units. The instrumental zero point must be calculated from the aperture photometry. To do this we run:
+
+```bash
+$~ starbug2 -d APFILE.fits --calc-instr-zp table.fits
+```
+Where `APFILE.fits` is a very clean catalogue in the units you wish to move to. This can just be the same source list that has been used throughout however it may be prudent to clean the poorer signal to noise sources from this, as every source is weighted equally.
+The resulting catalogue will not overwrite the input one but create a new `*-zp.fits` file.
+
+
+
+
+
+
 \newpage
 
 ## A Full Run Through (in command line)

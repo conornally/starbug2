@@ -14,22 +14,24 @@
 #instr.filter="F444W"
 #instr.calc_psf().writeto("/tmp/psf.fits",overwrite=True)
 ##os.system("ds9 -multiframe /tmp/test.fits")
-
-
-
 import time, os
-import multiprocessing
 
-def fnwait(t):
-    print("%d waiting:%d"%(os.getpid(),t))
-    time.sleep(t)
-    print("done waiting:%d"%t)
+print(os.system("starbug2 -h"))
 
-    return 0
 
-with multiprocessing.Pool(3) as p:
-    p.map(fnwait,(10,11,12))
-    print('oh?')
+
+#import multiprocessing
+#
+#def fnwait(t):
+#    print("%d waiting:%d"%(os.getpid(),t))
+#    time.sleep(t)
+#    print("done waiting:%d"%t)
+#
+#    return 0
+#
+#with multiprocessing.Pool(3) as p:
+#    p.map(fnwait,(10,11,12))
+#    print('oh?')
 
 
 

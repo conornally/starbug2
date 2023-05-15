@@ -1,3 +1,9 @@
+v0.3.13:
+	General:
+		>	change argument -P --photom --> -P --psf
+        >   *-apmatch etc files should now also go to the right outdir
+        >   --calc-instr-zp added
+        
 v0.3.12:
     Param:
         >   Moved Boxsize to bgd estimation

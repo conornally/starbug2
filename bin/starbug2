@@ -13,7 +13,7 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
    -n  --ncores      num : number of CPU cores to split process between
    -o  --output      dir : output directory
    -p  --param   a.param : load parameter file
-   -P  --photom          : run psf photometry
+   -P  --psf             : run psf photometry
    -s  --set      option : set value in parameter file at runtime (-s SIGSKY=3)
    -S  --subbgd          : subtract background from image
    -v  --verbose         : display verbose outputs
@@ -27,6 +27,9 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
        --generate-run      *.fits : Generate a simple run script
        --clean-table       a.fits : Clean up an individual table
        --version                  : Print starbug2 version
+
+       --misc          OPTION=VAL : Setting misc. options (--misc FILTER=F770W)
+       --calc-instr-zp     a.fits : Calculate and apply an instrumental zero point onto a.fits
 
    --> typical runs
       $~ starbug2 -vD -p file.param image.fits      //Source detect on image with a parameter file
@@ -61,6 +64,7 @@ GENRATREG =0x400000
 INITSB    =0x800000
 UPDATEPRM =0x1000000
 DODEBUG   =0x2000000
+CALCINSTZP=0x4000000
 
 options=0
 
@@ -71,12 +75,14 @@ ncores=1
 misc={}
 
 def usage():
-    if not (options&VERBOSE): quit(__doc__.split('\n')[1])
-    else: quit(__doc__)
+    if not (options&VERBOSE): perror(__doc__.split('\n')[1])
+    else: perror(__doc__)
+    quit(0)
 
-opts,args=getopt.getopt(sys.argv[1:],"ABDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "detect", "find", "geom", "help", "match", "photom", "subbgd", "verbose", "xtest",
+opts,args=getopt.getopt(sys.argv[1:],"ABDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "detect", "find", "geom", "help", "match", "psf", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
                                                       "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run", "update-param",
+                                                      "misc=", "calc-instr-zp=",
                                                       "debug"))
 
 for opt,optarg in opts:
@@ -91,7 +97,7 @@ for opt,optarg in opts:
     if opt in ("-D","--detect"): options |= DODETECT
     if opt in ("-G","--geom"): options |= DOGEOM
     if opt in ("-M","--match"):  options |= DOMATCH
-    if opt in ("-P","--photom"): options |= DOPHOTOM
+    if opt in ("-P","--psf"): options |= DOPHOTOM
     if opt in ("-S","--subbgd"): options |= DOBGDSUB
 
     if opt in ("-d","--apfile"):
@@ -122,6 +128,15 @@ for opt,optarg in opts:
         else:
             perror("unable to set parameter, use syntax -s KEY=VALUE\n")
             options|=KILLPROC
+    if opt=="--misc":
+        if '=' in optarg:
+            key,val=optarg.split("=")
+            try: val=float(val)
+            except: pass
+            misc[key]=val
+        else:
+            perror("unable to set parameter, use syntax --misc KEY=VALUE\n")
+            options|=KILLPROC
 
     if opt=="--init": options|=(INITSB|STOPPROC)
     if opt=="--generate-psf": options|=(GENRATPSF|STOPPROC)
@@ -145,14 +160,18 @@ for opt,optarg in opts:
         table=Table.read(optarg,format="fits")#load_table(optarg)
         options|=STOPPROC
 
-    if opt=="--version": quit(starbug2.logo%("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version))
+    if opt=="--version": 
+        printf(starbug2.logo%("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version))
+        options|=STOPPROC
+
+    if opt=="--calc-instr-zp":
+        misc["ZP_PSF_CAT"]=optarg
+        options|=(CALCINSTZP|STOPPROC)
 
 
 ##############################################
 # Options set, verify/run one time functions #
 ##############################################
-
-#if ncores>1: options&= ~VERBOSE
 
 ## Load parameter files
 if pfile==None:
@@ -163,6 +182,12 @@ if pfile==None:
 
 init_parameters=load_params(pfile)
 init_parameters.update(setdict)
+
+
+
+#########################
+# One time run commands #
+#########################
 
 if options&INITSB:
     init_starbug()
@@ -186,6 +211,34 @@ if options&GENRATREG:
                              region_radius=init_parameters["REGION_RAD"], xcol=init_parameters["REGION_XCOL"],
                              ycol=init_parameters["REGION_YCOL"], wcs=init_parameters["REGION_WCS"], fname="%s/%s.reg"%(output,name))
         printf("generating region --> %s/%s.reg\n"%(output,name))
+
+#############
+# instrumental zero point
+if options&CALCINSTZP:
+    _aptable=None
+    _fname=misc.get("ZP_PSF_CAT")
+    _apfname=setdict.get("AP_FILE")
+    if _apfname and os.path.exists(_apfname):
+        _aptable=Table.read(_apfname, format="fits")
+        
+    if _fname and os.path.exists(_fname):
+        psftable=Table.read(_fname, format="fits")
+        with fits.open(_fname) as fp: _header=fp[1].header
+        if (corrected:=calc_instrumental_zeropint(psftable, _aptable, fltr=misc.get("FILTER"))):
+            dname,fname,_=split_fname(_fname)
+            printf("--> %s/%s-zp.fits\n"%(dname,fname))
+            fits.BinTableHDU(data=corrected, header=_header).writeto("%s/%s-zp.fits"%(dname,fname), overwrite=True)
+
+
+
+
+
+
+
+
+    else: perror("Unable to locate table \"%s\".\n"%_fname)
+
+
 
 if options&STOPPROC: quit(0) ## quiet ending the process if required
 
@@ -270,9 +323,8 @@ if __name__=="__main__":
 
     if options&DOMATCH and len(starbugs)>1:
         if (fname:=combine_fnames( [sb.fname for sb in starbugs] )):
-            dname,name,ext=split_fname(fname)
-            dname=output if dname=="." else dname
-            fname="%s/%s"%(dname, name)
+            _,name,_=split_fname(os.path.basename(fname))
+            fname="%s/%s"%(starbugs[0].outdir, name)
         else: fname="out"
 
         param=load_params(pfile)

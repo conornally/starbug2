@@ -43,8 +43,6 @@ class StarbugBase(object):
         self.options.update(options)
         self.load_image(fname)   ## Load the fits image
 
-        if (tmp_outname:=self.options.get("OUTPUT")) and tmp_outname !='.':
-            self.outdir,self.bname,_=split_fname(tmp_outname)
 
         if self.options["AP_FILE"]: self.load_apfile() ## Load the source list if given
         if self.options["BGD_FILE"]: self.load_bgdfile()
@@ -133,7 +131,15 @@ class StarbugBase(object):
         """
         self.fname=fname
         if fname:
+            #########################################
+            # Sorting out the file names and what not
+            #########################################
             self.outdir,self.bname,extension=split_fname(fname)
+            if (tmp_outname:=self.options.get("OUTPUT")) and tmp_outname !='.':
+                outdir,bname,_=split_fname(tmp_outname)
+                if os.path.exists(outdir) and os.path.isdir(outdir): self.outdir=outdir
+                else: perror("unable to locate output directory \"%s\"\n"%outdir)
+                if bname: self.bname=bname
 
             if extension==".fits":
                 if os.path.exists(fname):
