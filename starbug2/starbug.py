@@ -40,7 +40,7 @@ class StarbugBase(object):
         """
         if not pfile: pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
         self.options=load_params(pfile)
-        self.options.update(options)
+        self.options.update(dict((key,options[key]) for key in options.keys() if key in self.options))
         self.load_image(fname)   ## Load the fits image
 
 

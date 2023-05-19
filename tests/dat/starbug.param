@@ -9,7 +9,7 @@ HDUNAME     =            //If using a non standard HDU name, name it here (str o
 
 ## DETECTETION 
 SIGSKY      = 2.0        // (float>0) 
-SIGSRC      = 5.0        // (float>0) Source value mininmum N sigma above background
+SIGSRC      = 3.0        // (float>0) Source value mininmum N sigma above background
 DOBGD2D     = 1          // Run background2D estimation (usually finds more sources but takes time)
 CLEANSRC    = 1          // Run source cleaning after detection (removes likely contaminants)
 SHARP_LO    = 0.4        // cutoff in detection

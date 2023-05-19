@@ -93,7 +93,7 @@ def _match(cat1, cat2):
 
     return skycoord2.match_to_catalog_3d(skycoord1)
 
-def generic_match(catalogues, threshold=0.25, add_src=True):
+def generic_match(catalogues, threshold=0.25, add_src=True, load=None):
     """
     """
     threshold=threshold*u.arcsec
@@ -109,6 +109,9 @@ def generic_match(catalogues, threshold=0.25, add_src=True):
             tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames)
 
             for src,IDX,sep in zip(cat,idx,d2d):
+                if load:
+                    load()
+                    load.show()
                 if (sep<=threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
                     tmp[IDX]=src
                 elif add_src:   ##BAD MATCH / NEW SOURCE
@@ -204,8 +207,7 @@ def band_match(catalogues, threshold, colnames):
     taken as "correct". If a source is not resolved in this band, the next most 
     astrometrically accurate position is taken, i.e. F444W
     """
-    threshold=threshold*u.arcsec
-    colnames= list( name for name in catalogues[0].colnames if name in colnames)
+    #threshold=threshold*u.arcsec
     ### ORDER the tables into the correct order (increasing wavelength)
     tables=np.full( len(starbug2.filters), None)
     mask=np.full(len(starbug2.filters), False)
@@ -229,25 +231,30 @@ def band_match(catalogues, threshold, colnames):
     for fltr,tab in zip(starbug2.filters.keys(),tables):
         if not tab: continue
         load.msg="matching:%s"%fltr
-        if not len(base): tmp=tab[colnames].copy()
+        _colnames= list( name for name in tab.colnames if name in colnames)
+        print(_colnames)
+        if not len(base): 
+            tmp=tab[_colnames].copy()
         else:
             idx,d2d,_=_match(base,tab)
-            tmp=Table(np.full( (len(base),len(colnames)), np.nan), names=colnames)
+            tmp=Table(np.full( (len(base),len(_colnames)), np.nan), names=_colnames)
 
             for ii,(src,IDX,sep) in enumerate(zip(tab,idx,d2d)):
                 load();load.show()
-                if (sep<=threshold) and (sep==min(d2d[idx==IDX])):
-                    for name in colnames: tmp[IDX][name]=src[name]
+                if (sep<=threshold*u.arcsec) and (sep==min(d2d[idx==IDX])):
+                    for name in _colnames: tmp[IDX][name]=src[name]
                 else:
-                    tmp.add_row(src[colnames])
+                    tmp.add_row(src[_colnames])
+            #tmp=generic_match((base,tab), threshold=threshold, add_src=True, load=load)
 
-        base=hstack(( base,tmp[["flux","eflux"]] ))
-        mag,magerr=flux2ABmag(tmp["flux"], tmp["eflux"],fltr)
-        base.add_column(mag,name=fltr)
-        base.add_column(magerr,name="e%s"%fltr)
+        #base=hstack(( base,tmp[["flux","eflux"]] ))
+        #mag,magerr=flux2ABmag(tmp["flux"], tmp["eflux"],fltr)
+        #base.add_column(mag,name=fltr)
+        #base.add_column(magerr,name="e%s"%fltr)
 
-        base.rename_column("flux","%s_flux"%fltr)
-        base.rename_column("eflux","%s_eflux"%fltr)
+        #base.rename_column("flux","%s_flux"%fltr)
+        #base.rename_column("eflux","%s_eflux"%fltr)
+        base=hstack(( base,tmp[[fltr,"e%s"%fltr]] ))
         base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
 
         ### Only keep the most astromectrically correct position
@@ -256,7 +263,6 @@ def band_match(catalogues, threshold, colnames):
             _mask=np.logical_and( np.isnan(base["RA"]), tmp["RA"]!=np.nan)
             base["RA"][_mask]=tmp["RA"][_mask]
             base["DEC"][_mask]=tmp["DEC"][_mask]
-    export_table(base,"/tmp/tab.fits")
     return base
 
 def stage_match(stage2, stage3, threshold):

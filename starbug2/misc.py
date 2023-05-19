@@ -165,48 +165,26 @@ def update_paramfile(fname):
 
 def calc_instrumental_zeropint(psftable, aptable, fltr=None ):
     """
+
     """
     printf("Calculating instrumental zeropoint.\n")
     if fltr is None and not (fltr:=psftable.meta.get("FILTER")):
-        perror("Unable to determine filter, set with '--misc FILTER=F000W'.\n")
-        return 
+        perror("Unable to determine filter, set with '--set FILTER=F000W'.\n")
+        return None
     
 
     matched=generic_match((psftable, aptable), threshold=0.1, add_src=False)
     dist=np.array((matched["%s_2"%fltr]-matched["%s_1"%fltr]).value)
     zp=np.nanmedian(dist)
-    printf("-> zp=%.3f\n"%zp)
-
-    psftable.meta["%s ZEROPOINT"%fltr]=zp
-    psftable[fltr]=psftable[fltr]+zp
-    return reindex(psftable)
-
-
-
-
-
-    #import matplotlib.pyplot as plt
-    #fig,(ax1,ax2)=plt.subplots(1,2, figsize=(8,4))
-    #ax1.hist(dist, bins=100)
-    #ax1.axvline(zp, c='k', ls='--')
-
-    #ax2.scatter( matched["%s_2"%fltr], matched["%s_1"%fltr]+zp, c='k', s=1, marker=',', lw=0)
-    #ax2.invert_xaxis()
-    #ax2.invert_yaxis()
-
-    #plt.show()
-
-    #if ap
-
-    #dist=psftable["ap_%s"%fltr] - psftable[fltr]
-    #zp=np.nanmedian(dist)
-    #ax1.axvline( zp, ls='--', c='k')
-
-
-
-    #plt.show()
-
-
-
-
-    
+    std=np.nanstd(dist)
+    printf("-> zp=%.3f +/- %.2g\n"%(zp,std))
+    return (zp,std)
+#def tmpfn(psftable, aptable):
+#    if "flux" in psftable.colnames and "flux" in aptable.colnames:
+#        matched=generic_match((psftable, aptable), threshold=0.1, add_src=False)
+#        dist=np.array((matched["flux_1"]-matched["flux_2"]).value)
+#        zp=np.nanmedian(dist)
+#        std=np.nanstd(dist)
+#        printf("-> zp=%.3f +/- %.2g\n"%(zp,std))
+#        return (zp,std)
+#    else: return None

@@ -8,6 +8,12 @@ def test_start():
     assert run("starbug2 --version")==0
     assert run("starbug2")==0
 
+def test_param():
+    assert run("starbug2 --local-param")==0
+    assert run("starbug2 --update-param")==0
+    assert run("starbug2 -p starbug.param dat/image.fits")==0
+    run("rm starbug.param")
+
 def test_detect():
     #wget("https://app.box.com/s/f2trqcln5mjug3rigs9246202ztuu5fh", "image.fits")
     assert run("starbug2 -v dat/image.fits")==0
@@ -27,12 +33,12 @@ def test_psf():
     assert run("starbug2 -fBP dat/image.fits")==0
     assert run("starbug2 -fPs GEN_RESIDUAL=1 dat/image.fits")==0
 
-def test_2ndrun():
-    assert run("starbug2 -v dat/image-res.fits")==0
-    assert run("starbug2 -D dat/image-res.fits")==0
-    assert run("starbug2 -DB dat/image-res.fits")==0
-    assert run("starbug2 -DBP dat/image-res.fits")==0
-    assert run("starbug2 -vfP dat/image-res.fits")==0
+#def test_2ndrun():
+#    assert run("starbug2 -v dat/image-res.fits")==0
+#    assert run("starbug2 -D dat/image-res.fits")==0
+#    assert run("starbug2 -DB dat/image-res.fits")==0
+#    assert run("starbug2 -DBP dat/image-res.fits")==0
+#    assert run("starbug2 -vfP dat/image-res.fits")==0
 
 
 

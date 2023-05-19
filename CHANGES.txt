@@ -1,3 +1,14 @@
+v0.3.14:
+	Param:
+		>	Added NEXP_THRESH
+        >   Beginning to remove RM_MATCH
+    MATCH:
+        >   Allowing NEXP_THRESH to be used during the normal matching
+        >   Bandmatch just does magnitudes now
+    General:
+        >   --apply-zeropoint
+        >   including a motd at the start now
+
 v0.3.13:
 	General:
 		>	change argument -P --photom --> -P --psf

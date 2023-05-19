@@ -28,7 +28,7 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
        --clean-table       a.fits : Clean up an individual table
        --version                  : Print starbug2 version
 
-       --misc          OPTION=VAL : Setting misc. options (--misc FILTER=F770W)
+       --apply-zeropint    a.fits : Apply a zeropoint (-s ZEROPOINT=1.0) to a.fits
        --calc-instr-zp     a.fits : Calculate and apply an instrumental zero point onto a.fits
 
    --> typical runs
@@ -38,7 +38,8 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
 
 """
 import os,sys,getopt
-sys.stdout.write("loading..\r")
+#sys.stdout.write("loading..\r")
+sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
 import pkg_resources
 from starbug2.utils import *
 from starbug2.misc import *
@@ -65,14 +66,15 @@ INITSB    =0x800000
 UPDATEPRM =0x1000000
 DODEBUG   =0x2000000
 CALCINSTZP=0x4000000
+APPLYZP   =0x8000000
+
 
 options=0
 
 pfile=None
-setdict={}
+setopt={}
 output='.'
 ncores=1
-misc={}
 
 def usage():
     if not (options&VERBOSE): perror(__doc__.split('\n')[1])
@@ -82,7 +84,7 @@ def usage():
 opts,args=getopt.getopt(sys.argv[1:],"ABDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "detect", "find", "geom", "help", "match", "psf", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
                                                       "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run", "update-param",
-                                                      "misc=", "calc-instr-zp=",
+                                                      "calc-instr-zp=", "apply-zeropoint=",
                                                       "debug"))
 
 for opt,optarg in opts:
@@ -101,41 +103,28 @@ for opt,optarg in opts:
     if opt in ("-S","--subbgd"): options |= DOBGDSUB
 
     if opt in ("-d","--apfile"):
-        if os.path.exists(optarg): setdict["AP_FILE"]=optarg
+        if os.path.exists(optarg): setopt["AP_FILE"]=optarg
         else: perror("AP_FILE \"%s\" does not exist\n"%optarg)
 
     if opt in ("-b","--bgdfile"):
-        if os.path.exists(optarg): setdict["BGD_FILE"]=optarg
+        if os.path.exists(optarg): setopt["BGD_FILE"]=optarg
         else: perror("BGD_FILE \"%s\" does not exist\n"%optarg)
 
     if opt in ("-f","--find"): options|=FINDFILE
     if opt in ("-n","--ncores"): ncores=int(optarg)
 
     if opt in ("-o","--output"):
-        #if os.path.exists(optarg): 
         output=optarg
-        setdict["OUTPUT"]=optarg
-        #else:
-            #perror("output directory '%s' does not exist\n"%optarg)
-            #options|=KILLPROC
+        setopt["OUTPUT"]=optarg
 
     if opt in ("-s","--set"): 
         if '=' in optarg:
             key,val=optarg.split('=')
             try: val=float(val)
             except: pass
-            setdict[key]=val
+            setopt[key]=val
         else:
             perror("unable to set parameter, use syntax -s KEY=VALUE\n")
-            options|=KILLPROC
-    if opt=="--misc":
-        if '=' in optarg:
-            key,val=optarg.split("=")
-            try: val=float(val)
-            except: pass
-            misc[key]=val
-        else:
-            perror("unable to set parameter, use syntax --misc KEY=VALUE\n")
             options|=KILLPROC
 
     if opt=="--init": options|=(INITSB|STOPPROC)
@@ -152,7 +141,7 @@ for opt,optarg in opts:
         options|=STOPPROC
 
     if opt=="--generate-region":
-        misc["REGION_TAB"]=optarg
+        setopt["REGION_TAB"]=optarg
         options|=(GENRATREG|STOPPROC)
 
     if opt=="--clean-table":
@@ -165,8 +154,12 @@ for opt,optarg in opts:
         options|=STOPPROC
 
     if opt=="--calc-instr-zp":
-        misc["ZP_PSF_CAT"]=optarg
-        options|=(CALCINSTZP|STOPPROC)
+        setopt["ZP_PSF_CAT"]=optarg
+        options|=(CALCINSTZP|APPLYZP|STOPPROC)
+    if opt=="--apply-zeropoint":
+        setopt["ZP_PSF_CAT"]=optarg
+        options|=(APPLYZP|STOPPROC)
+
 
 
 ##############################################
@@ -177,11 +170,12 @@ for opt,optarg in opts:
 if pfile==None:
     if os.path.exists("./starbug.param"):pfile="starbug.param"
     else:
-        perror("no local parameter file found, using default.param\n")
+        #perror("no local parameter file found, using default.param\n")
         pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
 
 init_parameters=load_params(pfile)
-init_parameters.update(setdict)
+#for key in set(setopt.keys() & init_parameters.keys()):
+init_parameters.update(setopt)
 
 
 
@@ -203,7 +197,7 @@ if options&UPDATEPRM:
     update_paramfile(pfile)
 
 if options&GENRATREG:
-    fname=misc.get("REGION_TAB")
+    fname=setopt.get("REGION_TAB")
     if fname and os.path.exists(fname):
         table=Table.read(fname,format="fits")
         _,name,_=split_fname(fname)
@@ -212,33 +206,41 @@ if options&GENRATREG:
                              ycol=init_parameters["REGION_YCOL"], wcs=init_parameters["REGION_WCS"], fname="%s/%s.reg"%(output,name))
         printf("generating region --> %s/%s.reg\n"%(output,name))
 
-#############
-# instrumental zero point
-if options&CALCINSTZP:
-    _aptable=None
-    _fname=misc.get("ZP_PSF_CAT")
-    _apfname=setdict.get("AP_FILE")
-    if _apfname and os.path.exists(_apfname):
-        _aptable=Table.read(_apfname, format="fits")
-        
+###########################
+# instrumental zero point #
+###########################
+if options&APPLYZP:
+    _fname=setopt.get("ZP_PSF_CAT")
+    _zp=setopt.get("ZEROPOINT")
+    _std=0
     if _fname and os.path.exists(_fname):
         psftable=Table.read(_fname, format="fits")
-        with fits.open(_fname) as fp: _header=fp[1].header
-        if (corrected:=calc_instrumental_zeropint(psftable, _aptable, fltr=misc.get("FILTER"))):
+        with fits.open(_fname) as fp: _header=fp[1].header ##thats a bit rubbish
+
+        if (fltr:=_header.get("FILTER")) is None:
+            if (fltr:=setopt.get("FILTER")) is None:
+                perror("Unable to determine table FILTER: set manually with `-s FILTER=F000W`\n")
+                quit(1) ## thats a bit hardcore
+
+        if options&CALCINSTZP:
+            _aptable=None
+            _apfname=setopt.get("AP_FILE")
+            if _apfname and os.path.exists(_apfname):
+                _aptable=Table.read(_apfname, format="fits")
+
+                if (res:=calc_instrumental_zeropint(psftable, _aptable, fltr=fltr)) is not None:
+                    _zp,_std=res
+
+        if _zp is not None:
+            psftable.meta["%s ZEROPOINT"%fltr]=_zp
+            psftable.meta["%s eZEROPOINT"%fltr]=_std
+            psftable[fltr]=psftable[fltr]+_zp
+
             dname,fname,_=split_fname(_fname)
             printf("--> %s/%s-zp.fits\n"%(dname,fname))
-            fits.BinTableHDU(data=corrected, header=_header).writeto("%s/%s-zp.fits"%(dname,fname), overwrite=True)
-
-
-
-
-
-
-
-
+            export_table( psftable, fname="%s/%s-zp.fits"%(dname,fname), header=_header)
+        else: perror("Unable to set ZEROPOINT, set it with -sZEROPOINT=000\n")
     else: perror("Unable to locate table \"%s\".\n"%_fname)
-
-
 
 if options&STOPPROC: quit(0) ## quiet ending the process if required
 
@@ -257,47 +259,45 @@ if options&KILLPROC:
 import starbug2
 from starbug2.starbug import StarbugBase ## Ive put this here because it takes some time
 from starbug2.matching import dither_match
-from multiprocessing import get_context, Pool
+from multiprocessing import Pool
 
 def fn(fname):
     sb=None
     if os.path.exists(fname):
         dname,bname,ext=split_fname(fname)
-        #if ncores>1: puts(fname)
 
         if options&FINDFILE:
             ap="%s/%s-ap.fits"%(dname,bname)
             bgd="%s/%s-bgd.fits"%(dname,bname)
-            if os.path.exists(ap)  and not setdict.get("AP_FILE"):  setdict["AP_FILE"]=ap
-            if os.path.exists(bgd) and not setdict.get("BGD_FILE"): setdict["BGD_FILE"]=bgd
+            if os.path.exists(ap)  and not setopt.get("AP_FILE"):  setopt["AP_FILE"]=ap
+            if os.path.exists(bgd) and not setopt.get("BGD_FILE"): setopt["BGD_FILE"]=bgd
 
         ## Sorting out the stdout
         if options&VERBOSE:
-            setdict["VERBOSE"]=1
+            setopt["VERBOSE"]=1
             if ncores>1:
                 if fname==args[0]:
                     printf("showing starbug stdout for \"%s\"\n"%fname)
                 else:
-                    setdict["VERBOSE"]=0
+                    setopt["VERBOSE"]=0
                     puts("-> hiding \"%s\""%fname)
         else:
             puts(fname)
 
         if ext==".fits":
-            sb=StarbugBase(fname, pfile=pfile, options=setdict)
-            
+            sb=StarbugBase(fname, pfile=pfile, options=setopt)
             if sb.verify(): return#quit("..quitting :(")
-            
+
             if options & DODETECT: sb.detect()
-            if options & DOCLEAN: sb.cleanup()
+            #if options & DOCLEAN: sb.cleanup()
             if options & DOBGDEST: sb.bgd_estimate()
             if options & DOBGDSUB: sb.bgd_subtraction()
             if options & DOGEOM: sb.source_geometry()
 
             if options & DOAPPHOT: sb.aperture_photometry()
-            if options & DOPHOTOM:
-                sb.photometry()
-                if options & DOCLEAN: sb.cleanup()
+            if options & DOPHOTOM: sb.photometry()
+            #if options & DOCLEAN: sb.cleanup()
+
             if options & DOARTIFL: sb.artificial_stars()
             #sb.export(outdir=output)
 
@@ -306,11 +306,11 @@ def fn(fname):
     return sb
 
 if __name__=="__main__":
-    printf("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
+    puts(starbug2.logo%starbug2.motd)
 
     if ncores==1: starbugs=[ fn(fname) for fname in args ]
     else:
-        pool=get_context("spawn").Pool(processes=ncores)
+        pool=Pool(processes=ncores)
         starbugs=pool.map(fn,args) ##
         pool.close()
 
@@ -322,34 +322,48 @@ if __name__=="__main__":
     ###########################
 
     if options&DOMATCH and len(starbugs)>1:
+        if options&VERBOSE: printf("Matching outputs\n")
+
         if (fname:=combine_fnames( [sb.fname for sb in starbugs] )):
             _,name,_=split_fname(os.path.basename(fname))
             fname="%s/%s"%(starbugs[0].outdir, name)
         else: fname="out"
 
-        param=load_params(pfile)
         header=starbugs[0].header
         colnames=starbug2.match_cols
-        colnames+=[ name for name in param["MATCH_COLS"].split() if name not in colnames]
+        colnames+=[ name for name in init_parameters["MATCH_COLS"].split() if name not in colnames]
+        dthreshold=init_parameters["MATCH_THRESH"]
+        nthreshold=init_parameters["NEXP_THRESH"]
+        rmmatch=init_parameters["RM_MATCH"]
+        if rmmatch!=-1: 
+            warn()
+            perror("RM_MATCH is about to be depricated\n")
 
-        if options&VERBOSE: printf("Matching outputs\n")
 
         if options&(DODETECT|DOAPPHOT):
-            av,full=dither_match( [sb.detections for sb in starbugs] , threshold=param["MATCH_THRESH"], colnames=colnames)
+            av,full=dither_match([sb.detections for sb in starbugs], threshold=dthreshold, colnames=colnames)
 
-            N=len(starbugs)-param["RM_MATCH"]
-            mask=( (av["NUM"]>N) if param["RM_MATCH"]>=0 else (av["NUM"]>0))
+            if nthreshold>0:
+                mask=av["NUM"] >= nthreshold
+            else:
+                N=len(starbugs)-init_parameters["RM_MATCH"]
+                mask=( (av["NUM"]>N) if init_parameters["RM_MATCH"]>=0 else (av["NUM"]>0))
 
-            printf("-> %s-ap*...\n"%(fname))
             av.meta.update(header)
-            #export_table(hstack((av,full)), fname="%s-apfull.fits"%(fname), header=header)
+            printf("-> %s-ap*...\n"%(fname))
             export_table(full, fname="%s-apfull.fits"%(fname), header=header)
             export_table(av[mask], fname="%s-apmatch.fits"%(fname), header=header)
 
         if options&DOPHOTOM:
-            av,full=dither_match( [sb.psfcatalogue for sb in starbugs], threshold=param["MATCH_THRESH"], colnames=colnames)
-            printf("-> %s-psf*...\n"%(fname))
+            av,full=dither_match([sb.psfcatalogue for sb in starbugs], threshold=dthreshold, colnames=colnames)
+            if nthreshold>0:
+                mask=av["NUM"] >= nthreshold
+            else:
+                N=len(starbugs)-init_parameters["RM_MATCH"]
+                mask=( (av["NUM"]>N) if init_parameters["RM_MATCH"]>=0 else (av["NUM"]>0))
+
             av.meta.update(header)
-            export_table(hstack((av,full)), fname="%s-psffull.fits"%(fname), header=header)
-            export_table(av, fname="%s-psfmatch.fits"%(fname), header=header)
+            printf("-> %s-psf*...\n"%(fname))
+            export_table(full, fname="%s-psffull.fits"%(fname), header=header)
+            export_table(av[mask], fname="%s-psfmatch.fits"%(fname), header=header)
 

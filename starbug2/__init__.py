@@ -14,6 +14,8 @@ logo="""\
                         ---      ___       ---      
  > %s"""
 
+motd="RM_MATCH will be removed very soon, it will be replaced with NEXP_THRESH"
+
 from os import getenv
 _=getenv("STARBUG_DATDIR") 
 DATDIR=_ if _ else "%s/.local/share/starbug"%(getenv("HOME"))
