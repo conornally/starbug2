@@ -1,3 +1,15 @@
+v0.4.0:
+	Matching:
+		>	Starting work on the miri matching properly
+		>	right now there is a hard coded increasing matching threshold wrt fwhm
+			>>> nircam short 0.06
+			>>>	nircam long  0.1
+			>>> <=F560W		 0.15
+			>>>	<=F1000W	 0.2
+			>>>	<=F2100W	 0.5
+v0.3.15:
+	Match
+		>	Genericmatch column names now drop the suffix if possible
 v0.3.14:
 	Param:
 		>	Added NEXP_THRESH

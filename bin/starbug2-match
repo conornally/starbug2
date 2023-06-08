@@ -99,7 +99,13 @@ else:
         av=None#_=matching.finish_matching(full, colnames=tables[0].colnames)
     else:
         av,full=matching.cascade_match(tables, threshold=dthreshold, colnames=colnames)
-    full=Table(full,dtype=[float]*len(full.colnames)).filled(np.nan) ## fill empty values with null
+
+    dtypes=[]
+    for name in full.colnames:
+        if name=="Catalogue_Number": dtypes.append(str)
+        elif name=="flag": dtypes.append(np.uint16)
+        else: dtypes.append(float)
+    full=Table(full,dtype=dtypes).filled(np.nan) ## fill empty values with null
 
     if av: 
         av.meta.update(tables[0].meta)

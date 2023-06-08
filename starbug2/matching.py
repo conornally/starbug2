@@ -119,6 +119,11 @@ def generic_match(catalogues, threshold=0.25, add_src=True, load=None):
         tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
         base=hstack((base,tmp))
         #base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan) ## fill empty values with null
+
+    for colname in base.colnames:
+        basename=colname[:colname.rfind("_")]
+        all_cols=find_colnames(base,basename)
+        if len(all_cols)==1: base.rename_column(colname,basename)
     return reindex(base)
 
 
@@ -232,16 +237,26 @@ def band_match(catalogues, threshold, colnames):
         if not tab: continue
         load.msg="matching:%s"%fltr
         _colnames= list( name for name in tab.colnames if name in colnames)
-        print(_colnames)
         if not len(base): 
             tmp=tab[_colnames].copy()
         else:
             idx,d2d,_=_match(base,tab)
             tmp=Table(np.full( (len(base),len(_colnames)), np.nan), names=_colnames)
+            
+            ###################################
+            # Hard coding separations for now #
+            separation=0.06
+            f_id=list(starbug2.filters.keys()).index(fltr)
+            if f_id >= list(starbug2.filters.keys()).index("F277W"): separation=0.10
+            if f_id >= list(starbug2.filters.keys()).index("F560W"): separation=0.15
+            if f_id >= list(starbug2.filters.keys()).index("F1000W"): separation=0.20
+            if f_id >= list(starbug2.filters.keys()).index("F1500W"): separation=0.25
+
 
             for ii,(src,IDX,sep) in enumerate(zip(tab,idx,d2d)):
+                load.msg="matching:%s(%.2g)"%(fltr,separation)
                 load();load.show()
-                if (sep<=threshold*u.arcsec) and (sep==min(d2d[idx==IDX])):
+                if (sep<=separation*u.arcsec) and (sep==min(d2d[idx==IDX])):
                     for name in _colnames: tmp[IDX][name]=src[name]
                 else:
                     tmp.add_row(src[_colnames])

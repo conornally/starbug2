@@ -39,13 +39,11 @@ Finally verify the installation by running `starbug2 --version`
 ## Usage
 
 ```bash
-
 Starbug II - JWST PSF photometry
-usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory] [-p file.param] [-s opt=val] image.fits ...
+usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
    -b  --bgdfile         : load background (-bgd.fits) file
-   -C  --clean           : run source cleaning before photometry 
    -d  --apfile  ap.fits : load a source detection (-ap.fits) file to skip the source detection step
    -D  --detect          : run source detection
    -f  --find            : attempt to find associated -ap -bgd files
@@ -55,7 +53,7 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory]
    -n  --ncores      num : number of CPU cores to split process between
    -o  --output      dir : output directory
    -p  --param   a.param : load parameter file
-   -P  --photom          : run psf photometry
+   -P  --psf             : run psf photometry
    -s  --set      option : set value in parameter file at runtime (-s SIGSKY=3)
    -S  --subbgd          : subtract background from image
    -v  --verbose         : display verbose outputs
@@ -70,11 +68,13 @@ usage: starbug2 [-ABCDfhMPv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory]
        --clean-table       a.fits : Clean up an individual table
        --version                  : Print starbug2 version
 
+       --apply-zeropint    a.fits : Apply a zeropoint (-s ZEROPOINT=1.0) to a.fits
+       --calc-instr-zp     a.fits : Calculate and apply an instrumental zero point onto a.fits
+
    --> typical runs
       $~ starbug2 -vD -p file.param image.fits      //Source detect on image with a parameter file
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
-
 ```
 
 See [starbug-manual](https://github.com/conornally/starbug2/blob/main/docs/starbug-manual.md) for more detailed instructions.
