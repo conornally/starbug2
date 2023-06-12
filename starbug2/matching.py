@@ -7,7 +7,7 @@ import numpy as np
 import astropy.io.fits as fits
 import astropy.units as u
 from astropy.coordinates import SkyCoord
-from astropy.table import Column, Table, hstack
+from astropy.table import Column, Table, hstack, vstack
 
 import starbug2
 from starbug2.utils import *
@@ -71,14 +71,6 @@ def sort_exposures(catalogues):
     return out
 
 def _match(cat1, cat2):
-    """
-    if not len(cat1) and len(cat2): 
-        n=len(cat2)
-        return np.array((range(n), sys.maxsize*np.ones(n)*u.degree, sys.maxsize*np.ones(n)))
-    if not len(cat2) and len(cat1): 
-        n=len(cat1)
-        return np.array((range(n), sys.maxsize*np.ones(n)*u.degree, sys.maxsize*np.ones(n)))
-    """
     _ra_cols= list( name for name in cat1.colnames if "RA" in name)
     _dec_cols= list( name for name in cat1.colnames if "DEC" in name)
     _ra= np.nanmean( tab2array( cat1, colnames=_ra_cols), axis=1) # this still breaks if the source isnt matched in all the columns, the 999 will increase the average
@@ -98,13 +90,13 @@ def generic_match(catalogues, threshold=0.25, add_src=True, load=None):
     """
     threshold=threshold*u.arcsec
     base=Table(None)
+    colnames=[]
 
     for n,cat in enumerate(catalogues,1):
         if "Catalogue_Number" in cat.colnames: cat.remove_column("Catalogue_Number")
         if not len(base):
             tmp=cat.copy()
         else:
-            #tmp=Table(tmp,dtype=[float]*len(tmp.colnames)).filled(np.nan) ## fill empty values with null
             idx,d2d,_=_match(base,cat)
             tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames)
 
@@ -116,15 +108,19 @@ def generic_match(catalogues, threshold=0.25, add_src=True, load=None):
                     tmp[IDX]=src
                 elif add_src:   ##BAD MATCH / NEW SOURCE
                     tmp.add_row( src )
-        tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
-        base=hstack((base,tmp))
-        #base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan) ## fill empty values with null
 
-    for colname in base.colnames:
-        basename=colname[:colname.rfind("_")]
-        all_cols=find_colnames(base,basename)
-        if len(all_cols)==1: base.rename_column(colname,basename)
-    return reindex(base)
+        #colnames |= set(tmp.colnames)
+        for name in tmp.colnames: 
+            if name not in colnames: colnames.append(name)
+        tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
+        base=hstack((base,tmp)).filled(np.nan)
+        
+    return finish_matching(base,colnames)
+    #for colname in base.colnames:
+    #    basename=colname[:colname.rfind("_")]
+    #    all_cols=find_colnames(base,basename)
+    #    if len(all_cols)==1: base.rename_column(colname,basename)
+    #return reindex(base)
 
 
 
@@ -204,7 +200,14 @@ def cascade_match(catalogues, threshold, colnames):
     base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
     return finish_matching(base, colnames)
 
-def band_match(catalogues, threshold, colnames):
+def nircam_miri_match(nircam, miri, nircam_lockcol="F444W", miri_lockcol=None):
+    """
+    Matching between a nircam catalogue and a miri catalogue
+    It optionally requires a source to be present in one column in each catalougue
+    """
+    pass
+
+def band_match(catalogues, colnames=("RA","DEC")):
     """
     Given a list of catalogues (with filter names in the meta data), match them
     in order of decreasing astrometric accuracy. 
@@ -223,6 +226,10 @@ def band_match(catalogues, threshold, colnames):
                 tables[ii]=tab
                 mask[ii]=True
             else: perror("Unknown filter '%s' (skipping)..\n"%tab.meta["FILTER"])
+        elif (_tmp:=set(starbug2.filters.keys()) & set(tab.colnames)):
+            ii=list(starbug2.filters.keys()).index(_tmp.pop())
+            tables[ii]=tab
+            mask[ii]=True
         else: perror("Cannot find 'FILTER' in table meta (skipping)..\n")
     s="Bands: "
     for fltr,tab in zip(starbug2.filters.keys(),tables):
@@ -235,6 +242,7 @@ def band_match(catalogues, threshold, colnames):
     load=loading(sum( [len(t) for t in tables[mask][1:]]),"matching", res=100)
     for fltr,tab in zip(starbug2.filters.keys(),tables):
         if not tab: continue
+        tab.remove_rows( np.isnan(tab[fltr]) ) ## removing empty magnitude rows
         load.msg="matching:%s"%fltr
         _colnames= list( name for name in tab.colnames if name in colnames)
         if not len(base): 
@@ -269,7 +277,7 @@ def band_match(catalogues, threshold, colnames):
 
         #base.rename_column("flux","%s_flux"%fltr)
         #base.rename_column("eflux","%s_eflux"%fltr)
-        base=hstack(( base,tmp[[fltr,"e%s"%fltr]] ))
+        base=hstack(( base,tmp[[fltr,"e%s"%fltr]] ))#.filled(np.nan)
         base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
 
         ### Only keep the most astromectrically correct position
@@ -278,7 +286,7 @@ def band_match(catalogues, threshold, colnames):
             _mask=np.logical_and( np.isnan(base["RA"]), tmp["RA"]!=np.nan)
             base["RA"][_mask]=tmp["RA"][_mask]
             base["DEC"][_mask]=tmp["DEC"][_mask]
-    return base
+    return base.filled(np.nan)
 
 def stage_match(stage2, stage3, threshold):
     """
@@ -339,9 +347,10 @@ def finish_matching(tab, colnames):
         else: col=Column(np.nanmedian(ar, axis=1),name=name)
         
         av[name]=col
-    mag,magerr=flux2ABmag(av["flux"],av["eflux"], tab.meta["FILTER"])
-    av.add_column(mag,name=tab.meta["FILTER"])
-    av.add_column(magerr,name="e%s"%tab.meta["FILTER"])
+    if len(set(["flux","eflux"])&set(av.colnames))==2:
+        mag,magerr=flux2ABmag(av["flux"],av["eflux"], tab.meta["FILTER"])
+        av.add_column(mag,name=tab.meta["FILTER"])
+        av.add_column(magerr,name="e%s"%tab.meta["FILTER"])
     if "NUM" not in av.colnames:
         narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
         av.add_column(Column(narr, name="NUM"))

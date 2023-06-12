@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -Wignore
-"""Starbug2 Matching
-usage: starbug2-match [-Bfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
+"""StarbugII Matching 
+usage: starbug2-match [-BGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
     -D  --dither             : match in "DITHER" mode (preserves a column for every frame)
     -f  --full               : export full catalogue
@@ -15,7 +15,7 @@ import os,sys,getopt,glob
 import numpy as np
 import pkg_resources
 from astropy.io import fits
-from astropy.table import Table, hstack
+from astropy.table import Table, hstack, vstack
 import starbug2
 from starbug2 import utils
 from starbug2 import matching
@@ -34,7 +34,7 @@ options=0
 parameter={}
 pfile=None
 output=None
-setdict={}
+setopt={}
 
 def usage():
     if options& VERBOSE: quit(__doc__)
@@ -57,7 +57,7 @@ for opt,optarg in opts:
             key,val=optarg.split('=')
             try: val=float(val)
             except: pass
-            setdict[key]=val
+            setopt[key]=val
 
         else: perror("unable to set parameter, use syntax -s KEY=VALUE\n")
 
@@ -71,7 +71,7 @@ if pfile: parameters=utils.load_params(pfile)
 elif os.path.exists("./starbug.param"): parameters=utils.load_params("./starbug.param")
 else: parameters=utils.load_params("%s/default.param"%pkg_resources.resource_filename("starbug2", "param/"))
 
-if parameters: parameters.update(setdict)
+if parameters: parameters.update(setopt)
 else: 
     utils.perror("failed to load parameter file\n")
     quit("..quitting :(")
@@ -85,9 +85,35 @@ nthreshold=parameters["NEXP_THRESH"]
 rmmatch=parameters["RM_MATCH"]
 
 if options & BANDMATCH:
-    filters= [ tab.meta.get("FILTER") for tab in tables ]
-    efilters=["e%s"%f for f in filters]
-    matched=matching.band_match(tables,dthreshold,["RA","DEC",*filters,*efilters])
+    filters=[]
+    tomatch={ starbug2.NIRCAM:[], starbug2.MIRI:[] }
+    _colnames=["RA","DEC"]
+    for i,tab in enumerate(tables):
+        if not ( (fltr:=tab.meta.get("FILTER")) and fltr in list(starbug2.filters.keys())):
+            if not (fltr:= set(tab.colnames) & set(starbug2.filters.keys()) ):
+                perror("Unable to determine FILTER for \"%s\"\n"%args[i])
+                continue
+        filters.append(fltr)
+        tomatch[starbug2.filters[fltr].instr].append(tab)
+        _colnames+=([fltr,"e%s"%fltr])
+    
+    if tomatch[starbug2.NIRCAM] and tomatch[starbug2.MIRI]:
+        utils.printf("Detected NIRCam to MIRI matching\n")
+        nircam_matched=matching.band_match(tomatch[starbug2.NIRCAM], colnames=_colnames)
+        puts()
+        miri_matched=matching.band_match(tomatch[starbug2.MIRI], colnames=_colnames)
+        puts()
+
+        if not (lockcol:=parameters.get("LOCKCOL")):
+            lockcol= sorted([f for f in filters if starbug2.filters[f].instr==starbug2.NIRCAM],key=lambda f: list(starbug2.filters.keys()).index(f))[-1]
+        mask= np.isnan(nircam_matched[lockcol])
+        load=utils.loading(len(miri_matched), msg="Combining NIRCAM-MIRI(%.2g\")"%dthreshold)
+        matched,_=matching.generic_match((nircam_matched[~mask],miri_matched), threshold=dthreshold, add_src=True, load=load)
+        matched.remove_column("NUM")
+        matched=vstack((matched, nircam_matched[mask]))
+    else:
+        matched=matching.band_match(tables, colnames=_colnames)
+        
     fname=output if output else "out.fits"
     utils.export_table(matched,fname=fname)
 
@@ -95,8 +121,8 @@ else:
     if options & DITHERMATCH: av,full=matching.dither_match(tables, threshold=dthreshold, colnames=colnames)
     if options & GENERICMATCH: 
         options|=EXPFULL
-        full=matching.generic_match(tables,threshold=dthreshold, add_src=True)
-        av=None#_=matching.finish_matching(full, colnames=tables[0].colnames)
+        av,full=matching.generic_match(tables,threshold=dthreshold, add_src=True)
+        #av=None#_=matching.finish_matching(full, colnames=tables[0].colnames)
     else:
         av,full=matching.cascade_match(tables, threshold=dthreshold, colnames=colnames)
 

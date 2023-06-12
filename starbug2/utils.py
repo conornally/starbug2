@@ -285,6 +285,18 @@ def reindex(table):
     table.add_column(column,index=0)
     return table
 
+def colour_index(table,keys):
+    """
+    Allow table indexing with A-B
+    """
+    out=Table()
+    for key in keys:
+        if key in table.colnames: out.add_column(table[key])
+        elif '-' in key:
+            a,b=key.split('-')
+            out.add_column(table[a]-table[b],name=key)
+    return out
+
 def get_MJysr2Jy_scalefactor(ext):
     """
     Find the unit scale factor to convert an image from MJy/sr to Jy
@@ -295,5 +307,11 @@ def get_MJysr2Jy_scalefactor(ext):
     return scalefactor
 
 
+
+
 if __name__ == "__main__":
     print(starbug2.logo)
+    t=Table.read("test/dat/image-ap.fits",format="fits")
+    print(colour_index( t, ("flux", "flux-eflux") ) )
+    #print(colour_index(t
+
