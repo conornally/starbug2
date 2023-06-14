@@ -200,13 +200,6 @@ def cascade_match(catalogues, threshold, colnames):
     base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
     return finish_matching(base, colnames)
 
-def nircam_miri_match(nircam, miri, nircam_lockcol="F444W", miri_lockcol=None):
-    """
-    Matching between a nircam catalogue and a miri catalogue
-    It optionally requires a source to be present in one column in each catalougue
-    """
-    pass
-
 def band_match(catalogues, colnames=("RA","DEC")):
     """
     Given a list of catalogues (with filter names in the meta data), match them
@@ -262,7 +255,7 @@ def band_match(catalogues, colnames=("RA","DEC")):
 
 
             for ii,(src,IDX,sep) in enumerate(zip(tab,idx,d2d)):
-                load.msg="matching:%s(%.2g)"%(fltr,separation)
+                load.msg="matching:%s(%.2g\")"%(fltr,separation)
                 load();load.show()
                 if (sep<=separation*u.arcsec) and (sep==min(d2d[idx==IDX])):
                     for name in _colnames: tmp[IDX][name]=src[name]

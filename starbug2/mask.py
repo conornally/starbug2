@@ -26,16 +26,19 @@ class Mask(object):
     def from_string(string):
         """
         String Format:
-            [-x XCOL] [-y YCOL] [-l Label] x1 y1 x2 y2 x3 y3 ...
+            [-x XCOL] [-y YCOL] [-l Label] : x1 y1 x2 y2 x3 y3 ...
         """
         label=None
         keys=[None,None]
-        opts,args=getopt.getopt(string.split(' '), "l:x:y:")
+        _opts,_coords=string.split(':')
+        opts,args=getopt.getopt(_opts.split(' '), "l:x:y:")
         for opt,optarg in opts:
             if opt=="-x": keys[0]=optarg
             if opt=="-y": keys[1]=optarg
             if opt=="-l": label=optarg
-        points=np.array(args, dtype=float).reshape((int(len(args)/2),2))
+        coords=_coords.strip().rstrip().split(' ')
+        print(coords)
+        points=np.array(coords, dtype=float).reshape((int(len(coords)/2),2))
         return Mask(points,keys,label=label)
 
     def plot(self, ax, **kwargs):

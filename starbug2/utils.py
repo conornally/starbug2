@@ -167,6 +167,29 @@ def export_table(table, fname=None, header=None):
         if not fname: fname="/tmp/starbug.fits"
         fits.BinTableHDU(data=reindex(table), header=header).writeto(fname, overwrite=True)
 
+def import_table(fname):
+    """
+    """
+    tab=None
+    if os.path.exists(fname):
+        if os.path.splitext(fname)[1]==".fits":
+            tab=Table.read(fname,format="fits")
+            tmp=Table()
+            
+            if "flag" in tab.colnames:
+                tmp.add_column(tab["flag"])
+                tab.remove_columns("flag")
+            if "NUM" in tab.colnames:
+                tmp.add_column(tab["NUM"])
+                tab.remove_columns("NUM")
+            tab=tab.filled(np.nan)
+            if tmp: tab=hstack((tab,tmp))
+
+        else: perror("Table must fits format\n")
+    else: perror("Unable to locate \"%s\"\n"%fname)
+    return tab
+
+
 def find_colnames(tab, basename):
     """
     find substring (basename) within the table colnames

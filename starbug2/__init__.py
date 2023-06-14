@@ -14,7 +14,7 @@ logo="""\
                         ---      ___       ---      
  > %s"""
 
-motd="RM_MATCH will be removed very soon, it will be replaced with NEXP_THRESH"
+motd="Match NIRCam and MIRI: $~ starbug2-match -sBRIDGE_COL=F444W -sMATCH_THRESH -Bo outfile.fits F*W.fits ..."
 
 from os import getenv
 _=getenv("STARBUG_DATDIR") 

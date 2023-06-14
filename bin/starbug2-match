@@ -9,6 +9,10 @@ usage: starbug2-match [-BGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fi
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file
     -s  --set     option     : set value in parameter file at runtime (-s MATCH_THRESH=1)
+
+    --> typical runs
+       $~ starbug2-match -Gfo outfile.fits tab1.fits tab2.fits
+       $~ starbug2-match -sMATCH_THRESH=0.2 -sBRIDGE_COL=F444W -Bo out.fits F*W.fits
 """
 
 import os,sys,getopt,glob
@@ -76,18 +80,60 @@ else:
     utils.perror("failed to load parameter file\n")
     quit("..quitting :(")
 
-tables=[Table.read(fname,format="fits") for fname in args]
+####################################
+# FILE IO ECT
+################
+tables=[]
+filters=[]
+for fname in args:
+    tab=utils.import_table(fname)
+    if tab is not None:
+
+        utils.printf("-> loading \"%s\""%fname)
+        tables.append(tab)
+
+        if (fltr:=tab.meta.get("FILTER")):
+            filters.append(fltr)
+        elif (fltr:=( set(tab.colnames)&set(starbug2.filters.keys())).pop()):
+            filters.append(fltr)
+        else: 
+            filters.append((fltr:=None))
+        
+        if fltr is not None: utils.printf(" (%s)\n"%fltr)
+        else: utils.puts()
+
+if not len(tables):
+    utils.perror("No tables loaded for matching\n")
+    quit()
 
 colnames=starbug2.match_cols
 colnames+=[ name for name in parameters["MATCH_COLS"].split() if name not in colnames]
 dthreshold=parameters["MATCH_THRESH"]
 nthreshold=parameters["NEXP_THRESH"]
 rmmatch=parameters["RM_MATCH"]
+snthresh=parameters["SN_THRESH"]
+
+#################
+# SN RATIO CUTS #
+#################
+if snthresh>0:
+    utils.puts("SN Ratio Cuts")
+    for i,(tab,fltr) in enumerate(zip(tables, filters)):
+
+        if fltr:
+            mask = ((tab[fltr]/tab["e%s"%fltr])<snthresh)
+            utils.printf("-> %s: Removing %d sources\n"%(fltr, sum(mask)))
+            tables[i].remove_rows(mask)
+        else:
+            utils.perror("Unable to determine filter of \"%s\"\n"%args[i])
+
 
 if options & BANDMATCH:
     filters=[]
     tomatch={ starbug2.NIRCAM:[], starbug2.MIRI:[] }
+    fname=output if output else "out.fits"
     _colnames=["RA","DEC"]
+
     for i,tab in enumerate(tables):
         if not ( (fltr:=tab.meta.get("FILTER")) and fltr in list(starbug2.filters.keys())):
             if not (fltr:= set(tab.colnames) & set(starbug2.filters.keys()) ):
@@ -99,22 +145,31 @@ if options & BANDMATCH:
     
     if tomatch[starbug2.NIRCAM] and tomatch[starbug2.MIRI]:
         utils.printf("Detected NIRCam to MIRI matching\n")
-        nircam_matched=matching.band_match(tomatch[starbug2.NIRCAM], colnames=_colnames)
-        puts()
-        miri_matched=matching.band_match(tomatch[starbug2.MIRI], colnames=_colnames)
-        puts()
 
-        if not (lockcol:=parameters.get("LOCKCOL")):
-            lockcol= sorted([f for f in filters if starbug2.filters[f].instr==starbug2.NIRCAM],key=lambda f: list(starbug2.filters.keys()).index(f))[-1]
-        mask= np.isnan(nircam_matched[lockcol])
+        nircam_matched=matching.band_match(tomatch[starbug2.NIRCAM], colnames=_colnames)
+        utils.printf("\n--> %s\n"%(_fname:="%s-nircam.fits"%os.path.splitext(fname)[0]))
+        utils.export_table(nircam_matched, fname=_fname)
+
+        miri_matched=matching.band_match(tomatch[starbug2.MIRI], colnames=_colnames)
+        utils.printf("\n--> %s\n"%(_fname:="%s-miri.fits"%os.path.splitext(fname)[0]))
+        utils.export_table(miri_matched, fname=_fname)
+
         load=utils.loading(len(miri_matched), msg="Combining NIRCAM-MIRI(%.2g\")"%dthreshold)
+        if (bridgecol:=parameters.get("BRIDGE_COL")):
+            mask= np.isnan(nircam_matched[bridgecol])
+            utils.printf("-> bridging catalogues with %s\n"%bridgecol)
+            #if not (bridgecol:=parameters.get("BRIDGE_COL")):
+            #bridgecol= sorted([f for f in filters if starbug2.filters[f].instr==starbug2.NIRCAM],key=lambda f: list(starbug2.filters.keys()).index(f))[-1]
+        else: mask=np.full(len(nircam_matched), False)
+
+
         matched,_=matching.generic_match((nircam_matched[~mask],miri_matched), threshold=dthreshold, add_src=True, load=load)
         matched.remove_column("NUM")
         matched=vstack((matched, nircam_matched[mask]))
     else:
         matched=matching.band_match(tables, colnames=_colnames)
         
-    fname=output if output else "out.fits"
+    utils.printf("--> %s\n"%fname)
     utils.export_table(matched,fname=fname)
 
 else:
