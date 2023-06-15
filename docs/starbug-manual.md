@@ -1,7 +1,7 @@
 # StarBugII Manual
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.3.0
+Last updated: v0.4.3
 
 ## Installation
 
@@ -87,17 +87,17 @@ As of the current version. If your parameter file doesnt fit the template of the
 | NAME             | DTYPE        | DESCRIPTION                                                           |
 |------------------|--------------|---------------------------------------------------------------------------------|
 | VERBOSE          | INT 0:1      | Include verbose outputs.                                              |
-| OUTDIR           | STR          | Folder to output to.                                                  |
+| OUTPUT           | STR          | Output file or folder to send all products to.                        |
 |------------------|--------------|-----------------------------------------------------------------------|
 | SIGSKY           | FLOAT >0     | Number of sigma below which pixels gets removed as sky. In images with bright diffuse emissions, drop this value slowly, in steps of ~0.1 and watch the number of sources detected increase, but be careful of false detections of bright spots. |
 | SIGSRC           | FLOAT >0     | Minimum number of sigma above the median that a source must be to be detected. This is often 5sigma for a robust search or 3sigma for faint detections. |
-| BOX_SIZE         | INT >1 [pix] | Kernel size during background subtraction to estimate background within. For complex fields this is set low. |
-| FILTER_SIZE      | INT >1 [pix] | (depr.)                                                               |
 | DOBGD2D          | INT 0:1      | Run complex background subtraction during source detection (This usually results in more sources detected, however it takes a long time). |
 | SHARP_LO         | FLOAT >0     | Set bounds of source sharpness, outside which sources will be ignored.|
 | SHARP_HI         | FLOAT >0     | Set bounds of source sharpness, outside which sources will be ignored.|
 | ROUND_LO         | FLOAT >0     | Set bounds of source roundness, outside which sources will be ignored.|
 | ROUND_HI         | FLOAT >0     | Set bounds of source roundness, outside which sources will be ignored.|
+| CLEANSRC         | INT 0:1      | in prep.|
+| RICKER_R         | FLAOT >0     | in prep.|
 |------------------|--------------|-----------------------------------------------------------------------|
 | FIT_APP_R        | INT 0:1      | Fit fraction encircled energy to aperture radius and use this as aperture radii (1), OR, use explicit aperture radius (0). |
 | ENCENERGY        | FLOAT >0     | Fraction encircled energy to fit aperture radius to.                  |
@@ -105,13 +105,8 @@ As of the current version. If your parameter file doesnt fit the template of the
 | SKY_RIN          | FLOAT >0     | Sky annulus inner radius.                                             |
 | SKY_ROUT         | FLOAT >0     | Sky annulus outer radius.                                             |
 |------------------|--------------|-----------------------------------------------------------------------|
-| ERROR_CUT        | - | DESCRIPTION |
-| SHARP_HI_SIG     | - | DESCRIPTION |
-| SHARP_LO_SIG     | - | DESCRIPTION |
-| ROUND_HI_SIG     | - | DESCRIPTION |
-| ROUND_LO_SIG     | - | DESCRIPTION |
-|------------------|--------------|-----------------------------------------------------------------------|
 | BGD_R            | - | DESCRIPTION |
+| BOX_SIZE         | INT >1 [pix] | Kernel size during background subtraction to estimate background within. For complex fields this is set low. |
 |------------------|--------------|-----------------------------------------------------------------------|
 | AP_FILE          | STR          | Load source list file (-ap.fits) into starbug. This is equivalent to `-d file-ap.fits`.|
 | BGD_FILE         | STR          | Load background estimation file (-bgd.fits) into starbug. This is equivalent to `-b file-bgd.fits`.|
@@ -125,6 +120,9 @@ As of the current version. If your parameter file doesnt fit the template of the
 | MATCH_THRESH     | FLOAT >0 [arcsec] | Separation threshold between coordinate during astrometric matching. Set low to avoid mismatching.|
 | MATCH_COLS       | STR,STR,..   | Comma separated list of columns to include in outputs during matching.  |
 | RM_MATCH         | INT          | (prep.) |
+| NEXP_THRESH      | INT          | (prep.) |
+| SN_THRESH        | FLOAT >0     | (prep.) |
+| BRIDGE_COL       | FILTER       | (prep.) |
 |------------------|--------------|-----------------------------------------------------------------------|
 | NUMBER_ARTIFICIAL_STARS | - | DESCRIPTION |
 | SUBIMAGE_SIZE    | - | DESCRIPTION |
@@ -241,6 +239,21 @@ $~ starbug2 -b image-bgd.fits ...
 
 ### PSF Photometry
 
+PSF photometry can be ran in two modes, free or fixed centroids, which allows or otherwise the source position to be refit as well as the flux. To change between the two modes, toggle the parameter `FORCE_POS`= 0 (free positions) 1 (forced photometry). 
+Running the photometry requires a source list of initial positions and a diffuse background estimation, both discussed above. A simple run of the photometry will look like:
+
+```bash
+$~ starbug2 -d sourcelist.fits -b background.fits -P image.fits
+ OR
+$~ starbug2 -vDBP image.fits
+```
+
+Starbug will automatically use the simulated WEBBPSF file associated with the image detector and module, however custom PSF files can be loaded instead by supplying the filename to a fits file with `PSF_FILE` in the parameter file. The routine will use the entire PSF array to fit each source in the sourcelist, if the PSF is very large this will slow the program significantly. Reduce the size of the fitting by setting `PSF_SIZE`.
+
+There are two phases to free centroid PSF photometry: first all the sources are fit, then the routine inspects the new calculated source positions. If the resulting centroid has moved from the initial position by a distance greater than `DPOS_THRESH` (arcsec), a second round of fixed centroid photometry occurs using the initial positions, these sources will be flagged `SRC_FIX` in the resulting catalogue.
+The quality of the PSF fits can be checked by inspecting the residual images. To generate them set `GEN_RESIDUAL=1` and the image `image-res.fits` will be produced with the background estimation and PSFs removed from the original image. 
+
+Finally, a long standing crash in the routine occurs when many sources are being fit at the same time, causing a recursion error. This happens more often in compact fields in short wavelength images. It can be mitigated by reducing the size of `CRIT_SEP`.
 
 
 
