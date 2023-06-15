@@ -256,9 +256,6 @@ The quality of the PSF fits can be checked by inspecting the residual images. To
 Finally, a long standing crash in the routine occurs when many sources are being fit at the same time, causing a recursion error. This happens more often in compact fields in short wavelength images. It can be mitigated by reducing the size of `CRIT_SEP`.
 
 
-
-
-
 ### Instrumental Zero Points
 
 PSF photometry is much more accurate but is not output into physical units. The instrumental zero point must be calculated from the aperture photometry. To do this we run:

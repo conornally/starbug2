@@ -323,11 +323,11 @@ def finish_matching(tab, colnames):
         col=Column(None, name=name)
         ar=tab2array(tab, colnames=all_cols)
         if name=="flux":
-            col=Column(np.nanmean(ar,axis=1), name=name)
-            median=np.nanmedian(ar,axis=1)
+            col=Column(np.nanmedian(ar,axis=1), name=name)
+            mean=np.nanmean(ar,axis=1)
             if "stdflux" not in colnames: av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux")) 
             ## if median and mean are >5% different, flag as SRC_VAR
-            flags[ np.abs(median-col)>(col/5.0)] |= starbug2.SRC_VAR
+            flags[ np.abs(mean-col)>(col/5.0)] |= starbug2.SRC_VAR
         elif name== "eflux":
             col=Column(np.sqrt(np.nansum(ar*ar, axis=1)), name=name)
         elif name=="stdflux": 

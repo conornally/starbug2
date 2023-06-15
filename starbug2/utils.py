@@ -175,13 +175,14 @@ def import_table(fname):
         if os.path.splitext(fname)[1]==".fits":
             tab=Table.read(fname,format="fits")
             tmp=Table()
-            
-            if "flag" in tab.colnames:
-                tmp.add_column(tab["flag"])
-                tab.remove_columns("flag")
-            if "NUM" in tab.colnames:
-                tmp.add_column(tab["NUM"])
-                tab.remove_columns("NUM")
+
+            names=[]
+            for index in range(len(tab.dtype.names)):
+                if tab.dtype[index].kind!='f':
+                    name=tab.colnames[index]
+                    names.append(name)
+                    tmp.add_column( tab[name] )
+            tab.remove_columns( names )
             tab=tab.filled(np.nan)
             if tmp: tab=hstack((tab,tmp))
 
