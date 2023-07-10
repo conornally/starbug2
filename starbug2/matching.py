@@ -171,6 +171,7 @@ def cascade_match(catalogues, threshold, colnames):
     ncol=len(colnames)
     base=Table( None, meta=catalogues[0].meta)#, names=colnames )
     load=loading(sum([len(cat) for cat in catalogues[1:]]),"matching")
+    fltr=find_filter(catalogues[0])
 
     for n,cat in enumerate(catalogues,1):
         if n==1:
@@ -198,7 +199,7 @@ def cascade_match(catalogues, threshold, colnames):
         tmp.rename_columns(colnames, list("%s_%d"%(name,n) for name in colnames))
         base=hcascade((base,tmp), colnames=colnames)
     base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
-    return finish_matching(base, colnames)
+    return finish_matching(base, colnames, fltr=fltr)
 
 def band_match(catalogues, colnames=("RA","DEC")):
     """
@@ -270,7 +271,8 @@ def band_match(catalogues, colnames=("RA","DEC")):
 
         #base.rename_column("flux","%s_flux"%fltr)
         #base.rename_column("eflux","%s_eflux"%fltr)
-        base=hstack(( base,tmp[[fltr,"e%s"%fltr]] ))#.filled(np.nan)
+        print(tmp.colnames)
+        base=hstack(( base,tmp[[fltr,"e%s"%fltr,"flag"]] ))#.filled(np.nan)
         base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
 
         ### Only keep the most astromectrically correct position
@@ -309,12 +311,16 @@ def stage_match(stage2, stage3, threshold):
 
 
 
-def finish_matching(tab, colnames):
+def finish_matching(tab, colnames, fltr=None):
     """
     Averaging all the values. Combining source flags and building a NUM column
     """
     flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint16)
     av=Table(np.full((len(tab),len(colnames)),np.nan), names=colnames)
+    if not fltr:
+        if not (fltr:=tab.meta.get("FILTER")):
+            if not (fltr:=find_filter(tab)):
+                fltr=None
 
     for name in colnames:
         all_cols=find_colnames(tab,name)
@@ -341,9 +347,12 @@ def finish_matching(tab, colnames):
         
         av[name]=col
     if len(set(["flux","eflux"])&set(av.colnames))==2:
-        mag,magerr=flux2ABmag(av["flux"],av["eflux"], tab.meta["FILTER"])
-        av.add_column(mag,name=tab.meta["FILTER"])
-        av.add_column(magerr,name="e%s"%tab.meta["FILTER"])
+        #fltr=av.meta.get("FILTER")
+        if fltr: 
+            mag,magerr=flux2ABmag(av["flux"],av["eflux"], fltr)
+            #if fltr not in tab.colnames: ## I cant remember what this is for
+            av.add_column(mag,name=tab.meta["FILTER"])
+            av.add_column(magerr,name="e%s"%tab.meta["FILTER"])
     if "NUM" not in av.colnames:
         narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
         av.add_column(Column(narr, name="NUM"))

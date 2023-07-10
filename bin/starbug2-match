@@ -132,7 +132,7 @@ if options & BANDMATCH:
     #filters=[]
     tomatch={ starbug2.NIRCAM:[], starbug2.MIRI:[] }
     fname=output if output else "out.fits"
-    _colnames=["RA","DEC"]
+    _colnames=["RA","DEC","flag"]
 
     for i,(tab,fltr) in enumerate(zip(tables,filters)):
         tomatch[starbug2.filters[fltr].instr].append(tab)
@@ -175,6 +175,7 @@ else:
         #av=None#_=matching.finish_matching(full, colnames=tables[0].colnames)
     else:
         av,full=matching.cascade_match(tables, threshold=dthreshold, colnames=colnames)
+        print(av)
 
     dtypes=[]
     for name in full.colnames:

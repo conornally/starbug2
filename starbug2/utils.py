@@ -330,6 +330,8 @@ def get_MJysr2Jy_scalefactor(ext):
         scalefactor=1e6*float(ext.header["PIXAR_SR"])
     return scalefactor
 
+def find_filter(table):
+    return [set(table.colnames)&set(starbug2.filters.keys())].pop()
 
 
 

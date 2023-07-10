@@ -6,16 +6,19 @@ from astropy.table import Table
 from starbug2.utils import tab2array, colour_index
 
 class Mask(object):
-    def __init__(self, bounds, keys, label=None):
+    colour='k'
+    def __init__(self, bounds, keys, label=None, **kwargs):
         self.path=Path(bounds)
         if len(keys)==2:
             self.keys=keys
         else: raise Exception
         self.label=label
+        
+        if "colour" in kwargs: self.colour=kwargs.get("colour")
+
 
     def apply(self, dat):
         d=tab2array(colour_index(dat,self.keys))
-        print(d)
         return self.path.contains_points(d)
     
     @staticmethod
@@ -30,19 +33,20 @@ class Mask(object):
         """
         label=None
         keys=[None,None]
+        colour='k'
         _opts,_coords=string.split(':')
-        opts,args=getopt.getopt(_opts.split(' '), "l:x:y:")
+        opts,args=getopt.getopt(_opts.split(' '), "c:l:x:y:")
         for opt,optarg in opts:
             if opt=="-x": keys[0]=optarg
             if opt=="-y": keys[1]=optarg
-            if opt=="-l": label=optarg
+            if opt=="-l": label=optarg.replace('_',' ')
+            if opt=="-c": colour=optarg
         coords=_coords.strip().rstrip().split(' ')
-        print(coords)
         points=np.array(coords, dtype=float).reshape((int(len(coords)/2),2))
-        return Mask(points,keys,label=label)
+        return Mask(points,keys,label=label, colour=colour)
 
     def plot(self, ax, **kwargs):
-        patch=Polygon(self.path._vertices, label=self.label, **kwargs)
+        patch=Polygon(self.path._vertices, label=self.label.replace('_',' '), **kwargs)
         ax.add_patch(patch)
         
 
@@ -53,7 +57,6 @@ if __name__=="__main__":
     t=Table.read("/home/conor/sci/proj/ngc6822/paper1/dat/ngc6822.fits",format="fits").filled(np.nan)
     m=Mask.from_string(s)
     mask=m.apply(t)
-    print(sum(mask))
     import matplotlib.pyplot as plt
     tt=colour_index(t,("F115W-F200W","F115W"))
     plt.scatter(tt["F115W-F200W"], tt["F115W"], c='k', lw=0, s=1)
