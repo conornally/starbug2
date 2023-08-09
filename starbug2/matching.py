@@ -85,7 +85,7 @@ def _match(cat1, cat2):
 
     return skycoord2.match_to_catalog_3d(skycoord1)
 
-def generic_match(catalogues, threshold=0.25, add_src=True, load=None):
+def generic_match(catalogues, threshold=0.25, add_src=True, load=None, average=True):
     """
     """
     threshold=threshold*u.arcsec
@@ -115,7 +115,8 @@ def generic_match(catalogues, threshold=0.25, add_src=True, load=None):
         tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
         base=hstack((base,tmp)).filled(np.nan)
         
-    return finish_matching(base,colnames)
+    if average: return finish_matching(base,colnames)
+    else: return base
     #for colname in base.colnames:
     #    basename=colname[:colname.rfind("_")]
     #    all_cols=find_colnames(base,basename)
@@ -271,8 +272,9 @@ def band_match(catalogues, colnames=("RA","DEC")):
 
         #base.rename_column("flux","%s_flux"%fltr)
         #base.rename_column("eflux","%s_eflux"%fltr)
-        print(tmp.colnames)
-        base=hstack(( base,tmp[[fltr,"e%s"%fltr,"flag"]] ))#.filled(np.nan)
+
+        tmp.rename_column("flag","flag_%s"%fltr)
+        base=hstack(( base,tmp[[fltr,"e%s"%fltr,"flag_%s"%fltr]] ))#.filled(np.nan)
         base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
 
         ### Only keep the most astromectrically correct position
@@ -281,6 +283,14 @@ def band_match(catalogues, colnames=("RA","DEC")):
             _mask=np.logical_and( np.isnan(base["RA"]), tmp["RA"]!=np.nan)
             base["RA"][_mask]=tmp["RA"][_mask]
             base["DEC"][_mask]=tmp["DEC"][_mask]
+
+    ## Sort out flags
+    flag=np.zeros(len(base),dtype=np.uint16)
+    for fcol in find_colnames(base,"flag"):
+        flag|=base[fcol].value.astype(np.uint16)
+        base.remove_column(fcol)
+    base.add_column(flag,name="flag")
+    
     return base.filled(np.nan)
 
 def stage_match(stage2, stage3, threshold):

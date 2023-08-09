@@ -1,3 +1,7 @@
+v0.4.7:
+	Bug fixes:
+		>	bandmatch and calc-instr-zp had had bugs introduced with small changes to generic_match earlier
+
 v0.4.2:
     Matching:
         >   Adding SN_THRESH to band matching

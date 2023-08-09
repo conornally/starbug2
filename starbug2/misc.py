@@ -173,7 +173,7 @@ def calc_instrumental_zeropint(psftable, aptable, fltr=None ):
         return None
     
 
-    _,matched=generic_match((psftable, aptable), threshold=0.1, add_src=False)
+    matched=generic_match((psftable, aptable), threshold=0.1, add_src=False, average=False)
     dist=np.array((matched["%s_2"%fltr]-matched["%s_1"%fltr]).value)
     zp=np.nanmedian(dist)
     std=np.nanstd(dist)
