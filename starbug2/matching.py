@@ -113,7 +113,11 @@ def generic_match(catalogues, threshold=0.25, add_src=True, load=None, average=T
         for name in tmp.colnames: 
             if name not in colnames: colnames.append(name)
         tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
-        base=hstack((base,tmp)).filled(np.nan)
+
+        base=hstack((base,tmp))#.filled(np.nan)
+        try: base=base.filled(np.nan)
+        except: 
+            perror("Something went wrong in \"generic_match\", it might not cause problems\n")
         
     if average: return finish_matching(base,colnames)
     else: return base

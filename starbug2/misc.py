@@ -167,11 +167,10 @@ def calc_instrumental_zeropint(psftable, aptable, fltr=None ):
     """
 
     """
-    printf("Calculating instrumental zeropoint.\n")
     if fltr is None and not (fltr:=psftable.meta.get("FILTER")):
         perror("Unable to determine filter, set with '--set FILTER=F000W'.\n")
         return None
-    
+    printf("Calculating instrumental zeropoint %s.\n"%fltr)
 
     matched=generic_match((psftable, aptable), threshold=0.1, add_src=False, average=False)
     dist=np.array((matched["%s_2"%fltr]-matched["%s_1"%fltr]).value)

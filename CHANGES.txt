@@ -1,3 +1,6 @@
+v0.4.8:
+	Bug fixes:
+		>	generic match has a filled(np.nan) bodge applied
 v0.4.7:
 	Bug fixes:
 		>	bandmatch and calc-instr-zp had had bugs introduced with small changes to generic_match earlier
