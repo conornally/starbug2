@@ -244,15 +244,14 @@ class APPhot_Routine():
         """
         if not table_fname: return None
         tmp=Table.read(table_fname, format="fits")
-        t_apcorr=tmp[tmp["filter"]==filter][:-1] ## SKIPPING FINAL VALUE
-
-        fn=lambda x,a,b,c: a*np.exp(-b*x)+c
-        popt,_=curve_fit(fn, t_apcorr["radius"], t_apcorr["apcorr"])
-        apcorr= fn( radius,*popt)
+        t_apcorr=tmp[(tmp["filter"]==filter)]
+        if "pupil" in t_apcorr.colnames:
+            t_apcorr=t_apcorr[ t_apcorr["pupil"]=="CLEAR"]
+        
+        apcorr= np.interp(radius, t_apcorr["radius"], t_apcorr["apcorr"])
         if verbose: printf("-> estimating aperture correction: %.3g..\n"%apcorr)
 
-        popt,_=curve_fit(fn,t_apcorr["radius"],t_apcorr["eefraction"])
-        eefrac= fn(radius,*popt)
+        eefrac= np.interp(radius, t_apcorr["radius"], t_apcorr["eefraction"])
         if verbose: printf("-> effective encircled energy fraction: %.3g\n"%eefrac)
         return apcorr
 

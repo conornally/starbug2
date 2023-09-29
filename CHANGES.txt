@@ -1,3 +1,10 @@
+v0.4.9:
+    Bug fixes:
+        >   webbpsf update has caused problems with F150W2 generation
+            --> Ive just added a try catch on it for now
+	Photometry:
+		>	Updated CRDS MIRI apcorr download
+		>	Switched APCORR calculation to interpolation rather than curve fitting
 v0.4.8:
 	Bug fixes:
 		>	generic match has a filled(np.nan) bodge applied

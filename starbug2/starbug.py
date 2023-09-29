@@ -57,9 +57,7 @@ class StarbugBase(object):
         head["CALIBLEVEL"]=self.stage
         head["STARBUG"]=pkg_resources.get_distribution("starbug2").version
         head["FILTER"]=self.filter
-        #head["BUNIT"]=self.image.header["BUNIT"]
         head.update(self.info)
-        #head.update(self.wcs.to_header())
         return head
 
 
@@ -234,7 +232,7 @@ class StarbugBase(object):
             #print(dtname)
             if dtname=="MULTIPLE":
                 if   fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.SHORT: dtname="NRCA1"
-                elif fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.LONG:  dtname="NRCALONG"
+                elif fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.LONG:  dtname="NRCA5"
                 elif fltr.instr==starbug2.MIRI:  dtname=""
             if dtname=="MIRIMAGE": dtname=""
             fname="%s/%s%s.fits"%(starbug2.DATDIR,self.filter,dtname)
@@ -543,9 +541,8 @@ class StarbugBase(object):
             fits.BinTableHDU(data=self.psfcatalogue, header=self.header).writeto(_fname,overwrite=True)
 
 
+    """
     def cleanup(self):
-        """
-        """
         self.log("Cleaning up..\n")
 
         if self.detections:
@@ -562,6 +559,7 @@ class StarbugBase(object):
                                     sharp_sig_lo= self.options["SHARP_LO_SIG"],
                                     round_sig_hi= self.options["ROUND_HI_SIG"],
                                     round_sig_lo= self.options["ROUND_LO_SIG"])
+    """
 
     def artificial_stars(self):
         """

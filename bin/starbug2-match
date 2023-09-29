@@ -110,7 +110,6 @@ colnames=starbug2.match_cols
 colnames+=[ name for name in parameters["MATCH_COLS"].split() if name not in colnames]
 dthreshold=parameters["MATCH_THRESH"]
 nthreshold=parameters["NEXP_THRESH"]
-rmmatch=parameters["RM_MATCH"]
 snthresh=parameters["SN_THRESH"]
 
 #################
@@ -189,9 +188,6 @@ else:
         if nthreshold!=-1:
             mask=av["NUM"]>=nthreshold
             av=av[mask]
-        if rmmatch!=-1:
-            warn()
-            perror("RM_MATCH has been removed, use NEXP_THRESH instead\n")
 
     if output is None:
         output=utils.combine_fnames( [ name for name in args] , ntrys=100)

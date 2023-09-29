@@ -22,7 +22,7 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
        --init                     : Initialise Starbug (post install)
        --local-param              : Make a local copy of the default parameter file
        --update-param             : Update an out-of-date local parameter file
-       --generate-psf             : Generate ALL the PSF files to "STARBUG_DATDIR"
+       --generate-psf             : Generate a single PSF. Set FILTER, DET_NAME, PSF_SIZE with -s
        --generate-region   a.fits : Make a ds9 region file with a detection file
        --generate-run      *.fits : Generate a simple run script
        --clean-table       a.fits : Clean up an individual table
@@ -52,7 +52,7 @@ FINDFILE=0x08
 DODETECT=0x100
 DOBGDEST=0x200
 DOPHOTOM=0x400
-DOCLEAN= 0x800 
+#DOCLEAN= 0x800 
 DOARTIFL=0x1000
 DOMATCH= 0x2000
 DOAPPHOT=0x4000
@@ -95,7 +95,6 @@ for opt,optarg in opts:
 
     if opt in ("-A","--apphot"): options |= DOAPPHOT
     if opt in ("-B","--background"): options|=DOBGDEST
-    #if opt in ("-C","--clean"):  options |=DOCLEAN
     if opt in ("-D","--detect"): options |= DODETECT
     if opt in ("-G","--geom"): options |= DOGEOM
     if opt in ("-M","--match"):  options |= DOMATCH
@@ -187,7 +186,21 @@ if options&INITSB:
     init_starbug()
 
 if options&GENRATPSF:
-    generate_psfs()
+    if (fltr:=init_parameters.get("FILTER")):
+        detector=init_parameters.get("DET_NAME")
+        psf_size=init_parameters.get("PSF_SIZE")
+        printf("Generating PSF: %s %s (%d)\n"%(fltr,detector,psf_size))
+        psf=generate_psf(fltr, detector=detector, fov_pixels=psf_size)
+        if psf: 
+            name="%s%s.fits"%(fltr,"" if detector is None else detector)
+            printf("--> %s\n"%name)
+            psf.writeto(name, overwrite=True)
+        else: perror("PSF Generation failed :(\n")
+    else: perror("Unable to generate PSF. Set filter with '-s FILTER=FXXX'\n")
+
+
+
+
 
 if options&GENRATRUN:
     cmd="starbug2 "#"+ " ".join( ["-vf"])
@@ -289,14 +302,12 @@ def fn(fname):
             if sb.verify(): return#quit("..quitting :(")
 
             if options & DODETECT: sb.detect()
-            #if options & DOCLEAN: sb.cleanup()
             if options & DOBGDEST: sb.bgd_estimate()
             if options & DOBGDSUB: sb.bgd_subtraction()
             if options & DOGEOM: sb.source_geometry()
 
             if options & DOAPPHOT: sb.aperture_photometry()
             if options & DOPHOTOM: sb.photometry()
-            #if options & DOCLEAN: sb.cleanup()
 
             if options & DOARTIFL: sb.artificial_stars()
             #sb.export(outdir=output)
@@ -334,10 +345,6 @@ if __name__=="__main__":
         colnames+=[ name for name in init_parameters["MATCH_COLS"].split() if name not in colnames]
         dthreshold=init_parameters["MATCH_THRESH"]
         nthreshold=init_parameters["NEXP_THRESH"]
-        rmmatch=init_parameters["RM_MATCH"]
-        if rmmatch!=-1: 
-            warn()
-            perror("RM_MATCH is about to be depricated\n")
 
 
         if options&(DODETECT|DOAPPHOT):
@@ -345,9 +352,7 @@ if __name__=="__main__":
 
             if nthreshold>0:
                 mask=av["NUM"] >= nthreshold
-            else:
-                N=len(starbugs)-init_parameters["RM_MATCH"]
-                mask=( (av["NUM"]>N) if init_parameters["RM_MATCH"]>=0 else (av["NUM"]>0))
+            else: mask=np.ones(len(av))
 
             av.meta.update(header)
             printf("-> %s-ap*...\n"%(fname))
@@ -356,11 +361,10 @@ if __name__=="__main__":
 
         if options&DOPHOTOM:
             av,full=dither_match([sb.psfcatalogue for sb in starbugs], threshold=dthreshold, colnames=colnames)
+
             if nthreshold>0:
                 mask=av["NUM"] >= nthreshold
-            else:
-                N=len(starbugs)-init_parameters["RM_MATCH"]
-                mask=( (av["NUM"]>N) if init_parameters["RM_MATCH"]>=0 else (av["NUM"]>0))
+            else: mask=np.ones(len(av))
 
             av.meta.update(header)
             printf("-> %s-psf*...\n"%(fname))

@@ -12,9 +12,10 @@ logo="""\
                            \._._/ ./    _(\)   *   
  conor.nally@ed.ac.uk     /   ~--\ ----~   \      *
                         ---      ___       ---      
- > %s"""
+ > %s
+"""
 
-motd="Match NIRCam and MIRI: $~ starbug2-match -sBRIDGE_COL=F444W -sMATCH_THRESH -Bo outfile.fits F*W.fits ..."
+motd="Update WEBBPSF and reinitialise with: $~ starbug2 --init"
 
 from os import getenv
 _=getenv("STARBUG_DATDIR") 

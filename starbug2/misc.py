@@ -28,7 +28,7 @@ def init_starbug():
     generate_psfs()
 
     printf("Downloading APPCORR CRDS files. NB: \x1b[1mTHESE MAY NOT BE THE LATEST!\x1b[0m\n")
-    wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_miri_apcorr_0005.fits", "%s/apcorr_miri.fits"%dname)
+    wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_miri_apcorr_0010.fits", "%s/apcorr_miri.fits"%dname)
     wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_nircam_apcorr_0004.fits", "%s/apcorr_nircam.fits"%dname)
     puts("Downloading The Junior Colour Encyclopedia of Space\n")
 
@@ -42,7 +42,6 @@ def generate_psfs():
                 in loaded parameter file starbug2.DATDIR
     """
     dname=starbug2.DATDIR
-    import webbpsf
     if os.getenv("WEBBPSF_PATH"): 
         dname=os.path.expandvars(dname)
         if not os.path.exists(dname):
@@ -54,33 +53,73 @@ def generate_psfs():
         load.show()
         for fltr,_f in starbug2.filters.items():
             if _f.instr==starbug2.NIRCAM:
-                instr=webbpsf.NIRCam
                 if _f.length==starbug2.SHORT: detectors=["NRCA1","NRCA2","NRCA3","NRCA4","NRCB1","NRCB2","NRCB3","NRCB4"]
                 else: detectors=["NRCA5","NRCB5"]
             else:
-                instr=webbpsf.MIRI
                 detectors=[None]
 
             for det in detectors:
+                load.msg="%6s %5s"%(fltr,det)
+                load.show()
+                psf=generate_psf( fltr, det, None)
+                if psf: psf.writeto("%s/%s%s.fits"%(dname, fltr, "" if det is None else det), overwrite=True)
+                #else: perror("\nSomething went wrong with: %s %s\n"%(fltr,det))
+                load()
+                load.show()
+
+
+                """
                 model=instr()
                 model.filter=fltr
                 if det: model.detector=det
                 load.msg="%6s %5s"%(fltr,det)
-                #if det=="NRCA5": det="NRCALONG"
-                #if det=="NRCB5": det="NRCBLONG"
+                load.show()
                 if det is None: det=""
-                model.calc_psf()[1].writeto("%s/%s%s.fits"%(dname,fltr,det), overwrite=True)
-                if '5' in det: 
-                    _det=det.replace('5',"LONG")
-                    model.calc_psf()[1].writeto("%s/%s%s.fits"%(dname,fltr,_det), overwrite=True)
-                load();load.show()
+                try:
+                    model.calc_psf()[1].writeto("%s/%s%s.fits"%(dname,fltr,det), overwrite=True)
+                    if '5' in det: 
+                        _det=det.replace('5',"LONG")
+                        model.calc_psf()[1].writeto("%s/%s%s.fits"%(dname,fltr,_det), overwrite=True)
+                    load();load.show()
+                except: perror("\nSomething went wrong with: %s %s\n"%(fltr,det))
+                """
                 
-            #nc = webbpsf.NIRCam() if line[5]==starbug2.NIRCAM else webbpsf.MIRI()
-            #nc.filter=fltr
-            #psf=nc.calc_psf()
-            #load()
-            #fits.PrimaryHDU(data=psf[1].data, header=psf[1].header).writeto("%s/%s.fits"%(dname, fltr), overwrite=True)
     else:perror("WARNING: Cannot generate PSFs, no environment variable 'WEBBPSF_PATH', please see https://webbpsf.readthedocs.io/en/latest/installation.html\n")
+
+
+def generate_psf(fltr, detector=None, fov_pixels=None):
+    """
+    Generate a single PSF for JWST
+    INPUT:  fltr=JWST filter e.g. F444W
+            detector=Instrument detector module e.g. NRCA1
+            fov_pixels=size of PSF
+    RETURNS:fits.HDUlist containing PSF
+    """
+    import webbpsf
+    psf=None
+    model=None
+    if fov_pixels is not None and fov_pixels<=0: fov_pixels=None
+
+    if fltr in list(starbug2.filters.keys()):
+        _f=starbug2.filters.get(fltr)
+        if detector is None:
+            if _f.instr==starbug2.NIRCAM and _f.length==starbug2.SHORT: detector="NRCA1"
+            elif _f.instr==starbug2.NIRCAM and _f.length==starbug2.LONG: detector="NRCA5"
+            elif _f.instr==starbug2.MIRI: detector="MIRIM"
+
+        if _f.instr==starbug2.NIRCAM: model=webbpsf.NIRCam()
+        elif _f.instr==starbug2.MIRI: model=webbpsf.MIRI()
+
+        if model:
+            model.filter=fltr
+            if detector: model.detector=detector
+            try: psf=model.calc_psf(fov_pixels=fov_pixels)["DET_SAMP"]
+            except: perror("Something went from with: %s %s\n"%(fltr,detector))
+        else: perror("Unable to determing instrument from fltr '%s'\n"%fltr)
+    else: perror("Unable to locate '%s' in JWST filter list\n"%fltr)
+    return psf
+
+
 
 def generate_runscript(fnames, args="starbug2 "):
     """
