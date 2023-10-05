@@ -94,3 +94,7 @@ usage: starbug2-match [-BGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fi
 ```
 
 See [starbug-manual](https://github.com/conornally/starbug2/blob/main/docs/starbug-manual.md) for more detailed instructions.
+
+## Citing StarbugII
+
+If you make use of StarbugII in your work, please cite [2023ascl.soft09012N](https://ui.adsabs.harvard.edu/abs/2023ascl.soft09012N/abstract).
