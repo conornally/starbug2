@@ -219,6 +219,7 @@ class APPhot_Routine():
                 self.catalogue["sky"][i]=np.ma.median(dat)
 
 
+        self.log("-> applying aperture correction: %.2g\n"%apcorr)
         self.catalogue["eflux"]=phot["aperture_sum_err"]
         self.catalogue["flux"]=apcorr*(phot["aperture_sum"] - (self.catalogue["sky"]*apertures.area))
 
@@ -242,7 +243,7 @@ class APPhot_Routine():
         Using CRDS apcorr table, fit a curve to the radius vs apcorr
         columns and then return aporr to respective input radius
         """
-        if not table_fname: return None
+        if not table_fname: return 1
         tmp=Table.read(table_fname, format="fits")
         t_apcorr=tmp[(tmp["filter"]==filter)]
         if "pupil" in t_apcorr.colnames:

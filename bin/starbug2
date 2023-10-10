@@ -299,7 +299,10 @@ def fn(fname):
 
         if ext==".fits":
             sb=StarbugBase(fname, pfile=pfile, options=setopt)
-            if sb.verify(): return#quit("..quitting :(")
+            if sb.verify(): 
+                _input=input("Continue with warnings y/N:")
+                if _input=="" or _input not in "yY":
+                    return#quit("..quitting :(")
 
             if options & DODETECT: sb.detect()
             if options & DOBGDEST: sb.bgd_estimate()

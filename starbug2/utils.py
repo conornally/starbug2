@@ -326,7 +326,7 @@ def get_MJysr2Jy_scalefactor(ext):
     Find the unit scale factor to convert an image from MJy/sr to Jy
     """
     scalefactor=1
-    if ext.header["BUNIT"]=="MJy/sr":
+    if ext.header.get("BUNIT")=="MJy/sr":
         scalefactor=1e6*float(ext.header["PIXAR_SR"])
     return scalefactor
 

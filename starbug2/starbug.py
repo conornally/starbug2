@@ -95,11 +95,18 @@ class StarbugBase(object):
             self._nHDU=enames.index(n)
             return self._image[n]
 
+        ##index?
+        if type(n) in (int,float):
+            self._nHDU=int(n)
+            return self._image[self._nHDU]
+
         ## SCI, BGD, RES (common names)
         for n in ("SCI","BGD","RES"):
             if n in enames:
                 self._nHDU=enames.index(n)
                 return self._image[n]
+
+
 
         ## First ImageHDU
         for n,hdu in enumerate(self._image):
@@ -153,8 +160,12 @@ class StarbugBase(object):
 
                     if "DETECTOR" in self.info.keys():
                         self.log("-> detector module: %s\n"%self.info["DETECTOR"])
+                    else: warn();perror("Unable to determine Telescope DETECTOR.\n")
+
                     if "BUNIT" in self.image.header:
                         self._unit=self.image.header["BUNIT"]
+                    else: warn();perror("Unable to determine image BUNIT.\n")
+
                     self.wcs=WCS(self.image.header)
 
                     ## I NEED TO DETERMINE BETTER WHAT STAGE IT IS IN
@@ -166,7 +177,7 @@ class StarbugBase(object):
                     elif "CALIBLEVEL" in self.image.header: self.stage=self.image.header["CALIBLEVEL"]
                     else:
                         warn();
-                        perror("Unable to determine jwst pipeline level, assuming 3\n")
+                        perror("Unable to determine calibration level, assuming stage 3\n")
                         self.stage=3
 
 
@@ -253,8 +264,14 @@ class StarbugBase(object):
         Saves the result as a table self.detections
         """
         self.log("Detecting Sources\n")
-        if self.image and self.filter:
-            FWHM=starbug2.filters[self.filter].pFWHM
+        if self.image:# and self.filter:
+            _f=starbug2.filters.get(self.filter)
+            if self.options["FWHM"]>0: FWHM=self.options["FWHM"]
+            elif _f: FWHM=_f.pFWHM
+            else: FWHM=1
+            #FWHM=_f.pFWHM if _f else self.options["FWHM"]
+            #FWHM=starbug2.filters.get(self.filter).pFWHM
+
             detector=Detection_Routine( sig_src=self.options["SIGSRC"],
                                         sig_sky=self.options["SIGSKY"],
                                         fwhm=FWHM,
@@ -276,6 +293,8 @@ class StarbugBase(object):
             self.detections.meta=dict(self.header.items())
             self.detections.meta.update({"ROUNTINE":"DETECT"})
             self.aperture_photometry()
+        else:
+            perror("Something went wrong.\n")
 
 
 
@@ -323,8 +342,8 @@ class StarbugBase(object):
         skyin= self.options["SKY_RIN"]
         skyout=self.options["SKY_ROUT"]
 
-        if   self.info["INSTRUME"]=="NIRCAM": fname="%s/apcorr_nircam.fits"%starbug2.DATDIR
-        elif self.info["INSTRUME"]=="MIRI":   fname="%s/apcorr_miri.fits"%starbug2.DATDIR
+        if   self.info.get("INSTRUME")=="NIRCAM": fname="%s/apcorr_nircam.fits"%starbug2.DATDIR
+        elif self.info.get("INSTRUME")=="MIRI":   fname="%s/apcorr_miri.fits"%starbug2.DATDIR
         else: perror("No apcorr file available for instrument\n")
 
         if self.options["FIT_APP_R"]:

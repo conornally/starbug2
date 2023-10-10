@@ -8,6 +8,7 @@ OUTPUT      = .          //Directory or filename to output to
 HDUNAME     =            //If using a non standard HDU name, name it here (str or int)
 
 ## DETECTETION 
+FWHM        = -1         // Custom FWHM for image (-1 to use WEBBPSF)
 SIGSKY      = 2.0        // (float>0) 
 SIGSRC      = 5.0        // (float>0) Source value mininmum N sigma above background
 DOBGD2D     = 1          // Run background2D estimation (usually finds more sources but takes time)
