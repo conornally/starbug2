@@ -9,6 +9,10 @@ v0.5.0:
             > started on generalising that too
             > Gnenerated PSFs are now PrimaryHDUs
             > DPOS_THRESH now supports pixel or arcsec units
+            > MAX_XYDEV taking the place of DPOS_THRESH but with default units in pixels
+            > utils.parse_unit handy for this
+            > BGD files dont need to be generated, if left off it will take a sigma clipped median
+            > fixed the bad removal of good stars during the forced photometry
         MATCHING:
             > Fixes to generic_match so that it as able to nan fill tables better
         PARAMS:

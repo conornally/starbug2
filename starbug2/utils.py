@@ -134,8 +134,8 @@ def load_params(fname):
                 if line[0] in "# \t\n":
                     continue
                 key,value,_=parse("{}={}//{}\n",line)
-                key=key.strip()
-                value=value.strip()
+                key=key.strip().rstrip()
+                value=value.strip().rstrip()
                 try:
                     if '.' in value: value=float(value)
                     else: value=int(value)
@@ -149,6 +149,26 @@ def load_params(fname):
         perror("config file \"%s\" does not exist\n"%fname)
         config=None
     return config
+
+def parse_unit(raw):
+    """
+    Take a value with the ability to be cast into several units and parse it
+    i.e. 123p -> 123 'pixels'
+    """
+    recognised={'p':starbug2.PIX, 's':starbug2.ARCSEC, 'm':starbug2.ARCMIN, 'd':starbug2.DEG}
+    value=None
+    unit=None
+    if raw:
+        try: 
+            value=float(raw)
+            unit=None
+        except:
+            try:
+                value=float(raw[:-1])
+                unit=recognised.get(raw[-1])
+            except:
+                perror("unable to parse '%s'\n"%raw)
+    return value,unit
 
 def tab2array(tab,colnames=None):
     """
@@ -341,7 +361,8 @@ def get_MJysr2Jy_scalefactor(ext):
     """
     scalefactor=1
     if ext.header.get("BUNIT")=="MJy/sr":
-        scalefactor=1e6*float(ext.header["PIXAR_SR"])
+        if "PIXAR_SR" in ext.header:
+            scalefactor=1e6*float(ext.header["PIXAR_SR"])
     return scalefactor
 
 def find_filter(table):
@@ -350,8 +371,11 @@ def find_filter(table):
 
 
 if __name__ == "__main__":
-    print(starbug2.logo)
-    t=Table.read("test/dat/image-ap.fits",format="fits")
-    print(colour_index( t, ("flux", "flux-eflux") ) )
-    #print(colour_index(t
+    print(parse_unit(""))
+    print(parse_unit("10p"))
+    print(parse_unit("10 p"))
+    print(parse_unit("10 D"))
+    print(parse_unit("10"))
+    print(parse_unit("p10"))
+
 

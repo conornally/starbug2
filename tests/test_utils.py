@@ -86,4 +86,5 @@ def test_tabppend():
     assert np.all( out==tab) ## tab is not a typo
 
 
-
+#def test_parse_unit():
+    #assert all(utils.parse_unit("")==(None,None))

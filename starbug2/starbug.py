@@ -361,7 +361,9 @@ class StarbugBase(object):
         elif self.info.get("INSTRUME")=="MIRI":   apcorr_fname="%s/apcorr_miri.fits"%starbug2.DATDIR
 
         if apcorr_fname: self.log("-> apcorr file: %s\n"%apcorr_fname)
-        else: perror("No apcorr file available for instrument\n")
+        else: 
+            warn()
+            perror("No apcorr file available for instrument\n")
 
         radius=self.options["APPHOT_R"]
         eefrac=self.options["ENCENERGY"]
@@ -469,27 +471,29 @@ class StarbugBase(object):
         Saves the result as a table self.psfcatalogue
         // Additionally it appends a residual Image onto the self.residuals HDUList
         """
-        if self.detections is None:
-            perror("unable to run photometry: no source list loaded\n")
-            return
-
-        if self.background is None:
-            perror("unable to run photometry: no background estimation loaded\n")
-            return
-
-        if self.psf is None and self.load_psf(os.path.expandvars(self.options["PSF_FILE"])):
-            perror("unable to run photometry: no PSF loaded\n")
-            return
-
         if self.image:
             self.log("Running PSF Photometry\n")
 
             ###################################
             # Collect relevent files and data #
             ###################################
-
             image=self.image.data.copy()
-            bgd = self.background.data.copy()
+
+            if self.detections is None:
+                perror("unable to run photometry: no source list loaded\n")
+                return
+
+            if self.psf is None and self.load_psf(os.path.expandvars(self.options["PSF_FILE"])):
+                perror("unable to run photometry: no PSF loaded\n")
+                return
+
+            if self.background is None:
+                _,median,_=sigma_clipped_stats(self.image.data,sigma=self.options["SIGSKY"])
+                bgd=np.ones(self.image.shape)*median
+                self.log("-> measuring median background\n")
+            else:
+                bgd = self.background.data.copy()
+
 
             #_scalefactor=self.image.header.get("PHOTMJSR")#https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
             #_bunit=self.image.header.get("BUNIT")
@@ -500,6 +504,11 @@ class StarbugBase(object):
                 image/=scalefactor
                 bgd/=scalefactor
             else: scalefactor=1
+
+            mask= ~np.isfinite(self.psf)
+            if mask.sum():
+                self.psf[mask]=0
+                self.log("-> masking INF pixels in PSF_FILE\n")
 
             psf_model=FittableImageModel(self.psf)
             if self.options["PSF_SIZE"]>0: size=int(self.options["PSF_SIZE"])
@@ -535,51 +544,53 @@ class StarbugBase(object):
             #init_guesses=init_guesses[init_guesses["flux_0"]>0]
             #init_guesses.remove_column("flux_0")
 
+            
             ###########
             # Run Fit #
             ###########
 
-            _psf_cat=None
-            _fixpsf_cat=None
-
-            if not self.options["FORCE_POS"]:
-
-                _dpos=self.options["DPOS_THRESH"]
-                if type(_dpos)==str:
-                    unit=_dpos.strip().rstrip()[-1]
-                    try: value=float(_dpos[:-1])
-                    except:
-                        perror("Unable to parse DPOS_THRESH=%s Setting value to 2pix\n"%_dpos)
-                        value=2
-                else:
-                    value=_dpos
-                    unit='a'
-
-                if unit=='a':
-                    dpos= value / np.sqrt( self.image.header["PIXAR_A2"])
-                elif unit=='p':
-                    dpos= value
-                else:
-                    perror("Unknown unit in DPOS_THRESH=%s. Use 'a':arcsec, 'p':pixels\n"%self.options[_dpos])
-                self.log("-> position fit threshold [pix]: %.2g\n"%dpos)
-
-                phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
-                _psf_cat=phot(image,init_guesses=init_guesses)
-
-                d = (_psf_cat["x_0"]-_psf_cat["x_fit"])**2.0 + (_psf_cat["y_0"]-_psf_cat["y_fit"])**2.0
-                ii=np.where(d>=dpos**2.0)
-                init_guesses=init_guesses[ii]
-                _psf_cat.remove_rows(ii)
-                if len(init_guesses): self.log("-> number bad position fits: %d\n"%len(init_guesses))
-
-            if len(init_guesses):
+            if self.options["FORCE_POS"]:
                 phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
-                _fixpsf_cat=phot(image,init_guesses=init_guesses)
-                _fixpsf_cat["flag"] |= starbug2.SRC_FIX
+                psf_cat=phot(image,init_guesses=init_guesses)
+                psf_cat["flag"] |= starbug2.SRC_FIX
 
-            if _psf_cat is not None and _fixpsf_cat is not None: psf_cat=vstack((_psf_cat,_fixpsf_cat))
-            elif _psf_cat is None: psf_cat=_fixpsf_cat
-            else: psf_cat=_psf_cat
+            else:
+                phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
+                psf_cat=phot(image,init_guesses=init_guesses)
+
+
+
+                ##################################
+                # Setting position max variation #
+                ##################################
+                maxydev,unit=utils.parse_unit(self.options["MAX_XYDEV"])
+                if unit is not None:
+                    if unit==starbug2.DEG: 
+                        maxydev*=60
+                        uint=starbug2.ARCMIN
+                    if unit==starbug2.ARCMIN:
+                        maxydev*=60
+                        uint=starbug2.ARCSEC
+                    if unit==starbug2.ARCSEC:
+                        if not self.header.get("PIXAR_A2"):
+                            warn()
+                            perror("MAX_XYDEV is units arcseconds, but starbug cannot locate a pixel scale in the header. Please use syntax MAX_XYDEV=%sp to set change to pixels\n"%maxydev)
+                        else: maxydev /= np.sqrt(self.header.get("PIXAR_A2"))
+
+                        
+                if maxydev>0:
+                    self.log("-> position fit threshold: %.2gpix\n"%maxydev)
+                    phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
+                    ii=np.where( psf_cat["xydev"]>maxydev)
+                    fixed_centres= psf_cat[ii][["x_0","y_0","ap_%s"%self.filter,"flag"]]
+                    if len(fixed_centres):
+                        self.log("-> forcing positions for deviant sources\n")
+                        fixed_cat=phot(image,init_guesses=fixed_centres)
+                        fixed_cat["flag"]|=starbug2.SRC_FIX
+                        psf_cat.remove_rows(ii)
+                        psf_cat=vstack((psf_cat, fixed_cat))
+                    else: self.log("-> no deviant sources\n")
+
 
             ra,dec=self.wcs.all_pix2world(psf_cat["x_fit"], psf_cat["y_fit"],0)
             psf_cat.add_column( Column(ra, name="RA"), index=2)

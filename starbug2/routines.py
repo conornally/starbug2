@@ -123,8 +123,9 @@ class Detection_Routine(StarFinderBase):
         self.catalogue=self.detect(data)
         if self.verbose: printf("-> [PLAIN] pass: %d sources\n"%len(self.catalogue))
 
-        self.catalogue=self.match(self.catalogue, self.detect(data, self._bkg2d))
-        if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
+        if self.bgd2d:
+            self.catalogue=self.match(self.catalogue, self.detect(data, self._bkg2d))
+            if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
 
         ## 2nd order differential detection
         kernel=RickerWavelet2DKernel(self.ricker_r)
@@ -439,11 +440,10 @@ class PSFPhot_Routine(BasicPSFPhotometry):
     PSF Photometry routine called by starbug
     """
     def __init__(self, crit_separation, psf_model, fitshape,
-            force_fit=False, dposition_threshold=2, background=None, verbose=1):
+            force_fit=False, background=None, verbose=1):
 
         self.verbose=verbose
         self.force_fit=force_fit        
-        self.dpos_thresh=dposition_threshold
 
         group_maker=_grouping(crit_separation=crit_separation)
         bkg_estimator=BackGround_Estimate_Routine(None, bgd=background)
@@ -457,28 +457,30 @@ class PSFPhot_Routine(BasicPSFPhotometry):
                 psf_model=psf_model, fitshape=fitshape,
                 finder=None, fitter=fitter)
 
-    #def _bkg(self, axis=None,masked=None):
-        #return self.background
-
     def do_photometry(self, image, mask=None, init_guesses=None, progress_bar=False):
         """
         """ 
-        _cat=None
-        _fixcat=None
 
-        if init_guesses is None:
+        if init_guesses is None or len(init_guesses)==0:
             perror("Must include source list\n")
             return None
 
         if self.verbose: printf("-> fitting %d sources\n"%len(init_guesses))
         cat=super().do_photometry(image, mask=mask, init_guesses=init_guesses, progress_bar=False)
 
+        d=np.sqrt((cat["x_0"]-cat["x_fit"])**2.0 + (cat["y_0"]-cat["y_fit"])**2.0)
+        cat.add_column(Column(d,name="xydev"))
+
+
+
         if "flux_unc" not in cat.colnames:
             cat.add_column(Column(np.full(len(cat),np.nan), name="eflux"))
             perror("NO ERRORS??\n")
         else: cat.rename_column("flux_unc","eflux")
-
-        return cat
+        
+        colnames=init_guesses.colnames+["x_fit","y_fit","flux_fit","eflux","xydev"]
+    
+        return cat[ [name for name in colnames if name in cat.colnames] ]
 
 class Cleaning_Routine(object):
     """

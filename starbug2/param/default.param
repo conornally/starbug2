@@ -36,7 +36,8 @@ BGD_FILE    =            //Background estimation file
 PSF_FILE    =            //Non default PSF file
 CRIT_SEP    = 8          //minimum distance for grouping (pixels) between two sources
 FORCE_POS   = 0          //Force centroid position (1) or allow psf fitting to fit position too (0)
-DPOS_THRESH = 0.1        //If allowed to fit position, max separation (arcsec) from source list centroid
+DPOS_THRESH = -1         //If allowed to fit position, max separation (arcsec) from source list centroid
+MAX_XYDEV   = 3p         //.
 PSF_SIZE    = -1         //Set fit size of psf (>0) or -1 to take PSF file dimensions
 GEN_RESIDUAL= 0          //generate a residual image
 
