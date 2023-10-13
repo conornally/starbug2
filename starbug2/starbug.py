@@ -40,9 +40,11 @@ class StarbugBase(object):
         """
         if not pfile: pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
         self.options=load_params(pfile)
-        self.options.update(dict((key,options[key]) for key in options.keys() if key in self.options))
+        #self.options.update(dict((key,options[key]) for key in options.keys() if key in self.options))
+        self.options.update(options)
         self.load_image(fname)   ## Load the fits image
 
+        #print(options)
 
         if self.options["AP_FILE"]: self.load_apfile() ## Load the source list if given
         if self.options["BGD_FILE"]: self.load_bgdfile()
@@ -68,7 +70,7 @@ class StarbugBase(object):
         """
         out={}
         keys=("FILTER","DETECTOR","TELESCOP","INSTRUME",
-              "BUNIT","PIXAR_A2")
+              "BUNIT","PIXAR_A2", "PIXAR_SR")
         if self._image:
             for hdu in self._image:
                 out.update( { (key,hdu.header[key]) for key in keys if key in hdu.header})
@@ -153,10 +155,18 @@ class StarbugBase(object):
                     _=self.image ## Force assigning _nHDU
                     self.log("-> using image HDU: %d (%s)\n"%(self._nHDU,self.image.name))
 
+                    if (val:=self.header.get("TELESCOP")) is None or (val.find("JWST")<0):
+                        warn(); perror("Telescope not JWST, there may be undefined behaviour.\n")
+
+                    self.filter=self.options.get("FILTER")
                     if ("FILTER" in self.header) and (self.header["FILTER"] in starbug2.filters.keys()):
                         self.filter=self.header["FILTER"]
+                        if self.options["FWHM"]<0: self.options["FWHM"]=starbug2.filters[self.filter].pFWHM
+                    if self.filter:
                         self.log("-> photometric band: %s\n"%self.filter)
-                    else: warn();perror("Unable to determine image filter\n")
+                    else:
+                        warn()
+                        perror("Unable to determine image filter\n")
 
                     if "DETECTOR" in self.info.keys():
                         self.log("-> detector module: %s\n"%self.info["DETECTOR"])
@@ -238,18 +248,27 @@ class StarbugBase(object):
         """
         status=0
         if not fname:
-            fltr=starbug2.filters[self.filter]
-            dtname=self.info["DETECTOR"]
-            #print(dtname)
-            if dtname=="MULTIPLE":
-                if   fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.SHORT: dtname="NRCA1"
-                elif fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.LONG:  dtname="NRCA5"
-                elif fltr.instr==starbug2.MIRI:  dtname=""
-            if dtname=="MIRIMAGE": dtname=""
-            fname="%s/%s%s.fits"%(starbug2.DATDIR,self.filter,dtname)
+            fltr=starbug2.filters.get(self.filter)
+            if fltr:
+                dtname=self.info["DETECTOR"]
+                if dtname=="NRCALONG": dtname="NRCA5"
+                if dtname=="NRCBLONG": dtname="NRCB5"
+                if dtname=="MULTIPLE":
+                    if   fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.SHORT: dtname="NRCA1"
+                    elif fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.LONG:  dtname="NRCA5"
+                    elif fltr.instr==starbug2.MIRI:  dtname=""
+                if dtname=="MIRIMAGE": dtname=""
+                fname="%s/%s%s.fits"%(starbug2.DATDIR,self.filter,dtname)
+            else: status=1
         if os.path.exists(fname):
             fp=fits.open(fname)
-            self.psf=fp[1].data ####hmm
+
+            if fp[0].data is None: 
+                perror("There is a version mismatch between starbug and webbpsf. Please reinitialise with: starbug2 --init.\n")
+                quit("Fatal error, quitting\n")
+
+
+            self.psf=fp[0].data ####hmm
             fp.close()
             self.log("loaded PSF_FILE='%s'\n"%(fname))
         else:
@@ -321,11 +340,10 @@ class StarbugBase(object):
         # Unit Conversion to Jy #
         #########################
         error=None
-
-        scalefactor=get_MJysr2Jy_scalefactor(self.image)
-        self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
-        #if self._image["SCI"].header["BUNIT"]=="MJy/sr":
-            #scalefactor=1e6*float(self._image["SCI"].header["PIXAR_SR"])
+        if self.header.get("BUNIT")=="MJy/sr":
+            scalefactor=get_MJysr2Jy_scalefactor(self.image)
+            self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
+        else: scalefactor=1
 
         image*=scalefactor
         if "ERR" in extnames(self._image) and np.shape(self._image["ERR"]):
@@ -337,44 +355,63 @@ class StarbugBase(object):
         # Aperture Correction #
         #######################
         apcorr=1
-        fname=None
+        apcorr_fname=None
+        if (_apcorr_fname:=self.options.get("APCORR_FILE")): apcorr_fname=_apcorr_fname
+        elif   self.info.get("INSTRUME")=="NIRCAM": apcorr_fname="%s/apcorr_nircam.fits"%starbug2.DATDIR
+        elif self.info.get("INSTRUME")=="MIRI":   apcorr_fname="%s/apcorr_miri.fits"%starbug2.DATDIR
+
+        if apcorr_fname: self.log("-> apcorr file: %s\n"%apcorr_fname)
+        else: perror("No apcorr file available for instrument\n")
+
         radius=self.options["APPHOT_R"]
+        eefrac=self.options["ENCENERGY"]
         skyin= self.options["SKY_RIN"]
         skyout=self.options["SKY_ROUT"]
 
-        if   self.info.get("INSTRUME")=="NIRCAM": fname="%s/apcorr_nircam.fits"%starbug2.DATDIR
-        elif self.info.get("INSTRUME")=="MIRI":   fname="%s/apcorr_miri.fits"%starbug2.DATDIR
-        else: perror("No apcorr file available for instrument\n")
+        if eefrac >=0:
+            radius=APPhot_Routine.radius_from_encenrgy(self.filter, eefrac, apcorr_fname)
+            if radius >0: self.log("-> calculating aperture radius from encirlced energy\n")
 
-        if self.options["FIT_APP_R"]:
-            apcorr=APPhot_Routine.calc_apcorr(self.filter, self.options["APPHOT_R"], table_fname=fname, verbose=self.options["VERBOSE"])
-        else:
-            apcorr,radius=APPhot_Routine.apcorr_from_encenergy(self.filter,self.options["ENCENERGY"],table_fname=fname, verbose=self.options["VERBOSE"])
+        if radius <=0: 
+            if (radius:=self.options["FWHM"])>0:
+                self.log("-> using FWHM as aprture radius\n")
+            else:
+                radius=2
 
-        apphot=APPhot_Routine( radius, skyin, skyout, encircled_energy=self.options["ENCENERGY"], fit_radius=self.options["FIT_APP_R"], verbose=self.options["VERBOSE"])
+        apcorr=APPhot_Routine.calc_apcorr(self.filter, radius, table_fname=apcorr_fname, verbose=self.options["VERBOSE"])
+
+        ##################
+        # Run Photometry #
+        ##################
+        apphot=APPhot_Routine( radius, skyin, skyout, verbose=self.options["VERBOSE"])
 
         if self.stage==2:
-            image*= self._image["AREA"].data ## AREA distortion correction
-            mask=self._image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
-            image[mask]=np.nan
-            error[mask]=np.nan
-            ap_cat=apphot(self.detections, image, error=error, dqflags=self._image["DQ"].data, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+            if "AREA" in extnames(self._image):
+                image*= self._image["AREA"].data ## AREA distortion correction
+            if "DQ" in extnames(self._image):
+                mask=self._image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
+                image[mask]=np.nan
+                error[mask]=np.nan
+                dqflags=self._image["DQ"]
+            else: dqflags=None
+
+            ap_cat=apphot(self.detections, image, error=error, dqflags=dqflags, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
         else: ##stage 3 version
             ap_cat=apphot(self.detections, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
+        fltr=self.filter if self.filter else "mag"
         mag,magerr=flux2ABmag( ap_cat["flux"], ap_cat["eflux"], filter=self.filter)
-        ap_cat.add_column(Column(mag,self.filter))
-        ap_cat.add_column(Column(magerr,"e%s"%self.filter))
+        ap_cat.add_column(Column(mag,fltr))
+        ap_cat.add_column(Column(magerr,"e%s"%fltr))
         self.detections=hstack((self.detections,ap_cat))
-        #self.detections.meta=dict(self.header.items())
-        #self.detections.meta.update({"ROUNTINE":"DETECT"})
 
         reindex(self.detections)
         self.detections.meta["FILTER"]=self.filter
         _fname="%s/%s-ap.fits"%(self.outdir, self.bname)
         self.log("--> %s\n"%_fname)
-        fits.BinTableHDU( data=self.detections, header=self.header ).writeto(_fname, overwrite=True)
+        #fits.BinTableHDU( data=self.detections, header=self.header ).writeto(_fname, overwrite=True)
+        export_table(self.detections, _fname, header=self.header)
 
 
     def bgd_estimate(self):
@@ -392,9 +429,15 @@ class StarbugBase(object):
             sources=sources[ sources[yname]>=0 ]
             sources=sources[ sources[xname]<self.image.header["NAXIS1"]]
             sources=sources[ sources[yname]<self.image.header["NAXIS2"]]
+
+            _f=starbug2.filters.get(self.filter)
+            if self.options["FWHM"]>0: FWHM=self.options["FWHM"]
+            elif _f: FWHM=_f.pFWHM
+            else: FWHM=1
+
             bgd=BackGround_Estimate_Routine(sources,
                                             boxsize=int(self.options["BOX_SIZE"]),
-                                            fwhm=starbug2.filters[self.filter].pFWHM,
+                                            fwhm=FWHM,
                                             verbose=self.options["VERBOSE"])
             header=fits.Header({**self.header,**self.wcs.to_header()})
             self.background=fits.ImageHDU(data=bgd(self.image.data.copy()), header=header)
@@ -434,7 +477,7 @@ class StarbugBase(object):
             perror("unable to run photometry: no background estimation loaded\n")
             return
 
-        if self.psf is None and self.load_psf(self.options["PSF_FILE"]):
+        if self.psf is None and self.load_psf(os.path.expandvars(self.options["PSF_FILE"])):
             perror("unable to run photometry: no PSF loaded\n")
             return
 
@@ -451,14 +494,14 @@ class StarbugBase(object):
             #_scalefactor=self.image.header.get("PHOTMJSR")#https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
             #_bunit=self.image.header.get("BUNIT")
                 #self.log("-> PHOTMJSR: %f\n"%_scalefactor)
-            _scalefactor=get_MJysr2Jy_scalefactor(self.image)
-            if _scalefactor:
-                self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%_scalefactor)
-                image/=_scalefactor
-                bgd/=_scalefactor
+            if self.header.get("BUNIT")=="MJy/sr-1":
+                scalefactor=get_MJysr2Jy_scalefactor(self.image)
+                self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
+                image/=scalefactor
+                bgd/=scalefactor
+            else: scalefactor=1
 
             psf_model=FittableImageModel(self.psf)
-            #psf_model=EPSFModel(fp[1].data)
             if self.options["PSF_SIZE"]>0: size=int(self.options["PSF_SIZE"])
             else: size=psf_model.shape[0]
             if not size%2: size-=1
@@ -500,8 +543,26 @@ class StarbugBase(object):
             _fixpsf_cat=None
 
             if not self.options["FORCE_POS"]:
-                dpos= self.options["DPOS_THRESH"] / np.sqrt( self.image.header["PIXAR_A2"])
+
+                _dpos=self.options["DPOS_THRESH"]
+                if type(_dpos)==str:
+                    unit=_dpos.strip().rstrip()[-1]
+                    try: value=float(_dpos[:-1])
+                    except:
+                        perror("Unable to parse DPOS_THRESH=%s Setting value to 2pix\n"%_dpos)
+                        value=2
+                else:
+                    value=_dpos
+                    unit='a'
+
+                if unit=='a':
+                    dpos= value / np.sqrt( self.image.header["PIXAR_A2"])
+                elif unit=='p':
+                    dpos= value
+                else:
+                    perror("Unknown unit in DPOS_THRESH=%s. Use 'a':arcsec, 'p':pixels\n"%self.options[_dpos])
                 self.log("-> position fit threshold [pix]: %.2g\n"%dpos)
+
                 phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
                 _psf_cat=phot(image,init_guesses=init_guesses)
 
@@ -531,8 +592,8 @@ class StarbugBase(object):
             if self.options["GEN_RESIDUAL"]:
                 self.log("-> generating residual\n")
                 residual = subtract_psf(image-bgd, psf_model, psf_cat[["x_fit","y_fit","flux_fit"]], subshape=(size,size))
-                self.residuals=residual
-                fits.ImageHDU(data=self.residuals, name="RES", header=fits.Header({**self.header,**self.wcs.to_header()})).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
+                self.residuals=residual*scalefactor
+                fits.ImageHDU(data=self.residuals, name="RES", header=fits.Header({**self.info, **self.header,**self.wcs.to_header()})).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
 
             ######################
             # Photometric offset # takes the top 50% least crowded sources
@@ -547,8 +608,9 @@ class StarbugBase(object):
             #mag-=dmag
             #self.log("Photometric offset: %f\n"%dmag)
 
-            psf_cat.add_column(mag,name=self.filter)
-            psf_cat.add_column(magerr,name="e%s"%self.filter)
+            fltr= self.filter if self.filter else "mag"
+            psf_cat.add_column(mag,name=fltr)
+            psf_cat.add_column(magerr,name="e%s"%fltr)
             self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
             self.psfcatalogue.meta=dict(self.header.items())
             self.psfcatalogue.meta["AP_FILE"]=self.options["AP_FILE"]

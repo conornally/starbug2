@@ -15,7 +15,7 @@ logo="""\
  > %s
 """
 
-motd="Update WEBBPSF and reinitialise with: $~ starbug2 --init"
+motd="Now with extended Compatibility, try starbug on non JWST images."
 
 from os import getenv
 _=getenv("STARBUG_DATDIR") 

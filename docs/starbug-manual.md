@@ -1,7 +1,7 @@
 # StarBugII Manual
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.4.3
+Last updated: v0.5.0
 
 ## Installation
 
@@ -88,22 +88,25 @@ As of the current version. If your parameter file doesnt fit the template of the
 |------------------|--------------|---------------------------------------------------------------------------------|
 | VERBOSE          | INT 0:1      | Include verbose outputs.                                              |
 | OUTPUT           | STR          | Output file or folder to send all products to.                        |
+| HDUNAME          | STR          | -                        |
+| FILTER           | STR          | -                        |
 |------------------|--------------|-----------------------------------------------------------------------|
+| FWHM             | FLOAT >0     | - |
 | SIGSKY           | FLOAT >0     | Number of sigma below which pixels gets removed as sky. In images with bright diffuse emissions, drop this value slowly, in steps of ~0.1 and watch the number of sources detected increase, but be careful of false detections of bright spots. |
 | SIGSRC           | FLOAT >0     | Minimum number of sigma above the median that a source must be to be detected. This is often 5sigma for a robust search or 3sigma for faint detections. |
 | DOBGD2D          | INT 0:1      | Run complex background subtraction during source detection (This usually results in more sources detected, however it takes a long time). |
+| CLEANSRC         | INT 0:1      | in prep.|
 | SHARP_LO         | FLOAT >0     | Set bounds of source sharpness, outside which sources will be ignored.|
 | SHARP_HI         | FLOAT >0     | Set bounds of source sharpness, outside which sources will be ignored.|
 | ROUND_LO         | FLOAT >0     | Set bounds of source roundness, outside which sources will be ignored.|
 | ROUND_HI         | FLOAT >0     | Set bounds of source roundness, outside which sources will be ignored.|
-| CLEANSRC         | INT 0:1      | in prep.|
 | RICKER_R         | FLAOT >0     | in prep.|
 |------------------|--------------|-----------------------------------------------------------------------|
-| FIT_APP_R        | INT 0:1      | Fit fraction encircled energy to aperture radius and use this as aperture radii (1), OR, use explicit aperture radius (0). |
-| ENCENERGY        | FLOAT >0     | Fraction encircled energy to fit aperture radius to.                  |
 | APPHOT_R         | FLOAT >0     | Aperture photometry radius.                                           |
+| ENCENERGY        | FLOAT >0     | Fraction encircled energy to fit aperture radius to.                  |
 | SKY_RIN          | FLOAT >0     | Sky annulus inner radius.                                             |
 | SKY_ROUT         | FLOAT >0     | Sky annulus outer radius.                                             |
+| APCORR_FILE      | STR          | - |
 |------------------|--------------|-----------------------------------------------------------------------|
 | BGD_R            | - | DESCRIPTION |
 | BOX_SIZE         | INT >1 [pix] | Kernel size during background subtraction to estimate background within. For complex fields this is set low. |
@@ -113,7 +116,7 @@ As of the current version. If your parameter file doesnt fit the template of the
 | PSF_FILE         | STR          | DESCRIPTION |
 | CRIT_SEP         | INT >0       | DESCRIPTION |
 | FORCE_POS        | INT 0:1      | Conduct forced centroid photometry, if set no (0) then starbug will also fit centroid positions |
-| DPOS_THRESH      | FLOAT >0 [arcsec] | If PSF photometry fits centroid positions that deviate from the original positions by a threshold greater than this value (in units arcsec), these sources will have PSFs refit with forced centroids. |
+| DPOS_THRESH      | FLOAT >0 [arcsec] | If PSF photometry fits centroid positions that deviate from the original positions by a threshold greater than this value, these sources will have PSFs refit with forced centroids. This value by default is in arcsecond units but it can be set in pixels by adding the suffix 'p' onto the value e.g. 5p |
 | PSF_SIZE         | INT >0       | Set a custom PSF to fit, by default it will take the dimensions of the WEBBPSF file. |
 | GEN_RESIDUAL     | INT 0:1      | Generate a residual images with the fitted PSFs removed. |
 |------------------|--------------|-----------------------------------------------------------------------|
@@ -216,11 +219,18 @@ $~ starbug2 -vA -d sources.fits image.fits
 // or on several files
 $~ starbug2 -vA -d sources.fits image1.fits image2.fits ...
 ```
+There are two modes to run Aperture photometry in. Either by setting a fixed aperture radius with **APPHOT_R** or by calculating it from the fraction of encircled energy with **ENCENERGY**. To do the latter, an aperture correction file with the correct layout must be included. With JWST, these files are already downloaded.
 
-There are two modes that aperture photometry can be ran in. Setting an aperture radius or scaling the radius with percentage encircle energy. The former allows for constant radii between all the photometric bands within a dataset but introduces errors on the fit of the aperture correction which will deteriorate at very small, or large radii. Instead we can scale the aperture radius with encircled energy, this will change the aperture radius for every photometric band but will have a more solid aperture correction solution. To switch between modes, toggle **FIT_APP_R** in the parameter file, (0 ignores aperture radius and uses encircled energy, 1 ignores encircled energy and uses aperture radius).
+#### Aperture Correction
 
-If using the fixed aperture radius method, then **APPHOT_R** sets this value in pixel units. Alternatively set the fraction encircled energy with **ENCENERGY** using a number between zero and 1.
-Regardless of the photometric method, set the sky annulus radii with **SKY_IN SKY_OUT** in pixel units.
+If you are using a custom aperture correction file, set with **APCORR_FILE**, it must adhere to the following format:
+
+- It must be a fits binary table
+- contain a column called "radius"
+- contain a column called "apcorr"
+- contain a column called "eefraction"
+- optionally contain a column called "filter". Starbug will try to locate the correct filter from a set.
+
 
 ### Background Estimation
 
@@ -250,7 +260,7 @@ $~ starbug2 -vDBP image.fits
 
 Starbug will automatically use the simulated WEBBPSF file associated with the image detector and module, however custom PSF files can be loaded instead by supplying the filename to a fits file with `PSF_FILE` in the parameter file. The routine will use the entire PSF array to fit each source in the sourcelist, if the PSF is very large this will slow the program significantly. Reduce the size of the fitting by setting `PSF_SIZE`.
 
-There are two phases to free centroid PSF photometry: first all the sources are fit, then the routine inspects the new calculated source positions. If the resulting centroid has moved from the initial position by a distance greater than `DPOS_THRESH` (arcsec), a second round of fixed centroid photometry occurs using the initial positions, these sources will be flagged `SRC_FIX` in the resulting catalogue.
+There are two phases to free centroid PSF photometry: first all the sources are fit, then the routine inspects the new calculated source positions. If the resulting centroid has moved from the initial position by a distance greater than `DPOS_THRESH`, a second round of fixed centroid photometry occurs using the initial positions, these sources will be flagged `SRC_FIX` in the resulting catalogue. `DPOS_THRESH` is measured in units of arcseconds by default, however it can be set to pixels by adding the suffix 'p' to the end of the value, e.g. `DPOS_THRESH=5p`.
 The quality of the PSF fits can be checked by inspecting the residual images. To generate them set `GEN_RESIDUAL=1` and the image `image-res.fits` will be produced with the background estimation and PSFs removed from the original image. 
 
 Finally, a long standing crash in the routine occurs when many sources are being fit at the same time, causing a recursion error. This happens more often in compact fields in short wavelength images. It can be mitigated by reducing the size of `CRIT_SEP`.
@@ -327,4 +337,12 @@ Sources are given quality flags at various points in starbug routines. These fla
 
 ## FAQ
 
+### Running non JWST images thtough starbug?
+
+The generalisation of starbug is currently being worked on and depending on which version you are using, the results may be undefined. However it is increasingly possible.
+Starbug will attempt to find header keywords specific to JWST and may not manage in your image. The program will through back lots of warnings and wait for confirmation to continue. Certain likely failings include: 
+
+An inconsistent fits extension layout. If your image is shaped different, you may have to set the **HDUNAME** in the parameter file. This can be a name or an index (starting from zero).
+
+Not being able to determine the `FILTER`. This will cause various parts of the code to breakdown. Set the desired filter name with `-s FILTER=NISP-J` at runtime. Similarly setting `FWHM` may need to be set.
 

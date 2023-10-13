@@ -1,3 +1,29 @@
+v0.5.0:
+    Generalisation
+        Detection and APhot
+            > APCORR_FILE added, so that you can use custom values
+            > Many catches for non existant values
+            > Removing FIT_AP_R
+            > Removing assumption of AREA and DQ flags
+        PSF
+            > started on generalising that too
+            > Gnenerated PSFs are now PrimaryHDUs
+            > DPOS_THRESH now supports pixel or arcsec units
+        MATCHING:
+            > Fixes to generic_match so that it as able to nan fill tables better
+        PARAMS:
+            > Added APCORR_FILE, FILTER and FWHM
+
+    MATCH:
+        > Default match changed from cascade to generic
+    
+    
+    
+
+            
+
+
+
 v0.4.9:
     Bug fixes:
         >   webbpsf update has caused problems with F150W2 generation

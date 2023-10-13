@@ -87,6 +87,12 @@ def _match(cat1, cat2):
 
 def generic_match(catalogues, threshold=0.25, add_src=True, load=None, average=True):
     """
+    This matching works as a basic match. Everything is included and the column
+    names have _N appended to the end. 
+    INPUT:  catalogues=a list of Tables
+            threshold =separation threshold in units arcsecs
+            add_src= bool, append "new/unmatched" source to the end of the table
+            average= bool, try to calculate averages at the end
     """
     threshold=threshold*u.arcsec
     base=Table(None)
@@ -109,25 +115,13 @@ def generic_match(catalogues, threshold=0.25, add_src=True, load=None, average=T
                 elif add_src:   ##BAD MATCH / NEW SOURCE
                     tmp.add_row( src )
 
-        #colnames |= set(tmp.colnames)
         for name in tmp.colnames: 
             if name not in colnames: colnames.append(name)
         tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
 
-        base=hstack((base,tmp))#.filled(np.nan)
-        try: base=base.filled(np.nan)
-        except: 
-            perror("Something went wrong in \"generic_match\", it might not cause problems\n")
-        
+        base=fill_nan(hstack((base,tmp)))
     if average: return finish_matching(base,colnames)
     else: return base
-    #for colname in base.colnames:
-    #    basename=colname[:colname.rfind("_")]
-    #    all_cols=find_colnames(base,basename)
-    #    if len(all_cols)==1: base.rename_column(colname,basename)
-    #return reindex(base)
-
-
 
 def dither_match(catalogues, threshold, colnames):
     """
@@ -361,12 +355,13 @@ def finish_matching(tab, colnames, fltr=None):
         
         av[name]=col
     if len(set(["flux","eflux"])&set(av.colnames))==2:
-        #fltr=av.meta.get("FILTER")
-        if fltr: 
-            mag,magerr=flux2ABmag(av["flux"],av["eflux"], fltr)
-            #if fltr not in tab.colnames: ## I cant remember what this is for
-            av.add_column(mag,name=tab.meta["FILTER"])
-            av.add_column(magerr,name="e%s"%tab.meta["FILTER"])
+        mag,magerr=flux2ABmag(av["flux"],av["eflux"], fltr)
+        if fltr is None: fltr="mag"
+
+        if fltr in av.colnames: av.remove_column(fltr)
+        if "e%s"%fltr in av.colnames: av.remove_column("e%s"%fltr)
+        av.add_column(mag,name=fltr)
+        av.add_column(magerr,name="e%s"%fltr)
     if "NUM" not in av.colnames:
         narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
         av.add_column(Column(narr, name="NUM"))

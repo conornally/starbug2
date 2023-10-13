@@ -167,16 +167,22 @@ class APPhot_Routine():
     Aperture photometry called by starbug
     Given photometry radius, sky annuli radii rad_inner rad_outer
     """
-    def __init__(self, radius, sky_in, sky_out, encircled_energy=50, fit_radius=1, verbose=0):
+    def __init__(self, radius, sky_in, sky_out, verbose=0):
+        if sky_in < radius:
+            warn()
+            perror("Sky annulus radii must be larger than aperture radius.\n")
+            sky_in=radius+1
+
+        if sky_in >= sky_out: 
+            warn()
+            perror("Sky annulus outer radii must be larger than the inner.\n")
+            sky_out=sky_in+1
+
         self.radius=radius
         self.sky_in=sky_in
         self.sky_out=sky_out
-        self.encircled_energy=encircled_energy
-        self.fit_radius=fit_radius
         self.catalogue=Table(None)#, names=["ap_flux_r%d"%n for n in range(len(radii))]+["sky_median"])
-
         self.verbose=verbose
-
 
     def __call__(self, detections, image, **kwargs):
         return self.run(detections, image, **kwargs)
@@ -208,6 +214,7 @@ class APPhot_Routine():
         annulus_aperture=CircularAnnulus(pos, r_in=self.sky_in, r_out=self.sky_out)
         phot=aperture_photometry(image, apertures, error=error, mask=mask)
         
+        self.log("-> apertures: %.2g (%.2g - %.2g)\n"%(self.radius, self.sky_in, self.sky_out))
         self.catalogue=Table(np.full((len(pos),3),np.nan),names=("flux","eflux","sky"))
 
         self.log("-> calculating photometric errors\n")
@@ -219,7 +226,7 @@ class APPhot_Routine():
                 self.catalogue["sky"][i]=np.ma.median(dat)
 
 
-        self.log("-> applying aperture correction: %.2g\n"%apcorr)
+        #self.log("-> applying aperture correction: %.2g\n"%apcorr)
         self.catalogue["eflux"]=phot["aperture_sum_err"]
         self.catalogue["flux"]=apcorr*(phot["aperture_sum"] - (self.catalogue["sky"]*apertures.area))
 
@@ -243,17 +250,22 @@ class APPhot_Routine():
         Using CRDS apcorr table, fit a curve to the radius vs apcorr
         columns and then return aporr to respective input radius
         """
-        if not table_fname: return 1
+        if not table_fname or not os.path.exists(table_fname): return 1
         tmp=Table.read(table_fname, format="fits")
-        t_apcorr=tmp[(tmp["filter"]==filter)]
+        
+        if "filter" in tmp.colnames:
+            t_apcorr=tmp[(tmp["filter"]==filter)]
+        else: t_apcorr=tmp
+
+
         if "pupil" in t_apcorr.colnames:
             t_apcorr=t_apcorr[ t_apcorr["pupil"]=="CLEAR"]
         
         apcorr= np.interp(radius, t_apcorr["radius"], t_apcorr["apcorr"])
-        if verbose: printf("-> estimating aperture correction: %.3g..\n"%apcorr)
+        if verbose: printf("-> estimating aperture correction: %.3g\n"%apcorr)
 
-        eefrac= np.interp(radius, t_apcorr["radius"], t_apcorr["eefraction"])
-        if verbose: printf("-> effective encircled energy fraction: %.3g\n"%eefrac)
+        #eefrac= np.interp(radius, t_apcorr["radius"], t_apcorr["eefraction"])
+        #if verbose: printf("-> effective encircled energy fraction: %.3g\n"%eefrac)
         return apcorr
 
 
@@ -262,9 +274,12 @@ class APPhot_Routine():
         """
         Rather than fitting radius to the APCORR CRDS, use the closes Encircled energy value
         """
-        if not table_fname: return None
+        if not table_fname or not os.path.exists(table_fname): return 1
         tmp=Table.read(table_fname, format="fits")
-        t_apcorr=tmp[tmp["filter"]==filter]
+
+        if "filter" in tmp.colnames:
+            t_apcorr=tmp[(tmp["filter"]==filter)]
+        else: t_apcorr=tmp
 
         line=t_apcorr[(np.abs(t_apcorr["eefraction"]-encircled_energy)).argmin()]
         if verbose:
@@ -272,6 +287,22 @@ class APPhot_Routine():
             printf("-> using aperture correction: %f\n"%line["apcorr"])
 
         return line["apcorr"], line["radius"]
+    
+    def radius_from_encenrgy(filter, eefrac, table_fname):
+        """
+        """
+        if not table_fname or not os.path.exists(table_fname): return -1
+        t_apcorr=Table.read(table_fname, format="fits")
+
+        if len( set(["eefraction","radius"])&set(t_apcorr.colnames))!=2: return -1
+
+        if "filter" in t_apcorr.colnames: # Crop down table
+            t_apcorr=t_apcorr[(t_apcorr["filter"]==filter)]
+
+        if "pupil" in t_apcorr.colnames: # Crop down table
+            t_apcorr=t_apcorr[ t_apcorr["pupil"]=="CLEAR"]
+
+        return np.interp( eefrac, t_apcorr["eefraction"], t_apcorr["radius"])
 
     def log(self,msg):
         """

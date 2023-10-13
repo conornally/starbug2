@@ -1,11 +1,11 @@
 ## STARBUG CONFIG FILE
 PARAM       =  STARBUGII PARAMETERS     //COMMENT
-TEST        = 0          //.
 
 ## GENERIC
 VERBOSE     = 0          // (0:false 1:true)
 OUTPUT      = .          //Directory or filename to output to 
 HDUNAME     =            //If using a non standard HDU name, name it here (str or int)
+FILTER      =            //Set a custom filter for the image
 
 ## DETECTETION 
 FWHM        = -1         // Custom FWHM for image (-1 to use WEBBPSF)
@@ -21,10 +21,10 @@ RICKER_R    = 1.0        // Radius (pix) of ricker wavelet
 
 ## APERTURE PHOTOMOETRY
 APPHOT_R    = 1.5        //Radius in number of pixels
-ENCENERGY   = 0.5        //Fraction encircled energy (mutually exclusive with APPHOT_R)
-FIT_APP_R   = 1          //Fit APPHOT_R to the aperture correction CRDS (if =0, use ENCENRGY instead)
+ENCENERGY   = -1         //Fraction encircled energy (mutually exclusive with APPHOT_R)
 SKY_RIN     = 3          //Sky annulus inner radius
 SKY_ROUT    = 4.5        //Sky annulus outer radius
+APCORR_FILE =            //Aperture correction file. See full manual for details
 
 ## BACKGROUNDESTIMATION
 BGD_R       = 0          //.

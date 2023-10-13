@@ -30,6 +30,7 @@ KILLPROC=0x02
 BANDMATCH   =0x04
 DITHERMATCH =0x08
 GENERICMATCH=0x10
+CASCADEMATCH=0x20
 
 EXPFULL = 0x100
 
@@ -168,13 +169,10 @@ if options & BANDMATCH:
 
 else:
     if options & DITHERMATCH: av,full=matching.dither_match(tables, threshold=dthreshold, colnames=colnames)
-    if options & GENERICMATCH: 
+    elif options & CASCADEMATCH: av,full=matching.cascade_match(tables, threshold=dthreshold, colnames=colnames)
+    elif options & GENERICMATCH: 
         options|=EXPFULL
-        av,full=matching.generic_match(tables,threshold=dthreshold, add_src=True)
-        #av=None#_=matching.finish_matching(full, colnames=tables[0].colnames)
-    else:
-        av,full=matching.cascade_match(tables, threshold=dthreshold, colnames=colnames)
-        print(av)
+        av,full=matching.generic_match(tables,threshold=dthreshold, add_src=True, average=True)
 
     dtypes=[]
     for name in full.colnames:

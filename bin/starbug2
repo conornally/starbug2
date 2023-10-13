@@ -300,9 +300,10 @@ def fn(fname):
         if ext==".fits":
             sb=StarbugBase(fname, pfile=pfile, options=setopt)
             if sb.verify(): 
-                _input=input("Continue with warnings y/N:")
-                if _input=="" or _input not in "yY":
-                    return#quit("..quitting :(")
+                pass
+                #_input=input("Continue with warnings y/N:")
+                #if _input=="" or _input not in "yY":
+                #    return#quit("..quitting :(")
 
             if options & DODETECT: sb.detect()
             if options & DOBGDEST: sb.bgd_estimate()
@@ -355,7 +356,7 @@ if __name__=="__main__":
 
             if nthreshold>0:
                 mask=av["NUM"] >= nthreshold
-            else: mask=np.ones(len(av))
+            else: mask=np.ones(len(av),dtype=bool)
 
             av.meta.update(header)
             printf("-> %s-ap*...\n"%(fname))

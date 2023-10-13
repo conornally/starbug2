@@ -1,7 +1,7 @@
 import time
 import os, sys, numpy as np
 from parse import parse
-from astropy.table import Table,hstack,Column
+from astropy.table import Table,hstack,Column,MaskedColumn
 from astropy.io import fits
 import starbug2
 import requests
@@ -165,7 +165,7 @@ def tab2array(tab,colnames=None):
 def export_table(table, fname=None, header=None):
     if table:
         if not fname: fname="/tmp/starbug.fits"
-        fits.BinTableHDU(data=reindex(table), header=header).writeto(fname, overwrite=True)
+        btab=fits.BinTableHDU(data=reindex(table), header=header).writeto(fname, overwrite=True, output_verify="fix")
 
 def import_table(fname):
     """
@@ -190,6 +190,20 @@ def import_table(fname):
     else: perror("Unable to locate \"%s\"\n"%fname)
     return tab
 
+def fill_nan(table):
+    """
+    Fill empty values in table with nans
+    This is useful for tables that have columns that
+    dont support nans (e.g. starbug flag). These will be set to zero instead
+    """
+    for i,name in enumerate(table.colnames):
+        #fill_val=np.nan
+        #if table.dtype[i].kind!='f': fill_val=0
+        fill_val=np.nan if table.dtype[i].kind=='f' else 0
+        if type(table[name])==MaskedColumn: table[name]=table[name].filled(fill_val)
+        print(table.dtype[i], name,fill_val)
+
+    return table
 
 def find_colnames(tab, basename):
     """
