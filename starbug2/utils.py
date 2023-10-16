@@ -221,7 +221,7 @@ def fill_nan(table):
         #if table.dtype[i].kind!='f': fill_val=0
         fill_val=np.nan if table.dtype[i].kind=='f' else 0
         if type(table[name])==MaskedColumn: table[name]=table[name].filled(fill_val)
-        print(table.dtype[i], name,fill_val)
+        #print(table.dtype[i], name,fill_val)
 
     return table
 

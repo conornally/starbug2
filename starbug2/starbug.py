@@ -394,7 +394,7 @@ class StarbugBase(object):
                 mask=self._image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
                 image[mask]=np.nan
                 error[mask]=np.nan
-                dqflags=self._image["DQ"]
+                dqflags=self._image["DQ"].data
             else: dqflags=None
 
             ap_cat=apphot(self.detections, image, error=error, dqflags=dqflags, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
@@ -412,7 +412,6 @@ class StarbugBase(object):
         self.detections.meta["FILTER"]=self.filter
         _fname="%s/%s-ap.fits"%(self.outdir, self.bname)
         self.log("--> %s\n"%_fname)
-        #fits.BinTableHDU( data=self.detections, header=self.header ).writeto(_fname, overwrite=True)
         export_table(self.detections, _fname, header=self.header)
 
 
@@ -490,7 +489,7 @@ class StarbugBase(object):
             if self.background is None:
                 _,median,_=sigma_clipped_stats(self.image.data,sigma=self.options["SIGSKY"])
                 bgd=np.ones(self.image.shape)*median
-                self.log("-> measuring median background\n")
+                self.log("-> no background file loaded, measuring sigma clipped median\n")
             else:
                 bgd = self.background.data.copy()
 
@@ -567,10 +566,10 @@ class StarbugBase(object):
                 if unit is not None:
                     if unit==starbug2.DEG: 
                         maxydev*=60
-                        uint=starbug2.ARCMIN
+                        unit=starbug2.ARCMIN
                     if unit==starbug2.ARCMIN:
                         maxydev*=60
-                        uint=starbug2.ARCSEC
+                        unit=starbug2.ARCSEC
                     if unit==starbug2.ARCSEC:
                         if not self.header.get("PIXAR_A2"):
                             warn()

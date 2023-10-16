@@ -95,7 +95,7 @@ for fname in args:
 
         if (fltr:=tab.meta.get("FILTER")):
             filters.append(fltr)
-        elif (fltr:=( set(tab.colnames)&set(starbug2.filters.keys())).pop()):
+        elif (fltr:=( list(set(tab.colnames)&set(starbug2.filters.keys()))).pop()):
             filters.append(fltr)
         else: 
             filters.append((fltr:=None))
