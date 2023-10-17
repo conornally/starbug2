@@ -37,6 +37,12 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
 
 """
+
+help_opts={
+        "apphot":"(-a|--apphot) : Conduct aperture photometry on the image. This routine requires a source list to be loaded with '-d sourcelist.fits' and must be a fits table containing at least columns called 'xcentroid' and 'ycentroid' or 'RA' and 'DEC'.",
+        "help":"(-h|--help) : Display help information for starbug2. If verbose flag '-v' is given then a rundown of every available command is included. For detailed information about each option, use '-h detect'."
+        }
+
 import os,sys,getopt
 #sys.stdout.write("loading..\r")
 sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
@@ -76,19 +82,25 @@ setopt={}
 output='.'
 ncores=1
 
-def usage():
-    if not (options&VERBOSE): perror(__doc__.split('\n')[1])
+def usage(option=None):
+    if option and option in help_opts.keys():
+        perror("usage %s\n"%help_opts.get(option))
+        quit(0)
+
+    if not (options&VERBOSE): perror("%s\n"%__doc__.split('\n')[1])
     else: perror(__doc__)
     quit(0)
 
-opts,args=getopt.getopt(sys.argv[1:],"ABDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "detect", "find", "geom", "help", "match", "psf", "subbgd", "verbose", "xtest",
+opts,args=getopt.gnu_getopt(sys.argv[1:],"ABDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "detect", "find", "geom", "help", "match", "psf", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
                                                       "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run", "update-param",
                                                       "calc-instr-zp=", "apply-zeropoint=",
                                                       "debug"))
-
 for opt,optarg in opts:
-    if opt in ("-h","--help"):    usage()
+    if opt in ("-h","--help"):    
+        get_help=help_opts.keys() & set(args)
+        usage( option= get_help.pop() if get_help else "")
+
     if opt in ("-p","--param"):   pfile= optarg
     if opt in ("-v","--verbose"):
         options|=VERBOSE
