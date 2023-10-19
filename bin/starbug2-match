@@ -2,6 +2,7 @@
 """StarbugII Matching 
 usage: starbug2-match [-BGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
+    -C  --cascade            : match in "CASCADE" mode (left justify columns)
     -D  --dither             : match in "DITHER" mode (preserves a column for every frame)
     -f  --full               : export full catalogue
     -G  --generic            : match in "GENERIC" mode
@@ -45,7 +46,7 @@ def usage():
     if options& VERBOSE: quit(__doc__)
     else: quit( __doc__.split("\n")[1])
 
-opts,args=getopt.getopt(sys.argv[1:], "BDfGhvo:p:s:", ("band","dither","full", "generic", "help","verbose",
+opts,args=getopt.getopt(sys.argv[1:], "BCDfGhvo:p:s:", ("band","cascade","dither","full", "generic", "help","verbose",
                                                 "output=", "param=", "set="))
 
 for opt,optarg in opts:
@@ -67,6 +68,7 @@ for opt,optarg in opts:
         else: perror("unable to set parameter, use syntax -s KEY=VALUE\n")
 
     if opt in ("-B","--band"): options|=BANDMATCH
+    if opt in ("-C","--cascade"): options|=CASCADEMATCH
     if opt in ("-D","--dither"): options|=DITHERMATCH
     if opt in ("-G","--generic"): options|=GENERICMATCH
 
@@ -172,7 +174,7 @@ else:
     elif options & CASCADEMATCH: av,full=matching.cascade_match(tables, threshold=dthreshold, colnames=colnames)
     elif options & GENERICMATCH: 
         options|=EXPFULL
-        av,full=matching.generic_match(tables,threshold=dthreshold, add_src=True, average=True)
+        av,full=matching.generic_match(tables,threshold=dthreshold, add_src=True, average=True, load=options&VERBOSE)
 
     dtypes=[]
     for name in full.colnames:

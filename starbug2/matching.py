@@ -98,6 +98,10 @@ def generic_match(catalogues, threshold=0.25, add_src=True, load=None, average=T
     base=Table(None)
     colnames=[]
 
+    if load==True:
+        n=sum( [len(c) for c in catalogues[1:]] )
+        load=loading(n,msg="matching",res=n/1000)
+
     for n,cat in enumerate(catalogues,1):
         if "Catalogue_Number" in cat.colnames: cat.remove_column("Catalogue_Number")
         if not len(base):
@@ -345,7 +349,7 @@ def finish_matching(tab, colnames, fltr=None):
         elif name== "eflux":
             col=Column(np.sqrt(np.nansum(ar*ar, axis=1)), name=name)
         elif name=="stdflux": 
-            col=Column(np.nanmax(ar,axis=1),name=name)
+            col=Column(np.nanmedian(ar,axis=1),name=name)
         elif name=="flag":
             col=Column(flags, name=name)
             for fcol in ar.T: col|=fcol.astype(np.uint16)
@@ -355,7 +359,8 @@ def finish_matching(tab, colnames, fltr=None):
         
         av[name]=col
     if len(set(["flux","eflux"])&set(av.colnames))==2:
-        mag,magerr=flux2ABmag(av["flux"],av["eflux"], fltr)
+        _errcol= "stdflux" if "stdflux" in av.colnames else "e%s"%fltr
+        mag,magerr=flux2ABmag(av["flux"],av[_errcol], fltr)
         if fltr is None: fltr="mag"
 
         if fltr in av.colnames: av.remove_column(fltr)

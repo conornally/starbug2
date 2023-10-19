@@ -34,7 +34,7 @@ class loading(object):
         self.setlen(N)
         self.msg=msg
         self.startime=time.time()
-        self.res=res
+        self.res=int(res)
 
     def setlen(self,n): 
         self.N=abs(n)
@@ -366,7 +366,9 @@ def get_MJysr2Jy_scalefactor(ext):
     return scalefactor
 
 def find_filter(table):
-    return [set(table.colnames)&set(starbug2.filters.keys())].pop()
+    lst=list(set(table.colnames)&set(starbug2.filters.keys()))
+    if lst: return lst.pop()
+    else: return None
 
 
 
