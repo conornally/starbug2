@@ -1,3 +1,10 @@
+v0.5.2:
+    APPHOT:
+        >   error calculation takes same form as stsci example (+sumsq)
+        >   sky measurement now done arraywise, speeds up execution ten fold
+
+v0.5.1:
+    finish_matching takes stdflux for eFXXX instead of eflux
 v0.5.0:
     Generalisation
         Detection and APhot

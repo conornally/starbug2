@@ -213,22 +213,26 @@ class APPhot_Routine():
 
         apertures=CircularAperture(pos,self.radius)
         annulus_aperture=CircularAnnulus(pos, r_in=self.sky_in, r_out=self.sky_out)
-        phot=aperture_photometry(image, apertures, error=error, mask=mask)
         
         self.log("-> apertures: %.2g (%.2g - %.2g)\n"%(self.radius, self.sky_in, self.sky_out))
+        phot=aperture_photometry(image, apertures, error=error, mask=mask)
         self.catalogue=Table(np.full((len(pos),3),np.nan),names=("flux","eflux","sky"))
 
-        self.log("-> calculating photometric errors\n")
-        for i,mask in enumerate(annulus_aperture.to_mask(method="center")):
-            dat=np.array(mask.multiply(image),dtype=float)
-            dat=sigma_clip(dat[dat>0 & np.isfinite(dat)], sigma=sig_sky)
-            if len(dat): ##sometimes all the surrounding pixels are nan OR above SIGSKY value??
-                #self.catalogue["sky"][i]=mode(dat)[0]
-                self.catalogue["sky"][i]=np.ma.median(dat)
+        self.log("-> calculating sky values\n")
+        dat=np.array(list(map(lambda a:a.multiply(image).astype(float), annulus_aperture.to_mask(method="center"))))
+        mask=(dat>0 & np.isfinite(dat))
+        dat[~mask]=np.nan
+        dat=dat.reshape(dat.shape[0],-1)
+        sdat=sigma_clip(dat, sigma=sig_sky,axis=1)
+        self.catalogue["sky"]=np.ma.median(sdat,axis=1)#.reshape( sdat.shape[0], -1),axis=1)
+        std=np.ma.std(sdat,axis=1)
 
+        epoisson=phot["aperture_sum_err"]
+        esky_scatter= apertures.area*std**2
+        esky_mean=  (std**2 * apertures.area**2) / annulus_aperture.area
 
-        #self.log("-> applying aperture correction: %.2g\n"%apcorr)
-        self.catalogue["eflux"]=phot["aperture_sum_err"]
+        self.catalogue["eflux"]=np.sqrt( phot["aperture_sum_err"]**2 +esky_scatter**2 +esky_mean**2)
+        #self.catalogue["eflux"]=phot["aperture_sum_err"]
         self.catalogue["flux"]=apcorr*(phot["aperture_sum"] - (self.catalogue["sky"]*apertures.area))
 
         col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint16, name="flag")
@@ -718,7 +722,7 @@ class SourceProperties:
         daofind=DAOStarFinder(-np.inf, fwhm, sharplo=-np.inf, sharphi=np.inf, roundlo=-np.inf, roundhi=np.inf, xycoords=xycoords, peakmax=np.inf)
         return daofind._get_raw_catalog(self.image).to_table()
 
-        
+
 
 
 

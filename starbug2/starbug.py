@@ -748,6 +748,11 @@ class StarbugBase(object):
             self.log("--> %s\n"%_fname)
             reindex(self.source_stats)
             fits.BinTableHDU(data=self.source_stats,header=self.header).writeto(_fname, overwrite=True)
+    
+    def calculate_psf(self):
+        """
+        """
+        pass
 
 
 
