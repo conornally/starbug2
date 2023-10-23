@@ -49,13 +49,11 @@ class Detection_Routine(StarFinderBase):
         self.ricker_r=ricker_r
         self.cleansrc=cleansrc
 
-        #self.match_threshold=u.Quantity(match_threshold)*u.dimensionless_unscaled
         self.catalogue=Table()
         self.verbose=verbose
 
         self.bgd2d=bgd2d
         self.boxsize=boxsize
-        #self.filtersize=filtersize
 
     def detect(self, data, bkg_estimator=None, xycoords=None, method=None):
         """
@@ -219,13 +217,26 @@ class APPhot_Routine():
         self.catalogue=Table(np.full((len(pos),3),np.nan),names=("flux","eflux","sky"))
 
         self.log("-> calculating sky values\n")
-        dat=np.array(list(map(lambda a:a.multiply(image).astype(float), annulus_aperture.to_mask(method="center"))))
+        masks=annulus_aperture.to_mask(method="center")
+        dat=list(map(lambda a:a.multiply(image).astype(float),masks))
+
+        try: dat=np.array(dat)
+        except:
+            ## Cases where the array is inhomegenoeus
+            warn()
+            perror("Ran into issues with the sky annuli, trying to fix them..\n")
+            size=np.max( [np.shape(d) for d in dat ])
+            for i,d in enumerate(dat):
+                if (shape:=np.shape(d))!=(size,size):
+                    dat[i]=np.zeros((size,size))
+                    dat[i][:shape[0],:shape[1]]+=d
+            dat=np.array(dat)
+
         mask=(dat>0 & np.isfinite(dat))
         dat[~mask]=np.nan
-        dat=dat.reshape(dat.shape[0],-1)
-        sdat=sigma_clip(dat, sigma=sig_sky,axis=1)
-        self.catalogue["sky"]=np.ma.median(sdat,axis=1)#.reshape( sdat.shape[0], -1),axis=1)
-        std=np.ma.std(sdat,axis=1)
+        dat=sigma_clip(dat.reshape(dat.shape[0],-1), sigma=sig_sky,axis=1)
+        self.catalogue["sky"]=np.ma.median(dat,axis=1)
+        std=np.ma.std(dat,axis=1)
 
         epoisson=phot["aperture_sum_err"]
         esky_scatter= apertures.area*std**2

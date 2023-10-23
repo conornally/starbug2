@@ -108,8 +108,6 @@ class StarbugBase(object):
                 self._nHDU=enames.index(n)
                 return self._image[n]
 
-
-
         ## First ImageHDU
         for n,hdu in enumerate(self._image):
             if type[hdu]==fits.ImageHDU:
@@ -118,8 +116,6 @@ class StarbugBase(object):
 
         self._nHDU=0
         return self._image[0]
-
-
 
     def log(self, msg):
         """

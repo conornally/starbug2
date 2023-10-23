@@ -9,11 +9,11 @@ FILTER      =              //Set a custom filter for the image
 
 ## DETECTETION 
 FWHM        =  -1          // Custom FWHM for image (-1 to use WEBBPSF)
-SIGSKY      = 2.0        // (float>0) 
+SIGSKY      = 1.5        // (float>0) 
 SIGSRC      = 3.0        // (float>0) Source value mininmum N sigma above background
-DOBGD2D     = 1          // Run background2D estimation (usually finds more sources but takes time)
+DOBGD2D     = 0          // Run background2D estimation (usually finds more sources but takes time)
 CLEANSRC    = 1          // Run source cleaning after detection (removes likely contaminants)
-SHARP_LO    = 0.4        // cutoff in detection
+SHARP_LO    = 0.2        // cutoff in detection
 SHARP_HI    = 0.9        // cutoff in detection
 ROUND_LO    = -1.0       // cutoff in detection
 ROUND_HI    = 1.0        // cutoff in detection
@@ -21,9 +21,9 @@ RICKER_R    = 1.0        // Radius (pix) of ricker wavelet
 
 ## APERTURE PHOTOMOETRY
 APPHOT_R    = 1.5        //Radius in number of pixels
-ENCENERGY   = 0.5        //Fraction encircled energy (mutually exclusive with APPHOT_R)
-SKY_RIN     = 3          //Sky annulus inner radius
-SKY_ROUT    = 4.5        //Sky annulus outer radius
+ENCENERGY   = -1        //Fraction encircled energy (mutually exclusive with APPHOT_R)
+SKY_RIN     = 5          //Sky annulus inner radius
+SKY_ROUT    = 7.5        //Sky annulus outer radius
 APCORR_FILE =              //Aperture correction file. See full manual for details
 
 ## BACKGROUNDESTIMATION
