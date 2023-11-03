@@ -172,9 +172,10 @@ if options & BANDMATCH:
 else:
     if options & DITHERMATCH: av,full=matching.dither_match(tables, threshold=dthreshold, colnames=colnames)
     elif options & CASCADEMATCH: av,full=matching.cascade_match(tables, threshold=dthreshold, colnames=colnames)
-    elif options & GENERICMATCH: 
+    else:#elif options & GENERICMATCH: 
         options|=EXPFULL
         av,full=matching.generic_match(tables,threshold=dthreshold, add_src=True, average=True, load=options&VERBOSE)
+
 
     dtypes=[]
     for name in full.colnames:

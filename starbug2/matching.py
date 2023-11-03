@@ -204,6 +204,26 @@ def cascade_match(catalogues, threshold, colnames):
     base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
     return finish_matching(base, colnames, fltr=fltr)
 
+def bootstrap_match(catalogues):
+    """
+    A more generalised band matching routine
+    A - B
+    B - C
+    C - D
+    """
+    output=Table()
+
+    THRESHHOLD=0.3
+
+    if len( catalogues ) >1:
+        for n, base in enumerate(catalogues[:-1]):
+            next=catalogues[n+1]
+            load=loading(len(next), msg="%s - %s"%(base.meta.get("FILTER"),next.meta.get("FILTER")), res=len(next)/1000)
+            output=hstack(( output, generic_match((base, catalogues[n+1]), THRESHHOLD, load=load, average=False) ))
+    else:
+        perror("Must include more than one catalogue.\n")
+    return output
+
 def band_match(catalogues, colnames=("RA","DEC")):
     """
     Given a list of catalogues (with filter names in the meta data), match them
@@ -367,6 +387,8 @@ def finish_matching(tab, colnames, fltr=None):
         if "e%s"%fltr in av.colnames: av.remove_column("e%s"%fltr)
         av.add_column(mag,name=fltr)
         av.add_column(magerr,name="e%s"%fltr)
+        perror("There was no zero point added here!\n")
+
     if "NUM" not in av.colnames:
         narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
         av.add_column(Column(narr, name="NUM"))
@@ -381,10 +403,3 @@ def remove_NUM(tab, N):
         pass#mask=tab["NUM"]
 
 
-if __name__=="__main__":
-    stage2=Table.read("/dat/1zw18/jwst/stage2/1zw18-apstage2.fits")
-    stage3=Table.read("/dat/1zw18/jwst/stage3/1Zw18-apstage3.fits")
-
-
-    tab=stage_match(stage2,stage3, 0.25*u.arcsec)
-    export_table(tab,fname="/tmp/tab.fits")

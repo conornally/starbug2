@@ -201,27 +201,44 @@ class StarbugBase(object):
         """
         if not fname: fname=self.options["AP_FILE"]
         if os.path.exists(fname):
-            self.detections=Table().read(fname,format="fits")#data=fp[1].data._get_raw_data())
-            cn=self.detections.colnames
+            self.detections=import_table(fname)
+            cn=set(self.detections.colnames)
 
-            if "flag" in cn:
-                self.detections["flag"]=Column(self.detections["flag"], dtype=np.uint16)
+            #if "flag" in cn:
+                #self.detections["flag"]=Column(self.detections["flag"], dtype=np.uint16)
+
 
             self.log("loaded AP_FILE='%s'\n"%fname)
 
-            if not any( _ in cn for _ in ("xcentroid","ycentroid","x_0","y_0")):
-                if all( _ in cn for _ in ("RA","DEC")):
+            if self.options.get("USE_WCS"):
+                if len(cn & set(("RA","DEC")))==2:
+                    self.log("-> using RADEC coordinates\n")
                     try:
                         xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
                     except:
                         warn()
                         perror("Something went wrong converting WCS to pixels, trying wcs_world2pix next.\n")
                         xy=self.wcs.wcs_world2pix(self.detections["RA"], self.detections["DEC"],0)
-
+                    if "xcentroid" in cn: self.detections.remove_column("xcentroid")
+                    if "ycentroid" in cn: self.detections.remove_column("ycentroid")
                     self.detections.add_columns(xy,names=("xcentroid","ycentroid"),indexes=[0,0])
-                    self.log("-> using RADEC coordinates\n")
-                else: perror("WARNING, unable to determine physical coordinates from detections table\n")
-            if len( set(("x_0","y_0"))&set(self.detections.colnames))==2: self.detections.rename_columns(("x_0","y_0"),("xcentroid","ycentroid"))
+                else:
+                    warn()
+                    perror("No 'RA' or 'DEC' found in AP_FILE\n")
+                    #self.options["USE_WCS"]=0
+
+            if len( set(("x_0","y_0"))&cn)==2:
+                self.detections.rename_columns(("x_0","y_0"),("xcentroid","ycentroid"))
+            if len( set(("x_init","y_init"))&cn)==2:
+                self.detections.rename_columns(("x_init","y_init"),("xcentroid","ycentroid"))
+
+            if len( set(("xcentroid","ycentroid"))&cn)==2:
+                mask=(self.detections["xcentroid"]>=0) & (self.detections["xcentroid"]<self.image.shape[0]) & (self.detections["ycentroid"]>=0) & (self.detections["ycentroid"]<self.image.shape[1])
+                self.detections.remove_rows(~mask)
+                self.log("-> loaded %d sources from AP_FILE\n"%len(self.detections))
+            else:
+                warn()
+                perror("Unable to determine physical coordinates from detections table\n")
         else: perror("AP_FILE='%s' does not exists\n"%fname)
 
     def load_bgdfile(self,fname=None):
@@ -292,10 +309,14 @@ class StarbugBase(object):
                                         fwhm=FWHM,
                                         sharplo=self.options["SHARP_LO"],
                                         sharphi=self.options["SHARP_HI"],
-                                        roundlo=self.options["ROUND_LO"],
-                                        roundhi=self.options["ROUND_HI"],
+                                        #roundlo=-self.options["ROUND_HI"],
+                                        round1hi=self.options["ROUND1_HI"],
+                                        round2hi=self.options["ROUND2_HI"],
+                                        smoothlo=self.options["SMOOTH_LO"], 
+                                        smoothhi=self.options["SMOOTH_HI"],
                                         ricker_r=self.options["RICKER_R"],
-                                        bgd2d=self.options["DOBGD2D"],
+                                        dobgd2d=self.options["DOBGD2D"],
+                                        doconvl=self.options["DOCONVL"],
                                         boxsize=int(self.options["BOX_SIZE"]),
                                         cleansrc=self.options["CLEANSRC"],
                                         verbose=self.options["VERBOSE"])
@@ -308,6 +329,7 @@ class StarbugBase(object):
             self.detections.meta=dict(self.header.items())
             self.detections.meta.update({"ROUNTINE":"DETECT"})
             self.aperture_photometry()
+
         else:
             perror("Something went wrong.\n")
 
@@ -318,18 +340,18 @@ class StarbugBase(object):
         if self.detections is None:
             perror("No detection source file loaded (-d file-ap.fits)\n")
             return
-        if len(set(("x_0","y_0","xcentroid","ycentroid")) & set(self.detections.colnames))<2:
+        if len(set(("x_0","y_0","x_init","y_init","xcentroid","ycentroid")) & set(self.detections.colnames))<2:
             perror("No pixel coordinates in source file\n")
             return
 
-        new_columns=("flux","eflux","sky", "flag", self.filter,"e%s"%self.filter)
+        new_columns=("smoothness","flux","eflux","sky", "flag", self.filter,"e%s"%self.filter)
         self.detections.remove_columns( set(new_columns)&set(self.detections.colnames) )
 
 
         #######################
         # APERTURE PHOTOMETRY #
         #######################
-        self.log("Running Aperture Photometry\n")
+        self.log("\nRunning Aperture Photometry\n")
         image=self.image.data.copy() ##dont work on the real image!
 
         #########################
@@ -398,11 +420,21 @@ class StarbugBase(object):
         else: ##stage 3 version
             ap_cat=apphot(self.detections, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
+
         fltr=self.filter if self.filter else "mag"
-        mag,magerr=flux2ABmag( ap_cat["flux"], ap_cat["eflux"], filter=self.filter)
-        ap_cat.add_column(Column(mag,fltr))
+        mag,magerr=flux2mag( ap_cat["flux"], ap_cat["eflux"])
+        ap_cat.add_column(Column(mag+self.options.get("ZP_MAG"),fltr))
         ap_cat.add_column(Column(magerr,"e%s"%fltr))
         self.detections=hstack((self.detections,ap_cat))
+
+        if self.options.get("CLEANSRC"):
+            N=len(self.detections)
+            if (smoothlo:=self.options.get("SMOOTH_LO")) is not None: 
+                self.detections.remove_rows( self.detections["smoothness"]<smoothlo)
+            if (smoothhi:=self.options.get("SMOOTH_HI")) is not None: 
+                self.detections.remove_rows( self.detections["smoothness"]>smoothhi)
+            if len(self.detections)!=N:
+                self.log("-> removing %d sources outside SMOOTH range\n"%(N-len(self.detections)))
 
         reindex(self.detections)
         self.detections.meta["FILTER"]=self.filter
@@ -416,8 +448,11 @@ class StarbugBase(object):
         Estimate the background of the active image
         Saves the result as an ImageHDU self.background
         """
-        self.log("Estimating Background\n")
+        self.log("\nEstimating Background\n")
         if self.detections:
+
+            """
+            ## This should have already been done
             xname="xcentroid" if "xcentroid" in self.detections.colnames else "x_0"
             yname="ycentroid" if "ycentroid" in self.detections.colnames else "y_0"
 
@@ -426,15 +461,18 @@ class StarbugBase(object):
             sources=sources[ sources[yname]>=0 ]
             sources=sources[ sources[xname]<self.image.header["NAXIS1"]]
             sources=sources[ sources[yname]<self.image.header["NAXIS2"]]
+            """
 
             _f=starbug2.filters.get(self.filter)
             if self.options["FWHM"]>0: FWHM=self.options["FWHM"]
             elif _f: FWHM=_f.pFWHM
-            else: FWHM=1
+            else: FWHM=2
 
-            bgd=BackGround_Estimate_Routine(sources,
+            bgd=BackGround_Estimate_Routine(self.detections,
                                             boxsize=int(self.options["BOX_SIZE"]),
                                             fwhm=FWHM,
+                                            sigsky=self.options["SIGSKY"],
+                                            bgd_r=self.options["BGD_R"],
                                             verbose=self.options["VERBOSE"])
             header=fits.Header({**self.header,**self.wcs.to_header()})
             self.background=fits.ImageHDU(data=bgd(self.image.data.copy()), header=header)
@@ -467,7 +505,7 @@ class StarbugBase(object):
         // Additionally it appends a residual Image onto the self.residuals HDUList
         """
         if self.image:
-            self.log("Running PSF Photometry\n")
+            self.log("\nRunning PSF Photometry\n")
 
             ###################################
             # Collect relevent files and data #
@@ -516,18 +554,18 @@ class StarbugBase(object):
             #########################
 
             init_guesses=self.detections.copy()
-            if "xcentroid" in init_guesses.colnames: init_guesses.rename_column("xcentroid", "x_0")
-            if "ycentroid" in init_guesses.colnames: init_guesses.rename_column("ycentroid", "y_0")
+            if "xcentroid" in init_guesses.colnames: init_guesses.rename_column("xcentroid", "x_init")
+            if "ycentroid" in init_guesses.colnames: init_guesses.rename_column("ycentroid", "y_init")
 
-            init_guesses=init_guesses[ init_guesses["x_0"]>=0 ]
-            init_guesses=init_guesses[ init_guesses["y_0"]>=0 ]
-            init_guesses=init_guesses[ init_guesses["x_0"]<self.image.header["NAXIS1"]]
-            init_guesses=init_guesses[ init_guesses["y_0"]<self.image.header["NAXIS2"]]
+            init_guesses=init_guesses[ init_guesses["x_init"]>=0 ]
+            init_guesses=init_guesses[ init_guesses["y_init"]>=0 ]
+            init_guesses=init_guesses[ init_guesses["x_init"]<self.image.header["NAXIS1"]]
+            init_guesses=init_guesses[ init_guesses["y_init"]<self.image.header["NAXIS2"]]
 
             ######
             # Allow tables that dont have the correct columns through
             ######
-            required=["x_0","y_0","flux",self.filter, "flag"]
+            required=["x_init","y_init","flux",self.filter, "flag"]
             for notfound in  set(required)-set(init_guesses.colnames):
                 dtype=np.uint16 if notfound=="flag" else float
                 init_guesses.add_column( Column( np.zeros(len(init_guesses)), name=notfound, dtype=dtype) )
@@ -543,15 +581,17 @@ class StarbugBase(object):
             ###########
             # Run Fit #
             ###########
+            apphot_r=self.options.get("APPHOT_R")
+            if apphot_r is None or apphot_r <=0: apphot_r=3
 
             if self.options["FORCE_POS"]:
-                phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
-                psf_cat=phot(image,init_guesses=init_guesses)
+                phot=PSFPhot_Routine(psf_model, size, apphot_r=apphot_r, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
+                psf_cat=phot(image,init_params=init_guesses)
                 psf_cat["flag"] |= starbug2.SRC_FIX
 
             else:
-                phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
-                psf_cat=phot(image,init_guesses=init_guesses)
+                phot=PSFPhot_Routine(psf_model, size, apphot_r=apphot_r, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
+                psf_cat=phot(image,init_params=init_guesses)
 
 
 
@@ -572,15 +612,14 @@ class StarbugBase(object):
                             perror("MAX_XYDEV is units arcseconds, but starbug cannot locate a pixel scale in the header. Please use syntax MAX_XYDEV=%sp to set change to pixels\n"%maxydev)
                         else: maxydev /= np.sqrt(self.header.get("PIXAR_A2"))
 
-                        
                 if maxydev>0:
                     self.log("-> position fit threshold: %.2gpix\n"%maxydev)
-                    phot=PSFPhot_Routine(self.options["CRIT_SEP"], psf_model, size, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
+                    phot=PSFPhot_Routine(psf_model, size, apphot_r=apphot_r, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
                     ii=np.where( psf_cat["xydev"]>maxydev)
-                    fixed_centres= psf_cat[ii][["x_0","y_0","ap_%s"%self.filter,"flag"]]
+                    fixed_centres= psf_cat[ii][["x_init","y_init","ap_%s"%self.filter,"flag"]]
                     if len(fixed_centres):
                         self.log("-> forcing positions for deviant sources\n")
-                        fixed_cat=phot(image,init_guesses=fixed_centres)
+                        fixed_cat=phot(image,init_params=fixed_centres)
                         fixed_cat["flag"]|=starbug2.SRC_FIX
                         psf_cat.remove_rows(ii)
                         psf_cat=vstack((psf_cat, fixed_cat))
@@ -601,21 +640,11 @@ class StarbugBase(object):
                 self.residuals=residual*scalefactor
                 fits.ImageHDU(data=self.residuals, name="RES", header=fits.Header({**self.info, **self.header,**self.wcs.to_header()})).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
 
-            ######################
-            # Photometric offset # takes the top 50% least crowded sources
-            ######################
-
-            #crowd=SourceProperties(self._image["SCI"].data, psf_cat[["RA","DEC"]]).calculate_crowding()
-            #ii=np.argsort(crowd)[len(crowd)//2:]
-            #apmag,_=flux2ABmag(psf_cat["apflux"],None,filter=self.filter)
             psf_cat.rename_column("flux_fit","flux")
-            mag,magerr=flux2ABmag(psf_cat["flux"],psf_cat["eflux"],filter=self.filter)
-            #dmag= np.nanmean( mag[ii]-apmag[ii] )
-            #mag-=dmag
-            #self.log("Photometric offset: %f\n"%dmag)
+            mag,magerr=flux2mag(psf_cat["flux"],psf_cat["eflux"])
 
             fltr= self.filter if self.filter else "mag"
-            psf_cat.add_column(mag,name=fltr)
+            psf_cat.add_column(mag+self.options.get("ZP_MAG"),name=fltr)
             psf_cat.add_column(magerr,name="e%s"%fltr)
             self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
             self.psfcatalogue.meta=dict(self.header.items())
@@ -788,7 +817,7 @@ class StarbugBase(object):
         tmp=load_params("%sdefault.param"%pkg_resources.resource_filename("starbug2","param/"))
         if set(tmp.keys()) - set(self.options.keys()):
             warn()
-            perror("parameter file version mismatch. Run starbug --update-param to update\n")
+            perror("Parameter file version mismatch. Run starbug2 --update-param to update\n")
             status=1
 
         if self.options["AP_FILE"] and self.detections is not None:

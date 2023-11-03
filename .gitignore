@@ -3,7 +3,8 @@ tags
 *.fits
 *.swp
 TODO.md
-tests/dat/image-*.fits
+tests/dat/*
+*.reg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

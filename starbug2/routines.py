@@ -21,7 +21,7 @@ from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
 from photutils.psf.groupstars import DAOGroup
-from photutils.psf import BasicPSFPhotometry
+from photutils.psf import PSFPhotometry, IntegratedGaussianPRF, SourceGrouper
 
 from photutils.datasets import make_model_sources_image, make_random_models_table
 from starbug2.utils import loading, printf, perror, warn
@@ -37,23 +37,28 @@ class Detection_Routine(StarFinderBase):
     different set of sources
     """
     def __init__(self,  sig_src=5, sig_sky=3, fwhm=1,
-                        sharplo=0.2, sharphi=1, roundlo=-1, roundhi=1, ricker_r=1.0,
-                        verbose=0, cleansrc=1, bgd2d=1, boxsize=2):
+                        sharplo=0.2, sharphi=1, round1hi=1, round2hi=1,
+                        smoothlo=-np.inf, smoothhi=np.inf, ricker_r=1.0,
+                        verbose=0, cleansrc=1, dobgd2d=1, boxsize=2, doconvl=1):
         self.sig_src=sig_src
         self.sig_sky=sig_sky
         self.fwhm = fwhm
         self.sharphi=sharphi
         self.sharplo=sharplo
-        self.roundhi=roundhi
-        self.roundlo=roundlo
+        self.round1hi= round1hi if round1hi is not None else np.inf
+        self.round2hi= round2hi if round2hi is not None else np.inf
+        self.smoothlo= smoothlo if smoothlo is not None else -np.inf
+        self.smoothhi= smoothhi if smoothhi is not None else np.inf
+
         self.ricker_r=ricker_r
         self.cleansrc=cleansrc
 
         self.catalogue=Table()
         self.verbose=verbose
 
-        self.bgd2d=bgd2d
+        self.dobgd2d=dobgd2d
         self.boxsize=boxsize
+        self.doconvl=doconvl
 
     def detect(self, data, bkg_estimator=None, xycoords=None, method=None):
         """
@@ -74,8 +79,9 @@ class Detection_Routine(StarFinderBase):
             return find_peaks(data-bkg, median+std*self.sig_src, box_size=11)
 
         else:
+            roundhi=max((self.round1hi,self.round2hi))
             find=DAOStarFinder(std*self.sig_src, self.fwhm, sharplo=self.sharplo, sharphi=self.sharphi,
-                roundlo=self.roundlo, roundhi=self.roundhi, peakmax=np.inf, xycoords=xycoords)
+                roundlo=-roundhi, roundhi=roundhi, peakmax=np.inf, xycoords=xycoords)
             return find(data - bkg)
 
 
@@ -121,21 +127,22 @@ class Detection_Routine(StarFinderBase):
         self.catalogue=self.detect(data)
         if self.verbose: printf("-> [PLAIN] pass: %d sources\n"%len(self.catalogue))
 
-        if self.bgd2d:
+        if self.dobgd2d:
             self.catalogue=self.match(self.catalogue, self.detect(data, self._bkg2d))
             if self.verbose: printf("-> [BGD2D] pass: %d sources\n"%len(self.catalogue))
 
         ## 2nd order differential detection
-        kernel=RickerWavelet2DKernel(self.ricker_r)
-        conv=convolve(data, kernel)
-        corr=match_template(conv/np.amax(conv), kernel.array)
-        _detections=self.detect(corr, method="findpeaks")
-        if _detections:
-            _detections["x_peak"]+=kernel.shape[0]//2
-            _detections["y_peak"]+=kernel.shape[0]//2
-            _detections.rename_columns( ("x_peak","y_peak"),("xcentroid","ycentroid"))
-            self.catalogue=self.match(self.catalogue, _detections)
-        if self.verbose: printf("-> [CONVL] pass: %d sources\n"%len(self.catalogue))
+        if self.doconvl:
+            kernel=RickerWavelet2DKernel(self.ricker_r)
+            conv=convolve(data, kernel)
+            corr=match_template(conv/np.amax(conv), kernel.array)
+            _detections=self.detect(corr, method="findpeaks")
+            if _detections:
+                _detections["x_peak"]+=kernel.shape[0]//2
+                _detections["y_peak"]+=kernel.shape[0]//2
+                _detections.rename_columns( ("x_peak","y_peak"),("xcentroid","ycentroid"))
+                self.catalogue=self.match(self.catalogue, _detections)
+            if self.verbose: printf("-> [CONVL] pass: %d sources\n"%len(self.catalogue))
 
         ## Now with xycoords DAOStarfinder will refit the sharp and round values at the detected locations
         #self.catalogue=self.detect(data, xycoords=np.array([self.catalogue["xcentroid"],self.catalogue["ycentroid"]]).T)#, clean=0)
@@ -143,17 +150,17 @@ class Detection_Routine(StarFinderBase):
         if tmp: self.catalogue=tmp
 
         mask=(~np.isnan(self.catalogue["xcentroid"]) & ~np.isnan(self.catalogue["ycentroid"]))
-        self.catalogue.remove_rows(~mask)
+        #self.catalogue.remove_rows(~mask)
 
-        mask = ((self.catalogue["sharpness"]>self.sharplo)
-               &(self.catalogue["sharpness"]<self.sharphi)
-               &(self.catalogue["roundness1"]>self.roundlo)
-               &(self.catalogue["roundness1"]<self.roundhi)
-               &(self.catalogue["roundness2"]>self.roundlo)
-               &(self.catalogue["roundness2"]<self.roundhi))
         if self.cleansrc: 
-            if self.verbose: printf("-> cleaning %d+ unlikley point sources\n"%sum(~mask))
-            self.catalogue.remove_rows(~mask)
+            mask &=((self.catalogue["sharpness"]>self.sharplo)
+                   &(self.catalogue["sharpness"]<self.sharphi)
+                   &(self.catalogue["roundness1"]> -self.round1hi)
+                   &(self.catalogue["roundness1"]<  self.round1hi)
+                   &(self.catalogue["roundness2"]> -self.round2hi)
+                   &(self.catalogue["roundness2"]<  self.round2hi))
+        if self.verbose: printf("-> cleaning %d unlikley point sources\n"%sum(~mask))
+        self.catalogue.remove_rows(~mask)
         
         if self.verbose: printf("Total: %d sources\n"%len(self.catalogue))
 
@@ -210,24 +217,29 @@ class APPhot_Routine():
         mask=np.isnan(image)
 
         apertures=CircularAperture(pos,self.radius)
+        smooth_apertures=CircularAperture(pos, min(1.5*self.radius,self.sky_in))
         annulus_aperture=CircularAnnulus(pos, r_in=self.sky_in, r_out=self.sky_out)
         
         self.log("-> apertures: %.2g (%.2g - %.2g)\n"%(self.radius, self.sky_in, self.sky_out))
-        phot=aperture_photometry(image, apertures, error=error, mask=mask)
-        self.catalogue=Table(np.full((len(pos),3),np.nan),names=("flux","eflux","sky"))
+        phot=aperture_photometry(image, (apertures,smooth_apertures), error=error, mask=mask)
+        self.catalogue=Table(np.full((len(pos),4),np.nan),names=("smoothness","flux","eflux","sky"))
 
         self.log("-> calculating sky values\n")
         masks=annulus_aperture.to_mask(method="center")
-        dat=list(map(lambda a:a.multiply(image).astype(float),masks))
+        dat=list(map(lambda a:a.multiply(image),masks))
 
-        try: dat=np.array(dat)
+        try: dat=np.array(dat).astype(float)
         except:
             ## Cases where the array is inhomegenoeus
+            ## If annulus reaches the edge of the image, it will create a mask the wrong shape
+            ## If for whatever reason the point lies outside the image, it will have None
+            ## in the list, this needs to be caught too
             warn()
             perror("Ran into issues with the sky annuli, trying to fix them..\n")
-            size=np.max( [np.shape(d) for d in dat ])
+            size=np.max( [np.shape(d) for d in dat if d is not None ])
             for i,d in enumerate(dat):
-                if (shape:=np.shape(d))!=(size,size):
+                if d is None: dat[i]=np.zeros((size,size))
+                elif (shape:=np.shape(d))!=(size,size):
                     dat[i]=np.zeros((size,size))
                     dat[i][:shape[0],:shape[1]]+=d
             dat=np.array(dat)
@@ -238,13 +250,22 @@ class APPhot_Routine():
         self.catalogue["sky"]=np.ma.median(dat,axis=1)
         std=np.ma.std(dat,axis=1)
 
-        epoisson=phot["aperture_sum_err"]
+        epoisson=phot["aperture_sum_err_0"]
         esky_scatter= apertures.area*std**2
         esky_mean=  (std**2 * apertures.area**2) / annulus_aperture.area
 
-        self.catalogue["eflux"]=np.sqrt( phot["aperture_sum_err"]**2 +esky_scatter**2 +esky_mean**2)
+        self.catalogue["eflux"]=np.sqrt( epoisson**2 +esky_scatter**2 +esky_mean**2)
         #self.catalogue["eflux"]=phot["aperture_sum_err"]
-        self.catalogue["flux"]=apcorr*(phot["aperture_sum"] - (self.catalogue["sky"]*apertures.area))
+        self.catalogue["flux"]=apcorr*(phot["aperture_sum_0"] - (self.catalogue["sky"]*apertures.area))
+        
+        ######################
+        # Source "smoothness", the gradient of median pixel values within the two test apertures
+        ######################
+        #self.catalogue["smoothness"]= np.log( (phot["aperture_sum_1"]-(self.catalogue["sky"]*smooth_apertures.area)) / (phot["aperture_sum_0"]-(self.catalogue["sky"]*apertures.area)))
+        #self.catalogue["smoothness"]= np.log(phot["aperture_sum_1"]- phot["aperture_sum_0"])
+        #self.catalogue["smoothness"]=np.log(self.catalogue["smoothness"])
+        #self.catalogue["smoothness"][np.isnan(self.catalogue["smoothness"])]=0
+        self.catalogue["smoothness"] = (phot["aperture_sum_1"]/smooth_apertures.area) / (phot["aperture_sum_0"]/apertures.area)
 
         col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint16, name="flag")
         if dqflags is not None:
@@ -332,10 +353,12 @@ class APPhot_Routine():
 class BackGround_Estimate_Routine(BackgroundBase):
     """
     """
-    def __init__(self, sourcelist, boxsize=2, fwhm=2, verbose=0, bgd=None):#mask_r0=7, mask_r1=9
+    def __init__(self, sourcelist, boxsize=2, fwhm=2, sigsky=2, bgd_r=-1, verbose=0, bgd=None):#mask_r0=7, mask_r1=9
         self.sourcelist=sourcelist
         self.boxsize=boxsize
         self.fwhm=fwhm
+        self.sigsky=sigsky
+        self.bgd_r=bgd_r
         self.verbose=verbose
         self.bgd=bgd
         super().__init__()
@@ -351,16 +374,62 @@ class BackGround_Estimate_Routine(BackgroundBase):
         for i,mask in enumerate(apertures):
             peaks[i]=np.nanmax( mask.multiply(im) )
         return peaks
+    
+    def log(self,msg):
+        if self.verbose: printf(msg)
+
+
+    """
+    def calc_rlist(self,data):
+
+        _NCALC_BGDR=5.0
+        FUDGE=1/2.0
+        N=int(len(self.sourcelist)/_NCALC_BGDR)
+        ii=np.random.choice( len(self.sourcelist), size=N)
+        sources=self.sourcelist[ii]
+        shape=int(self.fwhm)*5
+        if not shape%2: shape+=1
+
+        mask=np.isnan(data)|np.isinf(data)
+        _,median,_=sigma_clipped_stats(data, sigma=3)
+        ro= 0.5*self.fwhm * np.sqrt( np.log(median/sources["flux"]))
+        ro*=FUDGE
+
+        with open("test.reg",'w') as fp:
+            for i in range(len(sources)):
+                if not np.isnan(ro[i]):
+                    src=sources[i]
+                    fp.write("fk5;circle %f %f %fi\n"%( src["RA"], src["DEC"], ro[i]))
+        x=np.array([min(sources["flux"]), max(sources["flux"])])
+    """
 
     def __call__(self, data, axis=None, masked=False):
         if self.sourcelist is None or data is None: return self.bgd
         _data=np.copy(data)
         X,Y=np.ogrid[:data.shape[1], :data.shape[0]]
-        peaks=self.calc_peaks(data)
 
-        rlist=np.sqrt(peaks**0.7)*self.fwhm/1.5 ## <-- that works but hmm
+        FUDGE=1
+        DEFAULT_R=2*self.fwhm
+
+        if self.bgd_r and self.bgd_r>0:
+            self.log("-> using BGD_R=%g masking aperture radii\n"%self.bgd_r)
+            rlist=self.bgd_r*np.ones(len(self.sourcelist)) 
+
+        else:
+            #peaks=self.calc_peaks(data)
+            #rlist=np.sqrt(peaks**0.7)*self.fwhm/1.5 ## <-- that works but hmm
+            if "flux" in self.sourcelist.colnames:
+                self.log("-> calculating source aperture mask radii\n")
+                _,median,_=sigma_clipped_stats(data,sigma=self.sigsky)
+                rlist= FUDGE * self.fwhm/2 * np.sqrt( np.log( median/self.sourcelist["flux"]) )
+                rlist[np.isnan(rlist)]=DEFAULT_R
+            else:
+                warn()
+                perror("Unable to caluclate aperture mask sizes, add '-A' to starbug command.\n")
+                rlist=DEFAULT_R*np.ones(len(self.sourcelist))
+
         D=50
-        load=loading(len(self.sourcelist), msg="masking sources", res=10)
+        load=loading(len(self.sourcelist), msg="masking sources", res=10)#len(self.sourcelist)/1000)
         for r,src in zip(rlist,self.sourcelist):
 
             rin=1.5*r
@@ -428,8 +497,8 @@ class _grouping(DAOGroup):
                 perror("This run will exceed the recursion depth of the system. "
                        "Starbug will intervene and override the recursion limit but "
                        "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
-                       "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), int(1.1*n_members)))
-                sys.setrecursionlimit(int(1.1*n_members))
+                       "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), int(2.0*n_members)))
+                sys.setrecursionlimit(int(2.0*n_members))
         if self.logfile: self.logfile.close()
         return res
 
@@ -450,52 +519,64 @@ class _fitmodel(LevMarLSQFitter):
         return super().__call__(*args,**kwargs)
 
 
-class PSFPhot_Routine(BasicPSFPhotometry):
+class PSFPhot_Routine(PSFPhotometry):
     """
     PSF Photometry routine called by starbug
     """
-    def __init__(self, crit_separation, psf_model, fitshape,
+    def __init__(self, psf_model, fitshape, apphot_r=3,
             force_fit=False, background=None, verbose=1):
 
         self.verbose=verbose
         self.force_fit=force_fit        
+        self.background=background
 
-        group_maker=_grouping(crit_separation=crit_separation)
-        bkg_estimator=BackGround_Estimate_Routine(None, bgd=background)
-        fitter=_fitmodel(grouper=group_maker, verbose=verbose)
+        #group_maker=_grouping(crit_separation=8)#crit_separation)
+        #bkg_estimator=BackGround_Estimate_Routine(None, bgd=background)
+        #fitter=_fitmodel(grouper=group_maker, verbose=verbose)
         
         if force_fit:
-            psf_model.fixed.update( {"x_0":True,"y_0":True} )
-            if fitter.load is not None: fitter.load.msg+=" (forced)"
+            psf_model.x_0.fixed=True
+            psf_model.y_0.fixed=True
+            #psf_model.fixed.update( {"x_0":True,"y_0":True} )
+            #if fitter.load is not None: fitter.load.msg+=" (forced)"
 
-        super().__init__(group_maker=group_maker, bkg_estimator=bkg_estimator,
-                psf_model=psf_model, fitshape=fitshape,
+        super().__init__(psf_model=psf_model, fit_shape=fitshape, finder=None,
+                progress_bar=True, aperture_radius=apphot_r,
+                grouper=SourceGrouper(8))
+                #localbkg_estimator=bkg_estimator, fitter=fitter)
+        """
+        super().__init__(grouper=group_maker, localbkg_estimator=bkg_estimator,
+                psf_model=psf_model, fit_shape=fitshape,
                 finder=None, fitter=fitter)
+        """
 
-    def do_photometry(self, image, mask=None, init_guesses=None, progress_bar=False):
+    def __call__(self,*args,**kwargs): return self.do_photometry(*args,**kwargs)
+    def do_photometry(self, image, mask=None, init_params=None, progress_bar=False):
         """
         """ 
 
-        if init_guesses is None or len(init_guesses)==0:
+        if init_params is None or len(init_params)==0:
             perror("Must include source list\n")
             return None
 
-        if self.verbose: printf("-> fitting %d sources\n"%len(init_guesses))
-        cat=super().do_photometry(image, mask=mask, init_guesses=init_guesses, progress_bar=False)
+        if self.background is not None: image=image-self.background
+        if self.verbose: printf("-> fitting %d sources\n"%len(init_params))
+        cat=super().__call__(image, mask=mask, init_params=init_params)
 
-        d=np.sqrt((cat["x_0"]-cat["x_fit"])**2.0 + (cat["y_0"]-cat["y_fit"])**2.0)
+        d=np.sqrt((cat["x_init"]-cat["x_fit"])**2.0 + (cat["y_init"]-cat["y_fit"])**2.0)
         cat.add_column(Column(d,name="xydev"))
 
-
-
-        if "flux_unc" not in cat.colnames:
+        if "flux_err" not in cat.colnames:
             cat.add_column(Column(np.full(len(cat),np.nan), name="eflux"))
             perror("NO ERRORS??\n")
-        else: cat.rename_column("flux_unc","eflux")
+        else: cat.rename_column("flux_err","eflux")
         
-        colnames=init_guesses.colnames+["x_fit","y_fit","flux_fit","eflux","xydev"]
+        #colnames=init_params.colnames+
+        keep=["x_fit","y_fit","flux_fit","eflux","xydev","qfit"]
+        cat=hstack(( init_params, cat[keep]))
     
-        return cat[ [name for name in colnames if name in cat.colnames] ]
+        #return cat[ [name for name in colnames if name in cat.colnames] ]
+        return cat
 
 class Cleaning_Routine(object):
     """

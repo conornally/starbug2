@@ -184,10 +184,23 @@ if pfile==None:
         #perror("no local parameter file found, using default.param\n")
         pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
 
+
 init_parameters=load_params(pfile)
 #for key in set(setopt.keys() & init_parameters.keys()):
-init_parameters.update(setopt)
 
+if options&UPDATEPRM:
+    update_paramfile(pfile)
+    quit()
+
+tmp=load_params("%sdefault.param"%pkg_resources.resource_filename("starbug2","param/"))
+_a=set(tmp.keys())
+_b=set(init_parameters.keys())
+if _a-_b | _b-_a:
+    warn()
+    perror("Parameter file version mismatch. Run starbug2 --update-param to update\n")
+    quit("quitting :(")
+
+init_parameters.update(setopt)
 
 
 #########################
@@ -217,9 +230,6 @@ if options&GENRATPSF:
 if options&GENRATRUN:
     cmd="starbug2 "#"+ " ".join( ["-vf"])
     generate_runscript(args, cmd)
-
-if options&UPDATEPRM:
-    update_paramfile(pfile)
 
 if options&GENRATREG:
     fname=setopt.get("REGION_TAB")

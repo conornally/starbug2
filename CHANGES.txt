@@ -1,3 +1,22 @@
+v0.5.3:
+    Background:
+        >   BGD_R added functionality
+        >   Changed automatic radius estimation
+    Param:
+        >   Added ZP_MAG: which is added to magnitude columns ## This needs some thinking
+        >   Added a differentiating roundness 1 and 2
+        >   Removing ROUND_LO
+        >   Adding SMOOTH bounds
+    APPHOT:
+        >   Catching another error in the aperture masking
+        >   load_apfile now cuts extra sources outside fov
+        >   load_apfile gives errors in the correct place now
+    MATCHING:
+        >   Fixing no default matching routine
+    PSF:
+        >   Updated PFS base to photutils 1.9 classes
+    General:
+        >   Starting to imprse minimum package versio requirments onto some dependencies 
 v0.5.2:
     APPHOT:
         >   error calculation takes same form as stsci example (+sumsq)

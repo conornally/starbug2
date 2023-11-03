@@ -46,7 +46,7 @@ class Mask(object):
         return Mask(points,keys,label=label, colour=colour)
 
     def plot(self, ax, **kwargs):
-        patch=Polygon(self.path._vertices, label=self.label.replace('_',' '), **kwargs)
+        patch=Polygon(self.path._vertices, label=self.label.replace('_',' '), fill=False, edgecolor=self.colour, **kwargs)
         ax.add_patch(patch)
         
 
