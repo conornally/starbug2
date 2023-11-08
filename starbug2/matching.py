@@ -211,18 +211,39 @@ def bootstrap_match(catalogues):
     B - C
     C - D
     """
+    print("THIS ISNT READY")
+
     output=Table()
 
     THRESHHOLD=0.3
+    filters= [c.meta.get("FILTER") for c in catalogues]
+    base=None
 
     if len( catalogues ) >1:
-        for n, base in enumerate(catalogues[:-1]):
-            next=catalogues[n+1]
-            load=loading(len(next), msg="%s - %s"%(base.meta.get("FILTER"),next.meta.get("FILTER")), res=len(next)/1000)
-            output=hstack(( output, generic_match((base, catalogues[n+1]), THRESHHOLD, load=load, average=False) ))
+        base=catalogues[0]["RA","DEC","%s"%filters[0],"e%s"%filters[0]]
+
+        for n,cat in enumerate(catalogues[1:],1):
+            f=filters[n]
+            cat=cat["RA","DEC","%s"%f,"e%s"%f]
+            base=generic_match( (base,cat), add_src=True, average=False)
+
+            _f=filters[n-1]   #fix base colnames. Lower filter columns get finalised
+            base.rename_columns(("RA_1","DEC_1","%s_1"%_f,"e%s_1"%_f), 
+                                ("RA_%s"%_f,"DEC_%s"%_f,"%s"%_f,"e%s"%_f) ) 
+            for cn in base.colnames:
+                if cn[-2:]=="_1": base.rename_column(cn,cn[:-2])
+
+            #Get larger wavelength ready for next match
+            base.rename_columns( ("RA_2","DEC_2","%s_2"%f,"e%s_2"%f),
+                                 ("RA","DEC","%s"%f,"e%s"%f) )
+
+            print(n,len(catalogues))
+            if n==len(catalogues)-1: ##Final match
+                base.rename_columns(("RA","DEC"),("RA_%s"%f,"DEC_%s"%f) )
+
     else:
         perror("Must include more than one catalogue.\n")
-    return output
+    return base
 
 def band_match(catalogues, colnames=("RA","DEC")):
     """

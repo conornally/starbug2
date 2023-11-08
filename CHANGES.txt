@@ -17,6 +17,8 @@ v0.5.3:
         >   Updated PFS base to photutils 1.9 classes
     General:
         >   Starting to imprse minimum package versio requirments onto some dependencies 
+    BIN:
+        >   Moved the main starbug script to a console entry point
 v0.5.2:
     APPHOT:
         >   error calculation takes same form as stsci example (+sumsq)

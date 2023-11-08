@@ -193,7 +193,6 @@ class APPhot_Routine():
     def __call__(self, detections, image, **kwargs):
         return self.run(detections, image, **kwargs)
 
-    #def run(self, detections, image, apcorr=1.0, sig_sky=3):
     def run(self, detections, image, error=1, dqflags=None, apcorr=1.0, sig_sky=3):
         """
         Forced aperture photometry on a list of detections
@@ -255,16 +254,11 @@ class APPhot_Routine():
         esky_mean=  (std**2 * apertures.area**2) / annulus_aperture.area
 
         self.catalogue["eflux"]=np.sqrt( epoisson**2 +esky_scatter**2 +esky_mean**2)
-        #self.catalogue["eflux"]=phot["aperture_sum_err"]
         self.catalogue["flux"]=apcorr*(phot["aperture_sum_0"] - (self.catalogue["sky"]*apertures.area))
         
         ######################
         # Source "smoothness", the gradient of median pixel values within the two test apertures
         ######################
-        #self.catalogue["smoothness"]= np.log( (phot["aperture_sum_1"]-(self.catalogue["sky"]*smooth_apertures.area)) / (phot["aperture_sum_0"]-(self.catalogue["sky"]*apertures.area)))
-        #self.catalogue["smoothness"]= np.log(phot["aperture_sum_1"]- phot["aperture_sum_0"])
-        #self.catalogue["smoothness"]=np.log(self.catalogue["smoothness"])
-        #self.catalogue["smoothness"][np.isnan(self.catalogue["smoothness"])]=0
         self.catalogue["smoothness"] = (phot["aperture_sum_1"]/smooth_apertures.area) / (phot["aperture_sum_0"]/apertures.area)
 
         col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint16, name="flag")
@@ -541,7 +535,7 @@ class PSFPhot_Routine(PSFPhotometry):
             #if fitter.load is not None: fitter.load.msg+=" (forced)"
 
         super().__init__(psf_model=psf_model, fit_shape=fitshape, finder=None,
-                progress_bar=True, aperture_radius=apphot_r,
+                progress_bar=verbose, aperture_radius=apphot_r,
                 grouper=SourceGrouper(8))
                 #localbkg_estimator=bkg_estimator, fitter=fitter)
         """
@@ -571,87 +565,9 @@ class PSFPhot_Routine(PSFPhotometry):
             perror("NO ERRORS??\n")
         else: cat.rename_column("flux_err","eflux")
         
-        #colnames=init_params.colnames+
         keep=["x_fit","y_fit","flux_fit","eflux","xydev","qfit"]
-        cat=hstack(( init_params, cat[keep]))
-    
-        #return cat[ [name for name in colnames if name in cat.colnames] ]
-        return cat
-
-class Cleaning_Routine(object):
-    """
-    docstring...
-    """
-    sharp_mu=0
-    sharp_sig=0
-
-    round1_mu=0
-    round1_sig=0
-
-    round2_mu=0
-    round2_sig=0
-
-    verbose=1
-
-    def __init__(self, cat, verbose=1 ):
-        self.cat=cat
-        self.verbose=verbose
-        self.fit()
-
-    def log(self,msg):
-        if self.verbose: printf(msg)
-
-    def fit(self):
-        if "sharpness" in self.cat.colnames:
-            self.sharp_mu, self.sharp_sig   = norm.fit(self.cat["sharpness"])
-            self.log("fit 'sharpness': mu=%.2g sig=%.2g\n"%(self.sharp_mu, self.sharp_sig))
-
-        if "roundness1" in self.cat.colnames:
-            self.round1_mu, self.round1_sig = norm.fit(self.cat["roundness1"])
-            self.log("fit 'roundness1': mu=%.2g sig=%.2g\n"%(self.round1_mu, self.round1_sig))
-
-        if "roundness2" in self.cat.colnames:
-            self.round2_mu, self.round2_sig = norm.fit(self.cat["roundness2"])
-            self.log("fit 'roundness2': mu=%.2g sig=%.2g\n"%(self.round2_mu, self.round2_sig))
-
-    def _remove_rows(self,cat,indices):
-        length=len(cat)
-        cat.remove_rows(indices)
-        if "id" in cat.colnames: cat.replace_column("id", Column(range(1,1+len(cat))))
-        return length-len(cat)
-
-    def run(self, mag_unc=1, sharp_sig_hi=2, sharp_sig_lo=2,
-                                        round_sig_hi=2, round_sig_lo=2):
-        """
-        if "ap_flux" in self.cat.colnames:
-            dr=self._remove_rows(self.cat, self.cat["ap_flux"]<0)
-            self.log("-> cut %d sources with ap_phot flux<0\n"%dr)
-        """
-
-        if "mag_unc" in self.cat.colnames:
-            dr=self._remove_rows(self.cat, self.cat["mag_unc"]>mag_unc)
-            self.log("-> cut %d sources with mag_error>%g\n"%(dr,mag_unc))
-
-        if "sharpness" in self.cat.colnames:
-            dr =self._remove_rows(self.cat, self.cat["sharpness"]>(self.sharp_mu + (sharp_sig_hi*self.sharp_sig)))
-            dr+=self._remove_rows(self.cat, self.cat["sharpness"]<(self.sharp_mu - (sharp_sig_lo*self.sharp_sig)))
-            self.log("-> cut %d sources on sharpness\n"%dr)
-
-        if "roundness1" in self.cat.colnames:
-            dr =self._remove_rows(self.cat, self.cat["roundness1"]>(self.round1_mu + (round_sig_hi*self.round1_sig)))
-            dr+=self._remove_rows(self.cat, self.cat["roundness1"]<(self.round1_mu - (round_sig_lo*self.round1_sig)))
-            self.log("-> cut %d sources on roundness1\n"%dr)
-
-        if "roundness2" in self.cat.colnames:
-            dr =self._remove_rows(self.cat, self.cat["roundness2"]>(self.round2_mu + (round_sig_hi*self.round2_sig)))
-            dr+=self._remove_rows(self.cat, self.cat["roundness2"]<(self.round2_mu - (round_sig_lo*self.round2_sig)))
-            self.log("-> cut %d sources on roundness2\n"%dr)
-
-        self.log("final catalogue size: %d\n"%len(self.cat))
-        return self.cat
-
-
-
+        #cat=hstack(( init_params, cat[keep]))
+        return hstack((init_params, cat[keep]))
 
 class ArtificialStar_Routine(object):
     """

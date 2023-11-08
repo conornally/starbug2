@@ -25,7 +25,6 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
        --generate-psf             : Generate a single PSF. Set FILTER, DET_NAME, PSF_SIZE with -s
        --generate-region   a.fits : Make a ds9 region file with a detection file
        --generate-run      *.fits : Generate a simple run script
-       --clean-table       a.fits : Clean up an individual table
        --version                  : Print starbug2 version
 
        --apply-zeropint    a.fits : Apply a zeropoint (-s ZEROPOINT=1.0) to a.fits
@@ -93,7 +92,7 @@ def usage(option=None):
 
 opts,args=getopt.gnu_getopt(sys.argv[1:],"ABDfGhMPSvb:d:n:o:p:s:", ("apphot","background", "detect", "find", "geom", "help", "match", "psf", "subbgd", "verbose", "xtest",
                                                       "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
-                                                      "init", "generate-psf", "local-param", "generate-region=", "clean-table", "version", "generate-run", "update-param",
+                                                      "init", "generate-psf", "local-param", "generate-region=", "version", "generate-run", "update-param",
                                                       "calc-instr-zp=", "apply-zeropoint=",
                                                       "debug"))
 for opt,optarg in opts:
@@ -154,11 +153,6 @@ for opt,optarg in opts:
     if opt=="--generate-region":
         setopt["REGION_TAB"]=optarg
         options|=(GENRATREG|STOPPROC)
-
-    if opt=="--clean-table":
-        printf("cleaning table <-- %s\n"%optarg)
-        table=Table.read(optarg,format="fits")#load_table(optarg)
-        options|=STOPPROC
 
     if opt=="--version": 
         printf(starbug2.logo%("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version))

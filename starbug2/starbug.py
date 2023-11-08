@@ -44,8 +44,6 @@ class StarbugBase(object):
         self.options.update(options)
         self.load_image(fname)   ## Load the fits image
 
-        #print(options)
-
         if self.options["AP_FILE"]: self.load_apfile() ## Load the source list if given
         if self.options["BGD_FILE"]: self.load_bgdfile()
 
@@ -429,9 +427,9 @@ class StarbugBase(object):
 
         if self.options.get("CLEANSRC"):
             N=len(self.detections)
-            if (smoothlo:=self.options.get("SMOOTH_LO")) is not None: 
+            if (smoothlo:=self.options.get("SMOOTH_LO")) != "": 
                 self.detections.remove_rows( self.detections["smoothness"]<smoothlo)
-            if (smoothhi:=self.options.get("SMOOTH_HI")) is not None: 
+            if (smoothhi:=self.options.get("SMOOTH_HI")) != "": 
                 self.detections.remove_rows( self.detections["smoothness"]>smoothhi)
             if len(self.detections)!=N:
                 self.log("-> removing %d sources outside SMOOTH range\n"%(N-len(self.detections)))
@@ -655,27 +653,6 @@ class StarbugBase(object):
             _fname="%s/%s-psf.fits"%(self.outdir, self.bname)
             self.log("--> %s\n"%_fname)
             fits.BinTableHDU(data=self.psfcatalogue, header=self.header).writeto(_fname,overwrite=True)
-
-
-    """
-    def cleanup(self):
-        self.log("Cleaning up..\n")
-
-        if self.detections:
-            cln=Cleaning_Routine(self.detections, verbose=self.options["VERBOSE"])
-            self.detections=cln.run( mag_unc=self.options["ERROR_CUT"],
-                                    sharp_sig_hi= self.options["SHARP_HI_SIG"],
-                                    sharp_sig_lo= self.options["SHARP_LO_SIG"],
-                                    round_sig_hi= self.options["ROUND_HI_SIG"],
-                                    round_sig_lo= self.options["ROUND_LO_SIG"])
-        if self.psfcatalogue:
-            cln=Cleaning_Routine(self.psfcatalogue, verbose=self.options["VERBOSE"])
-            self.psfcatalogue=cln.run( mag_unc=self.options["ERROR_CUT"],
-                                    sharp_sig_hi= self.options["SHARP_HI_SIG"],
-                                    sharp_sig_lo= self.options["SHARP_LO_SIG"],
-                                    round_sig_hi= self.options["ROUND_HI_SIG"],
-                                    round_sig_lo= self.options["ROUND_LO_SIG"])
-    """
 
     def artificial_stars(self):
         """
