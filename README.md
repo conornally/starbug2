@@ -1,12 +1,13 @@
 # StarBugII
 
 JWST PSF photometry in dusty crowded fields.
-Last updated: v0.5.0
+Last updated: v0.5.3
 
 [![Python application](https://github.com/conornally/starbug2/actions/workflows/python-app.yml/badge.svg)](https://github.com/conornally/starbug2/actions/workflows/python-app.yml)
 [![PyPI version fury.io](https://badge.fury.io/py/starbug2.svg)](https://pypi.python.org/pypi/starbug2/)
 [![Latest release](https://badgen.net/github/release/conornally/starbug2)](https://github.com/conornally/starbug2/releases)
 [![ASCL.net](https://img.shields.io/badge/ascl-2309.012-blue.svg?colorB=262255)](https://ascl.net/2309.012)
+[![Documentation Status](https://readthedocs.org/projects/starbug2/badge/?version=latest)](https://starbug2.readthedocs.io/en/latest/?badge=latest)
 
 ## Installation
 
@@ -40,7 +41,7 @@ Finally verify the installation by running `starbug2 --version`
 
 ```bash
 Starbug II - JWST PSF photometry
-usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory] [-p file.param] [-s opt=val] image.fits ...
+usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
    -b  --bgdfile         : load background (-bgd.fits) file
@@ -65,7 +66,6 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
        --generate-psf             : Generate a single PSF. Set FILTER, DET_NAME, PSF_SIZE with -s
        --generate-region   a.fits : Make a ds9 region file with a detection file
        --generate-run      *.fits : Generate a simple run script
-       --clean-table       a.fits : Clean up an individual table
        --version                  : Print starbug2 version
 
        --apply-zeropint    a.fits : Apply a zeropoint (-s ZEROPOINT=1.0) to a.fits
@@ -75,6 +75,7 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o directory
       $~ starbug2 -vD -p file.param image.fits      //Source detect on image with a parameter file
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
+
 ```
 
 ```bash

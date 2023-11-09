@@ -1,9 +1,0 @@
-site_name: StarbugII
-nav:
-    - Home : index.md
-    - Installation: install.md
-
-
-theme: readthedocs
-
-
