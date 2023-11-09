@@ -24,7 +24,6 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
        --generate-psf             : Generate a single PSF. Set FILTER, DET_NAME, PSF_SIZE with -s
        --generate-region   a.fits : Make a ds9 region file with a detection file
        --generate-run      *.fits : Generate a simple run script
-       --clean-table       a.fits : Clean up an individual table
        --version                  : Print starbug2 version
 
        --apply-zeropint    a.fits : Apply a zeropoint (-s ZEROPOINT=1.0) to a.fits
@@ -68,15 +67,9 @@ CALCINSTZP=0x4000000
 APPLYZP   =0x8000000
 
 def starbug_parseargv():
-    """usage
-    """
+    """Organise the sys argv line into options, values and arguments"""
     options=0
     setopt={}
-
-    #pfile=None
-    #ncores=1
-    #output='.'
-
 
     cmd,argv=scr.parsecmd(sys.argv)
     opts,args=getopt.gnu_getopt(argv,"ABDfGhMPSvb:d:n:o:p:s:",
