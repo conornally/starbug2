@@ -3,13 +3,30 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to StarbugII's documentation!
-=====================================
+Welcome to StarbugII's documentation
+====================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :titlesonly:
 
    install
+   guide
+   changes
+
+.. toctree::
+   :hidden:
+   :titlesonly:
+   :caption: More Info
+
+   ref
+
+.. only:: html
+
+    .. note::
+        :class: sphx-glr-download-link-note
+
+        Here is a note
 
 
 

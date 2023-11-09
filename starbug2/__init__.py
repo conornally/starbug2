@@ -15,7 +15,7 @@ logo="""\
  > %s
 """
 
-motd="Now with extended compatibility, try starbug on non JWST images."
+motd="https://starbug2.readthedocs.io/en/latest/"
 
 from os import getenv
 _=getenv("STARBUG_DATDIR") 
