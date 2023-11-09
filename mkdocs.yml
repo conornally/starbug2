@@ -6,7 +6,4 @@ nav:
 
 theme: readthedocs
 
-plugins:
-    - mkdocstrings:
-        default_handler: python
 
