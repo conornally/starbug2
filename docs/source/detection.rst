@@ -8,12 +8,14 @@ The first routine that is likely to be run with *starbug2* is the source ddetect
 
 This will create a binary fits table called "image-ap.fits" in the current working directory. The table will contain columns for **RA, DEC, xcentroid, ycentroid** , being the WCS and pixel positions of the detected sources. It will contain source geometric property parameters **sharpness, roundness1, roundness2, smoothness** which can be used to assess the quality of the sources. The flux, photometric error and sky annulus median value will be under **flux, eflux, sky** and the magnitude and error on the magnitude will be named according to the **FILTER** of the image or parameter file. Finally a source quality **flag** is included as well as  its **Catalogue_Number**.
 
+At the end of the detection routine, aperture photometry is automatically executed to measure the flux of the sources. See :doc:`Aperture Photometry <./aperture>` for more details.
+
 To output the source list to a different filename or folder, include :code:`-o outputfile.fits` or :code:`-o path/to/folder/` in the *starbug2* command.
 
 .. only:: html
 
-    .. note::
-        :class: sphx-glr-download-link-note
+    .. tip::
+        :class: sphx-glr-download-link-tip
 
         As with all *starbug2* routines, calling **DETECT** in verbose mode with the :code:`-v` flag will allow you to see the progression of the code as well as any useful outputs or warnings that have occurred. 
 
@@ -49,6 +51,7 @@ SHARP_LO / SHARP_HI
 
 SMOOTHNESS
     :code:`Smoothness` like :code:`sharpness` is a measure of how "pointy" a source is. It takes the ratio of mean pixel values as measured in two apertures around the source. A very smooth detection, such as a dusty peak or resolved background galaxy will have a value around 1.0, whereas a "good" star will have a lower value.
+    **SMOOTH_LO** and **SMOOTH_HI** set the acceptable bounds of detected sources.
 
     This parameter is designed to do a similar job as sharpness but from the other direction. It is very effective at mitigating bright dust or "null" detections sometimes seen in empty areas of an image. As it relies on aperture photometry to measure, it is affected by crowding in really dense regions, and "smooth" sources may in fact be close optical binaries.
 
@@ -60,11 +63,20 @@ SMOOTHNESS
         :code:`smoothness` is currently an experimental parameter and the exact definition may change in the future.
 
 ROUNDNESS
-    :code:`Roundness` is a measure of source eccentricity.
+    :code:`Roundness` is a measure of source eccentricity. There are two versions of this metric. :code:`roundness1` describes the 4-fold symmetry of a source and :code:`roundness2` is a ratio of two fitted 1D gaussians to the source, one vertical and horizontal. Both values are symmetric distributions centred on zero. **ROUND1_HI** and **ROUND2_HI** set the outer limits for their respective distributions. 
 
+    Highly eccentric sources have roundness values further from zero. These are usually PSF fringes or resolved background galaxies. Inspecting the two :code:`roundness` distributions often reveals an underlying normal-like distribution with wings, these wings can be clipped to leave the cleaner point-like sources.
+
+    Fundamentally, both :code:`roundness` values measure similar things but often they trace slightly different distributions and can be tweaked independently to remove outlying sources. 
 
 RICKER_R
-    .
+    This parameter sets the radius in pixel units of the wavelet convolved with the image during the *CONVL* stage of the detection routine. In noisy images, small values of **RICKER_R** can over detect spurious sources. In this case, try increasing the number to ~5/10 and then decreasing it in integer steps, while inspecting the result.
+
+A Typical Run
+-------------
+
+
+
 
 
 
