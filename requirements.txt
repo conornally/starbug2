@@ -2,4 +2,5 @@
 #
 # installs dependencies from ./setup.cfg, and the package itself,
 # in editable mode
+sphinx_rtd_theme
 -e .
