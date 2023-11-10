@@ -34,6 +34,8 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
 
+See https://starbug2.readthedocs.io for more information.
+
 """
 import os,sys,getopt
 sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")

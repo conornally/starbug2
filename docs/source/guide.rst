@@ -48,6 +48,8 @@ Basic usage for *starbug2* is viewed by running::
 
 .. toctree::
    :caption: Detailed Guides
+   :maxdepth: 1
+   :titlesonly:
 
    param
    detection

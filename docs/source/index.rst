@@ -13,6 +13,8 @@ Welcome to StarbugII's documentation
    install
    guide
    changes
+   troubles
+   faq
 
 .. toctree::
    :hidden:
