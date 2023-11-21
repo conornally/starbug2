@@ -9,7 +9,7 @@ The first routine that is likely to be run with *starbug2* is the source ddetect
 This will create a binary fits table called "image-ap.fits" in the current working directory. This table will contain the following columns:
 
     +------------------+------------------------------------------------------------+
-    | NAME             | Description                                                |
+    | Name             | Description                                                |
     +------------------+------------------------------------------------------------+
     | Catalogue Number | Source index in catalogue                                  |
     +------------------+------------------------------------------------------------+

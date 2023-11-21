@@ -1,13 +1,13 @@
 # StarBugII
 
-JWST PSF photometry in dusty crowded fields.
-Last updated: v0.5.3
 
-[![Python application](https://github.com/conornally/starbug2/actions/workflows/python-app.yml/badge.svg)](https://github.com/conornally/starbug2/actions/workflows/python-app.yml)
-[![PyPI version fury.io](https://badge.fury.io/py/starbug2.svg)](https://pypi.python.org/pypi/starbug2/)
-[![Latest release](https://badgen.net/github/release/conornally/starbug2)](https://github.com/conornally/starbug2/releases)
-[![ASCL.net](https://img.shields.io/badge/ascl-2309.012-blue.svg?colorB=262255)](https://ascl.net/2309.012)
-[![Documentation Status](https://readthedocs.org/projects/starbug2/badge/?version=latest)](https://starbug2.readthedocs.io/en/latest/?badge=latest)
+<img src="docs/source/_static/images/starbug.png" align="left" width="200px"/>
+JWST PSF photometry in dusty crowded fields.
+
+Last updated: v0.6.0
+<br clear="left"/>
+
+
 
 ## Installation
 
@@ -95,7 +95,7 @@ usage: starbug2-match [-BGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fi
        $~ starbug2-match -sMATCH_THRESH=0.2 -sBRIDGE_COL=F444W -Bo out.fits F*W.fits
 ```
 
-See [starbug-manual](https://github.com/conornally/starbug2/blob/main/docs/starbug-manual.md) for more detailed instructions.
+See the [readthedocs](https://starbug2.readthedocs.io/en/latest/?badge=latest) page for more detailed instructions.
 
 ## Citing StarbugII
 

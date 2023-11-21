@@ -45,7 +45,6 @@ The routine will produce a binary fits table with the following columns:
 
 
 
-
 Relevant Parameters
 -------------------
 
@@ -73,5 +72,15 @@ AP_FILE and BGD_FILE
     Load a source list and or a background image.
 
 
-A Typical Run
--------------
+Instrumental Zero Points
+------------------------
+
+PSF photometry is a very accurate form of photometry but it does not get calculated in physical flux units. After the routine has been run, we can calculate the photometric zero point shift by using the aperture photometry catalogue (here on referred to as the input catalogue). It is thoroughly recommended to prune the input catalogue so that only the "cleanest" point sources over a range of magnitude values remain. Using the command :code:`--calc-instr-zp` we can measure the systematic photometric offset between the input and PSF catalogues and correct the latter accordingly. The command is run as follows, and returns a copy of the PSF table with corrected magnitude values and appends the suffix "-zp"::
+
+    $~ starbug2 -d input_catalogue.fits --calc-instr-zp image-psf.fits
+
+Alternatively, if the offset is already known, either set it with the parameter **ZP_MAG** or run::
+
+    $~ starbug2 -s ZP_MAG=1.0 --apply-zeropoint image-psf.fits
+
+

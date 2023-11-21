@@ -1,0 +1,35 @@
+*******************
+What's New in v0.6?
+*******************
+
+v0.6.0
+------
+
+v0.6.0 has mostly been fixing some methods to allow MIRI detections to work better. Mostly these are small changes and quality of life additions.
+
+Parameters
+    Some new parameters have been added, and some have been tweaked. The exact functionality of some of these are still in a development stage and the exact definitions may slightly change.
+
+    - **SMOOTH_HI/LO**: (in prep.) New geometric parameter
+    
+    - **ROUND1/2_HI**: Differentiating the roundness1/2 parameter inputs
+
+    - **DOCONVL**: Set whether to do the CONVL detection method
+
+    - **BGD_R**: Now includes functionality to set the aperture mask radius
+
+    - **ZP_MAG**: (in prep.) Set the magnitude zero point to be used in flux2mag calculation
+
+
+Package Details
+    Updated photutils requirements to 1.9.0 and used the newest photometry methods. 
+
+    Moving bin/starbug2 functionality into console entry point.
+    
+Minor Changes
+    Altered background aperture radius estimation.
+
+    The command :code:`--apply-zeropoint` now uses **ZP_MAG** rather than **ZEROPOINT** as the input zero point.
+
+Bug Fixes:
+    Default matching method explicitly set as generic_match.

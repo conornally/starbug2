@@ -26,7 +26,7 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
        --generate-run      *.fits : Generate a simple run script
        --version                  : Print starbug2 version
 
-       --apply-zeropint    a.fits : Apply a zeropoint (-s ZEROPOINT=1.0) to a.fits
+       --apply-zeropint    a.fits : Apply a zeropoint (-s ZP_MAG=1.0) to a.fits
        --calc-instr-zp     a.fits : Calculate and apply an instrumental zero point onto a.fits
 
    --> typical runs
@@ -213,7 +213,7 @@ def starbug_onetimeruns(options, setopt):
     ###########################
     if options&APPLYZP:
         _fname=setopt.get("ZP_PSF_CAT")
-        _zp=setopt.get("ZEROPOINT")
+        _zp=init_parameters.get("ZP_MAG")
         _std=0
         if _fname and os.path.exists(_fname):
             psftable=Table.read(_fname, format="fits")
@@ -241,7 +241,7 @@ def starbug_onetimeruns(options, setopt):
                 dname,fname,_=split_fname(_fname)
                 printf("--> %s/%s-zp.fits\n"%(dname,fname))
                 export_table( psftable, fname="%s/%s-zp.fits"%(dname,fname), header=_header)
-            else: perror("Unable to set ZEROPOINT, set it with -sZEROPOINT=000\n")
+            else: perror("Unable to set ZEROPOINT, set it with -sZP_MAG=000\n")
         else: perror("Unable to locate table \"%s\".\n"%_fname)
 
     if options&STOPPROC: return scr.EXIT_EARLY ## quiet ending the process if required

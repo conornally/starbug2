@@ -10,11 +10,11 @@ The diffuse background emission estimation routine tries to decouple the compone
 The background estimation routine is called with the :code:`-B` or :code:`--background` flags. This will create an image fits file the same shape as the input image, with the suffix :code:`-bgd` appended to the filename. This image will contain the estimated background emissions with the same pixel flux unit as the input image.
 In the example below, the left image shows a dusty raw input image into the routine, the right shows an estimated background result.
 
-.. image:: _static/images/example-raw.png
+.. image:: ../_static/images/example-raw.png
    :width: 325
    :alt: Example of a raw input image
 
-.. image:: _static/images/example-bgd.png
+.. image:: ../_static/images/example-bgd.png
    :width: 325
    :alt: Eaxmple of the output background estimation image
 

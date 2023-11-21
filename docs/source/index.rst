@@ -6,7 +6,8 @@ PSF photometry suite for complex and crowded regions in astronomical images.
 
 
 .. important::
-   If you make use of *starbug2* in any of published or presented work, please include a :doc:`citation <./ref>`.
+    - If you make use of *StarbugII* in any of published or presented work, please include a :doc:`citation <./ref>`.
+    - *StarbugII* makes use of `astropy <https://docs.astropy.org/en/stable/>`_ and `photutils <https://photutils.readthedocs.io/en/stable>`_, please acknowledge them accordingly.
 
 
 
@@ -16,8 +17,8 @@ PSF photometry suite for complex and crowded regions in astronomical images.
    :caption: Getting Started
 
    install
-   changes
    guide
+   changes
    typical
    faq
 
@@ -29,10 +30,3 @@ PSF photometry suite for complex and crowded regions in astronomical images.
    ref
    troubles
 
-
-Indices and tables
-------------------
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
