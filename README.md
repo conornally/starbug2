@@ -11,8 +11,6 @@
 
 &emsp; • Powerful modular and simple GNU Linux standard command line interface
 
-&emsp; • Optimised for JWST but generalisable to any astronomical fits image
-
 
 <br clear="left"/>
 
