@@ -2,4 +2,4 @@
 Old Release Notes
 *****************
 
-.. literalinclude:: CHANGES.txt
+.. literalinclude:: ../../../CHANGES.txt
