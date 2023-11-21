@@ -1,6 +1,6 @@
 # StarBugII
 
-<img src="docs/source/_static/images/starbug.png" align="left" width="300px"/>
+<img src="docs/source/_static/images/starbug.png" align="left" width="250px"/>
 
 
 ## PSF photometry in complex and crowded fields
