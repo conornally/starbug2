@@ -2,22 +2,42 @@
 Source Detection
 ****************
 
-The first routine that is likely to be run with *starbug2* is the source ddetection. This takes an image and identifies the location and brightness of the point present point-like sources. The routine is called with :code:`--detect` or :code:`-D` for short and including an appropraite fits image file::
+The first routine that is likely to be run with *starbug2* is the source ddetection. This takes an image and identifies the location and brightness of the point present point-like sources. The routine is called with :code:`--detect` or :code:`-D` for short and including an appropriate fits image file::
     
     $~ starbug2 -D image.fits
 
-This will create a binary fits table called "image-ap.fits" in the current working directory. The table will contain columns for **RA, DEC, xcentroid, ycentroid** , being the WCS and pixel positions of the detected sources. It will contain source geometric property parameters **sharpness, roundness1, roundness2, smoothness** which can be used to assess the quality of the sources. The flux, photometric error and sky annulus median value will be under **flux, eflux, sky** and the magnitude and error on the magnitude will be named according to the **FILTER** of the image or parameter file. Finally a source quality **flag** is included as well as  its **Catalogue_Number**.
+This will create a binary fits table called "image-ap.fits" in the current working directory. This table will contain the following columns:
+
+    +------------------+------------------------------------------------------------+
+    | NAME             | Description                                                |
+    +------------------+------------------------------------------------------------+
+    | Catalogue Number | Source index in catalogue                                  |
+    +------------------+------------------------------------------------------------+
+    | RA/DEC           | World coordinates of each source centroid                  |
+    +------------------+------------------------------------------------------------+
+    | x/ycentroid      | Pixel coordinates of each source centroid                  |
+    +------------------+------------------------------------------------------------+
+    | sharpness        | Source sharpness parameter                                 |
+    +------------------+------------------------------------------------------------+
+    | roundness1/2     | Source roundness parameters                                |
+    +------------------+------------------------------------------------------------+
+    | smoothness       | Source smoothness parameter                                |
+    +------------------+------------------------------------------------------------+
+    | flux/eflux/sky   | Flux, photometric error and sky value of source            |
+    +------------------+------------------------------------------------------------+
+    | FILTER/eFILTER   | Magnitude and magnitude error of source                    |
+    +------------------+------------------------------------------------------------+
+    | flag             | Source quality flag                                        |
+    +------------------+------------------------------------------------------------+
+
 
 At the end of the detection routine, aperture photometry is automatically executed to measure the flux of the sources. See :doc:`Aperture Photometry <./aperture>` for more details.
 
 To output the source list to a different filename or folder, include :code:`-o outputfile.fits` or :code:`-o path/to/folder/` in the *starbug2* command.
 
-.. only:: html
+.. tip::
 
-    .. tip::
-        :class: sphx-glr-download-link-tip
-
-        As with all *starbug2* routines, calling **DETECT** in verbose mode with the :code:`-v` flag will allow you to see the progression of the code as well as any useful outputs or warnings that have occurred. 
+    As with all *starbug2* routines, calling **DETECT** in verbose mode with the :code:`-v` flag will allow you to see the progression of the code as well as any useful outputs or warnings that have occurred. 
 
 
 To inspect the output source list, you can open it with a fits viewer like `Topcat <https://www.star.bris.ac.uk/~mbt/topcat/>`_ or astropy `Tables <https://docs.astropy.org/en/stable/table/>`_. Alternatively it can be converted to a DS9 region file with::
@@ -55,12 +75,10 @@ SMOOTHNESS
 
     This parameter is designed to do a similar job as sharpness but from the other direction. It is very effective at mitigating bright dust or "null" detections sometimes seen in empty areas of an image. As it relies on aperture photometry to measure, it is affected by crowding in really dense regions, and "smooth" sources may in fact be close optical binaries.
 
-.. only:: html
 
-    .. note::
-        :class: sphx-glr-download-link-note
+.. note::
 
-        :code:`smoothness` is currently an experimental parameter and the exact definition may change in the future.
+    :code:`smoothness` is currently an experimental parameter and the exact definition may change in the future.
 
 ROUNDNESS
     :code:`Roundness` is a measure of source eccentricity. There are two versions of this metric. :code:`roundness1` describes the 4-fold symmetry of a source and :code:`roundness2` is a ratio of two fitted 1D gaussians to the source, one vertical and horizontal. Both values are symmetric distributions centred on zero. **ROUND1_HI** and **ROUND2_HI** set the outer limits for their respective distributions. 
@@ -83,3 +101,30 @@ A Typical Run
 Introducing Dithers
 -------------------
 
+All the *starbug2* routines can run on more than one image at a time. You can set this up by adding more images to the end of the command::
+    
+    $~ starbug2 -vD image1.fits image2.fits image3.fits image4.fits ...
+
+Or make use of bash wildcarding and string formatting::
+
+    $~ starbug2 -vD image*.fits
+
+    $~ starbug2 -vD image{1..4}.fits
+
+By default *starbug2* will execute the routine on these images in series but the process can be parallelised with addition of the :code:`-n` or :code:`--ncores` flags which take an integer option for the number of cores to parallelise over. If the number of cores is smaller than the number of images supplied, the extra images will get added to a queue and wait till the current process is complete. If the number of cores is greater than the number of images, there will be no ill side-effects. Finally there is no limit to the number of images that *starbug2* can run on, other than the available resources on the computer.
+An example of this would look like::
+
+    $~ starbug2 -vD -n4 image*.fits
+
+.. only:: html
+
+    .. warning::
+        :class: sphx-glr-download-link-warning
+
+        There is a current issue where a child process runs out of memory and is killed but this is not reported back to the main process, which is waiting for the child to finish. The result of this, is the main process getting stuck waiting and never completes. This all happens silently so you would need to watch the number of cores being actively used on the system. 
+
+        Reduce the number of cores being used if this happens.
+
+The source lists produced from each image can be matched together at the end of the detection run by including the :code:`-M` or :code:`--match` flag to the command. More information on this is available in the :doc:`Catalogue Matching <./matching>` section. An example of this command would be::
+
+    $~ starbug2 -vDM image1.fits image2.fits 

@@ -1,19 +1,24 @@
-.. StarbugII documentation master file, created by
-   sphinx-quickstart on Thu Nov  9 12:53:23 2023.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+***********************
+StarbugII Documentation
+***********************
 
-Welcome to StarbugII's documentation
-====================================
+PSF photometry suite for complex and crowded regions in astronomical images.
+
+
+.. important::
+   If you make use of *starbug2* in any of published or presented work, please include a :doc:`citation <./ref>`.
+
+
 
 .. toctree::
    :maxdepth: 1
    :titlesonly:
+   :caption: Getting Started
 
    install
-   guide
    changes
-   troubles
+   guide
+   typical
    faq
 
 .. toctree::
@@ -22,19 +27,11 @@ Welcome to StarbugII's documentation
    :caption: More Info
 
    ref
-
-.. only:: html
-
-    .. note::
-        :class: sphx-glr-download-link-note
-
-        Here is a note
-
-
+   troubles
 
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`

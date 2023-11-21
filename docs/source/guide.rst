@@ -1,9 +1,7 @@
-***************
-Using StarbugII
-***************
+**********
+User Guide
+**********
 
-Getting Started
----------------
 
 
 
@@ -62,5 +60,6 @@ Basic usage for *starbug2* is viewed by running::
    background
    psf
    matching
+   artificial
 
 

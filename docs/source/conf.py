@@ -28,6 +28,7 @@ author = 'Conor Nally'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+        'sphinx.ext.autodoc', 'sphinx.ext.coverage', 'sphinx.ext.napoleon'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -44,10 +45,17 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
+
 html_theme = 'sphinx_rtd_theme'
-html_logo = "_static/starbug.png"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
+
 html_static_path = ['_static']
-html_favicon="_static/starbug.ico"
+html_favicon="_static/images/starbug.ico"
+html_logo = "_static/images/starbug.png"
+
+html_css_files = [
+    'css/rtd_dark.css',
+    'css/custom.css'
+]

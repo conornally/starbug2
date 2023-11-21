@@ -19,7 +19,7 @@ Setup
 After the package is installed, there are a few steps required to initialise *starbug2*:
 
 WEBBPSF
-    `WEBBPSF <https://github.com/spacetelescope/webbpsf>`_ is a dependency of *starbug* that has its own installation process which is not done automatically. This process is documentated `here <https://webbpsf.readthedocs.io/en/latest/installation.html>`_ but requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then append to your .bashrc (or equivalent)::
+    `WEBBPSF <https://github.com/spacetelescope/webbpsf>`_ is a dependency of *starbug* that has its own installation process which is not done automatically. This process is documented `here <https://webbpsf.readthedocs.io/en/latest/installation.html>`_ but requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then append to your .bashrc (or equivalent)::
 
         export "WEBBPSF_PATH=PATH/TO/DIRECTORY"
 
