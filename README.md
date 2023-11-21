@@ -1,46 +1,53 @@
 # StarBugII
 
+<img src="docs/source/_static/images/starbug.png" align="left" width="300px"/>
 
-<img src="docs/source/_static/images/starbug.png" align="left" width="200px"/>
-JWST PSF photometry in dusty crowded fields.
 
-Last updated: v0.6.0
+## PSF photometry in complex and crowded fields
+
+&emsp; • Detect deeply dust-embedded sources in NIRCam and MIRI images
+
+&emsp; • Full suite of photometry tools
+
+&emsp; • Powerful modular and simple GNU Linux standard command line interface
+
+&emsp; • Optimised for JWST but generalisable to any astronomical fits image
+
+
 <br clear="left"/>
 
+[![Python application](https://github.com/conornally/starbug2/actions/workflows/python-app.yml/badge.svg)](https://github.com/conornally/starbug2/actions/workflows/python-app.yml)
+[![PyPI version fury.io](https://badge.fury.io/py/starbug2.svg)](https://pypi.python.org/pypi/starbug2/)
+[![Latest release](https://badgen.net/github/release/conornally/starbug2)](https://github.com/conornally/starbug2/releases)
+[![Documentation Status](https://readthedocs.org/projects/starbug2/badge/?version=latest)](https://starbug2.readthedocs.io/en/latest/?badge=latest)
+[![ASCL.net](https://img.shields.io/badge/ascl-2309.012-blue.svg?colorB=262255)](https://ascl.net/2309.012)
 
 
 ## Installation
 
+*StarbugII* requires [webbpsf](https://webbpsf.readthedocs.io/en/latest/installation.html) installed on the system to function fully.
+
 ```bash
 $~ pip install starbug2
-
---- OR ---
-
-$~ git clone https://github.com/conornally/starbug2.git
-$~ cd starbug2
-$~ python -m build
-$~ pip install .
-```
-
-After the package is installed, there are a few steps required to initialise Starbug.
-
-**WEBBPSF** Is a dependency of Starbug that has its own initialisation process. The full installation is documented on https://webbpsf.readthedocs.io/en/latest/installation.html however it requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then add append to your .bashrc (or equivalent) `export "WEBBPSF_PATH=PATH/TO/DIRECTORY"`.
-
-**DATA FILES** Starbug needs to generate the WEBBPSFs, and collect some CRDS, to do this run `starbug2 --init`. It will generate these files by default into "${HOME}/.local/share/starbug" however if you wish to use a different directory, set the environment variable "STARBUG_DATDIR" to the desired destination.
-
-```bash
-$~ echo "export 'WEBBPSF_PATH=PATH/TO/WEBBPSF/DIRECTORY'" >> ~/.bashrc
-$~ echo "export 'STARBUG_DATDIR=PATH/TO/DESTINATION'" >> ~/.bashrc
-
 $~ starbug2 --init
 ```
+</br>
 
-Finally verify the installation by running `starbug2 --version`
+> [!IMPORTANT]
+> If you make use of *StarbugII* in any published or presented work, please include a [citation](https://ui.adsabs.harvard.edu/abs/2023ascl.soft09012N/abstract).
+> 
+> *StarbugII* uses methods and datatypes from [astropy](https://docs.astropy.org/en/stable/) and [photutils](https://photutils.readthedocs.io/en/stable), please acknowledge them accordingly.
 
-## Usage
+</br>
 
+## Documentation
+
+See the [full documentation](https://starbug2.readthedocs.io/en/latest/?badge=latest) for the complete installation and detailed guides to using the photometric routines.
+Basic usage information is produced by running:
 ```bash
-Starbug II - JWST PSF photometry
+$~ starbug2 -vh
+
+StarbugII - JWST PSF photometry
 usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
@@ -68,7 +75,7 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
        --generate-run      *.fits : Generate a simple run script
        --version                  : Print starbug2 version
 
-       --apply-zeropint    a.fits : Apply a zeropoint (-s ZEROPOINT=1.0) to a.fits
+       --apply-zeropint    a.fits : Apply a zeropoint (-s ZP_MAG=1.0) to a.fits
        --calc-instr-zp     a.fits : Calculate and apply an instrumental zero point onto a.fits
 
    --> typical runs
@@ -76,12 +83,16 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
 
+See https://starbug2.readthedocs.io for more information.
 ```
 
 ```bash
-StarbugII Matching 
+$~ starbug2-match -vh
+
+StarbugII Matching
 usage: starbug2-match [-BGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
+    -C  --cascade            : match in "CASCADE" mode (left justify columns)
     -D  --dither             : match in "DITHER" mode (preserves a column for every frame)
     -f  --full               : export full catalogue
     -G  --generic            : match in "GENERIC" mode
@@ -94,9 +105,3 @@ usage: starbug2-match [-BGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fi
        $~ starbug2-match -Gfo outfile.fits tab1.fits tab2.fits
        $~ starbug2-match -sMATCH_THRESH=0.2 -sBRIDGE_COL=F444W -Bo out.fits F*W.fits
 ```
-
-See the [readthedocs](https://starbug2.readthedocs.io/en/latest/?badge=latest) page for more detailed instructions.
-
-## Citing StarbugII
-
-If you make use of StarbugII in your work, please cite [2023ascl.soft09012N](https://ui.adsabs.harvard.edu/abs/2023ascl.soft09012N/abstract).
