@@ -4,6 +4,7 @@ tags
 *.swp
 TODO.md
 starbug2/tests/dat/*
+tests/dat/*
 *.reg
 bin
 
