@@ -1,5 +1,8 @@
-# requirements.txt
-#
-# installs dependencies from ./setup.cfg, and the package itself,
-# in editable mode
--e .
+numpy>=1.25
+photutils>=1.9.0
+astropy
+parse
+scipy
+webbpsf
+scikit-image
+sphinx-rtd-theme

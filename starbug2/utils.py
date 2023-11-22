@@ -183,11 +183,19 @@ def tab2array(tab,colnames=None):
 
 
 def export_table(table, fname=None, header=None):
-    if table:
-        if not fname: fname="/tmp/starbug.fits"
-        btab=fits.BinTableHDU(data=reindex(table), header=header).writeto(fname, overwrite=True, output_verify="fix")
+    """ Export table with correct dtypes """
+    dtypes=[]
+    table=reindex(table)
+    for name in table.colnames:
+        if name=="Catalogue_Number": dtypes.append(str)
+        elif name=="flag": dtypes.append(np.uint16)
+        else: dtypes.append(float)
+    table=Table(table,dtype=dtypes).filled(np.nan) ## fill empty values with null
 
-def import_table(fname):
+    if not fname: fname="/tmp/starbug.fits"
+    btab=fits.BinTableHDU(data=table, header=header).writeto(fname, overwrite=True, output_verify="fix")
+
+def import_table(fname, verbose=0):
     """
     """
     tab=None
@@ -206,6 +214,14 @@ def import_table(fname):
             tab=tab.filled(np.nan)
             if tmp: tab=hstack((tab,tmp))
 
+            
+            if not tab.meta.get("FILTER"):
+                if (fltrs:=(set(tab.colnames)&set(starbug2.filters.keys()))):
+                    tab.meta["FILTER"]=list(fltrs).pop()
+                else: tab.meta["FILTER"]=None ## Maybe not set this?
+
+            if verbose: printf("-> loaded %s (%s)\n"%(fname,tab.meta.get("FILTER")))
+                
         else: perror("Table must fits format\n")
     else: perror("Unable to locate \"%s\"\n"%fname)
     return tab
