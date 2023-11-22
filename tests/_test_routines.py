@@ -1,4 +1,5 @@
-from starbug2 import routines
+#from starbug2 import routines
+import .routines
 from astropy.table import Table, hstack
 from astropy.io import fits
 from astropy.wcs import WCS

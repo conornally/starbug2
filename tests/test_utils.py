@@ -1,6 +1,6 @@
+from starbug2 import utils
 import numpy as np
 from astropy.table import Table
-from starbug2 import utils
 
 def test_flux2mag():
     ## input shape
