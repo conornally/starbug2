@@ -1,1 +1,1 @@
-See :doc:`docs/source/changes.rst`
+See :doc:`changes.rst <docs/source/changes.rst>`
