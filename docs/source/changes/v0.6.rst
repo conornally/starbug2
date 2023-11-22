@@ -2,6 +2,14 @@
 What's New in v0.6?
 *******************
 
+v0.6.1
+------
+
+Package Details
+    Converting to pyproject.toml fully
+    
+    Moved bin/starbug2-match to a proper entry point
+
 v0.6.0
 ------
 

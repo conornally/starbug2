@@ -1,3 +1,24 @@
+[project]
+name = "starbug2"
+version = "0.6.1"
+authors = [ {name = "Conor Nally", email = "conor.nally@ed.ac.uk" } ]
+readme = "README.md"
+description = "JWST PSF photometry in complex crowded fields."
+license = {file = "LICENSE.txt"}
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[project.urls]
+Documentation = "https://starbug2.readthedocs.io/en/latest/"
+Repository = "https://github.com/conornally/starbug2.git"
+
+[project.scripts]
+starbug2 = "starbug2.bin.main:starbug_main"
+starbug2-match= "starbug2.bin.match:match_main"
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}

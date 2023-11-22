@@ -100,7 +100,7 @@ def generic_match(catalogues, threshold=0.25, add_src=True, load=None, average=T
 
     if load==True:
         n=sum( [len(c) for c in catalogues[1:]] )
-        load=loading(n,msg="matching",res=n/1000)
+        load=loading(n,msg="matching",res=n/10)
 
     for n,cat in enumerate(catalogues,1):
         if "Catalogue_Number" in cat.colnames: cat.remove_column("Catalogue_Number")
