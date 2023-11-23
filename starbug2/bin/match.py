@@ -77,6 +77,7 @@ def match_onetimeruns(options, setopt):
 def match_fullbandmatch(tables, parameters):
     tomatch={ starbug2.NIRCAM:[], starbug2.MIRI:[] }
     _colnames=["RA","DEC","flag"]
+    dthreshold=parameters.get("MATCH_THRESH")
 
     for i,tab in enumerate(tables):
         fltr=tab.meta.get("FILTER")
