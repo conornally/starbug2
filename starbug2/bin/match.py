@@ -76,7 +76,6 @@ def match_onetimeruns(options, setopt):
 
 def match_fullbandmatch(tables, parameters):
     tomatch={ starbug2.NIRCAM:[], starbug2.MIRI:[] }
-    fname=output if output else "out.fits"
     _colnames=["RA","DEC","flag"]
 
     for i,tab in enumerate(tables):
