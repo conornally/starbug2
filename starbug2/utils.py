@@ -111,18 +111,6 @@ def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA
         else:
             perror("unable to open %f\n"%fname)
 
-"""
-def load_table(fname):
-    table=None
-    if os.path.exists(fname):
-        fp=fits.open(fname)
-        table=Table(fp[1].data._get_raw_data())
-        fp.close()
-    else: perror("unable to open %f\n"%fname)
-    return table
-"""
-
-
 def parse_unit(raw):
     """
     Take a value with the ability to be cast into several units and parse it
@@ -163,7 +151,7 @@ def export_table(table, fname=None, header=None):
         if name=="Catalogue_Number": dtypes.append(str)
         elif name=="flag": dtypes.append(np.uint16)
         else: dtypes.append(float)
-    table=Table(table,dtype=dtypes).filled(np.nan) ## fill empty values with null
+    table=fill_nan(Table(table,dtype=dtypes))
 
     if not fname: fname="/tmp/starbug.fits"
     btab=fits.BinTableHDU(data=table, header=header).writeto(fname, overwrite=True, output_verify="fix")
@@ -206,11 +194,8 @@ def fill_nan(table):
     dont support nans (e.g. starbug flag). These will be set to zero instead
     """
     for i,name in enumerate(table.colnames):
-        #fill_val=np.nan
-        #if table.dtype[i].kind!='f': fill_val=0
         fill_val=np.nan if table.dtype[i].kind=='f' else 0
         if type(table[name])==MaskedColumn: table[name]=table[name].filled(fill_val)
-        #print(table.dtype[i], name,fill_val)
 
     return table
 

@@ -324,6 +324,8 @@ def fn(args):
         if ext==".fits":
             sb=StarbugBase(fname, pfile=setopt.get("PARAMFILE"), options=setopt)
             if sb.verify(): 
+                warn()
+                perror("Input verification failed, there may be unexpected behaviour\n")
                 pass
                 #_input=input("Continue with warnings y/N:")
                 #if _input=="" or _input not in "yY":

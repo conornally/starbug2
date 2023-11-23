@@ -770,10 +770,12 @@ class StarbugBase(object):
         """
         status=0
         #warn=lambda :perror(sbold("WARNING: "))
+        
+        printf("Checking internal systems..\n")
 
         if not self.filter:
             warn()
-            perror("No FILTER set, please update parameter file or use \"-s FILTER=XXX\"\n")
+            perror("No FILTER set, please set in parameter file or use \"-s FILTER=XXX\"\n")
             status=1
 
         dname = os.path.expandvars(starbug2.DATDIR)
