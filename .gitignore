@@ -1,4 +1,4 @@
-a.pdf
+*.pdf
 tags
 *.fits
 *.swp
@@ -6,7 +6,6 @@ TODO.md
 starbug2/tests/dat/*
 tests/dat/*
 *.reg
-bin
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
