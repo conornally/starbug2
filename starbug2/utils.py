@@ -1,6 +1,7 @@
 import time
 import os, sys, numpy as np
 from parse import parse
+import pkg_resources
 from astropy.table import Table,hstack,Column,MaskedColumn
 from astropy.io import fits
 import starbug2
@@ -357,6 +358,11 @@ def find_filter(table):
     lst=list(set(table.colnames)&set(starbug2.filters.keys()))
     if lst: return lst.pop()
     else: return None
+
+def get_version():
+    try: version=pkg_resources.get_distribution("starbug2").version 
+    except: version="UNKNOWN" ## Github pytest work around for now
+    return version
 
 
 

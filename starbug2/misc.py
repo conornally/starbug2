@@ -2,7 +2,6 @@
 Miscillaneous functions...
 """
 import os,stat,sys,numpy as np
-import pkg_resources
 import starbug2
 from starbug2.utils import *
 from starbug2.matching import sort_exposures, generic_match

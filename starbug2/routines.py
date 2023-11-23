@@ -5,7 +5,6 @@ import os
 import sys
 import time
 import numpy as np
-import pkg_resources
 from scipy.stats import norm#, mode
 from scipy.optimize import curve_fit
 from scipy.ndimage import convolve

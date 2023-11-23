@@ -57,9 +57,7 @@ class StarbugBase(object):
         """
         head=fits.Header({**self.options,**self.info})
 
-        try: version=pkg_resources.get_distribution("starbug2").version 
-        except: version="UNKNOWN" ## Github pytest work around for now
-        head["STARBUG"]=version
+        head["STARBUG"]=get_version()
         head["CALIBLEVEL"]=self.stage
         head["FILTER"]=self.filter
         head.update(self.info)

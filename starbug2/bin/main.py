@@ -39,7 +39,6 @@ See https://starbug2.readthedocs.io for more information.
 """
 import os,sys,getopt
 sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
-import pkg_resources
 from starbug2.utils import *
 from starbug2 import param
 import starbug2.bin as scr
@@ -133,7 +132,7 @@ def starbug_parseargv(argv):
             options|=STOPPROC
 
         if opt=="--version": 
-            printf(starbug2.logo%("starbug2-v%s"%pkg_resources.get_distribution("starbug2").version))
+            printf(starbug2.logo%("starbug2-v%s"%get_version()))
             options|=STOPPROC
 
         if opt=="--calc-instr-zp":
