@@ -1,6 +1,6 @@
 [project]
 name = "starbug2"
-version = "0.6.1"
+version = "0.6.2"
 authors = [ {name = "Conor Nally", email = "conor.nally@ed.ac.uk" } ]
 readme = "README.md"
 description = "JWST PSF photometry in complex crowded fields."
@@ -13,7 +13,7 @@ Documentation = "https://starbug2.readthedocs.io/en/latest/"
 Repository = "https://github.com/conornally/starbug2.git"
 
 [project.scripts]
-starbug2 = "starbug2.bin.main:starbug_main"
+starbug2 = "starbug2.bin.main:starbug_mainentry"
 starbug2-match= "starbug2.bin.match:match_main"
 
 [build-system]

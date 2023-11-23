@@ -2,6 +2,12 @@
 What's New in v0.6?
 *******************
 
+v0.6.2
+------
+
+Package Details
+    Sorting out some pytest functions
+
 v0.6.1
 ------
 
