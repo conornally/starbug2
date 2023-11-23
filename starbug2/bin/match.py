@@ -20,6 +20,7 @@ import pkg_resources
 from astropy.table import Table, hstack, vstack
 from starbug2 import utils
 from starbug2 import matching
+from starbug2 import param
 import starbug2.bin as scr
 import starbug2
 
@@ -115,8 +116,8 @@ def match_main():
     ##########
     if not (pfile:=setopt.get("PARAMFILE")):
         if os.path.exists("./starbug.param"): pfile="./starbug.param"
-        else: pfile="%s/default.param"%pkg_resources.resource_filename("starbug2", "param/")
-    parameters=utils.load_params(pfile)
+        else: pfile=None
+    parameters=param.load_params(pfile)
     parameters.update(setopt)
 
     #################

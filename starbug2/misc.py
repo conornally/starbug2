@@ -143,52 +143,6 @@ def generate_runscript(fnames, args="starbug2 "):
     printf("->%s\n"%RUNFILE)
 
 
-def update_paramfile(fname):
-    """
-    When the local parameter file is from an older version, add or remove the
-    new or obselete keys
-    INPUT: fname=local file to update
-    """
-    default_fname="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
-    default_param=load_params(default_fname)
-    current_param=load_params(fname)
-
-    if default_fname==fname:
-        return 
-
-    if os.path.exists(fname):
-        printf("Updating \"%s\"\n"%fname)
-        fpi=open(fname, 'r')
-        fpd=open(default_fname, 'r')
-        fpo=open("/tmp/starbug.param",'w')
-
-        add_keys=set(default_param.keys())-set(current_param.keys())
-        del_keys=set(current_param.keys())-set(default_param.keys())
-        if add_keys: printf("-> adding: %s  \n"%(', '.join(add_keys)))
-        if del_keys: printf("-> removing: %s\n"%(', '.join(del_keys)))
-        
-        if not len(add_keys|del_keys): 
-            printf("-> No updates needed\n")
-            return 
-
-        for inline in fpd.readlines():
-            if inline[0] in "# \t\n":
-                fpo.write(inline)
-                continue
-
-            key,value,comment=parse("{}={}//{}\n",inline)
-            key=key.strip().rstrip()
-
-            if key not in add_keys:
-                value=current_param[key]
-
-            outline="%-24s"%("%-12s"%key+"= "+str(value))+" //"+comment+"\n"
-            fpo.write(outline)
-        fpi.close()
-        fpo.close()
-        fpd.close()
-        os.system("mv /tmp/starbug.param %s"%fname)
-    else: perror("local parameter file '%s' does not exist\n"%fname)
 
 def calc_instrumental_zeropint(psftable, aptable, fltr=None ):
     """
@@ -205,12 +159,3 @@ def calc_instrumental_zeropint(psftable, aptable, fltr=None ):
     std=np.nanstd(dist)
     printf("-> zp=%.3f +/- %.2g\n"%(zp,std))
     return (zp,std)
-#def tmpfn(psftable, aptable):
-#    if "flux" in psftable.colnames and "flux" in aptable.colnames:
-#        matched=generic_match((psftable, aptable), threshold=0.1, add_src=False)
-#        dist=np.array((matched["flux_1"]-matched["flux_2"]).value)
-#        zp=np.nanmedian(dist)
-#        std=np.nanstd(dist)
-#        printf("-> zp=%.3f +/- %.2g\n"%(zp,std))
-#        return (zp,std)
-#    else: return None

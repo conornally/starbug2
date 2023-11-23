@@ -1,4 +1,8 @@
-## STARBUG CONFIG FILE
+import os
+from parse import parse
+from starbug2.utils import printf,perror
+
+default="""## STARBUG CONFIG FILE
 PARAM       =  STARBUGII PARAMETERS     //COMMENT
 
 ## GENERIC
@@ -71,3 +75,95 @@ REGION_RAD  = 3          //Region radius default
 REGION_XCOL = RA         //X column name to use for region
 REGION_YCOL = DEC        //Y column name to use for region
 REGION_WCS  = 1          //If X/Y column names correspind to WCS values
+"""
+
+def parse_param(line):
+    """
+    Parse a parameter line
+    """
+    param={}
+    if line and line[0] not in "# \t\n":
+        key,value,_=parse("{}={}//{}",line)
+        key=key.strip().rstrip()
+        value=value.strip().rstrip()
+        try:
+            if '.' in value: value=float(value)
+            else: value=int(value)
+        except:
+            pass
+
+        ## Special case values
+        if key in ("OUTPUT", "AP_FILE","BGD_FILE","PSF_FILE"): value=os.path.expandvars(value)
+        param[key]=value
+    return param
+
+
+
+def load_default_params():
+    config={}
+    for line in default.split('\n'):
+        config.update(parse_param(line))
+    return config
+
+def load_params(fname):
+    """
+    Convert a parameter file into a dictionary of options
+    INPUT:  fname=path/to/file.param
+    RETURN: dictionary of options
+    """
+    config={}
+    if fname is None:
+        config=load_default_params()
+    elif os.path.exists(fname):
+        with open(fname, "r") as fp:
+            for line in fp.readlines():
+                config.update(parse_param(line))
+    else:
+        perror("config file \"%s\" does not exist\n"%fname)
+        config=None
+    return config
+
+def local_param():
+    with open("starbug.param", "w") as fp:
+        fp.write(default)
+
+def update_paramfile(fname):
+    """
+    When the local parameter file is from an older version, add or remove the
+    new or obselete keys
+    INPUT: fname=local file to update
+    """
+    default_param=load_default_params()
+    current_param=load_params(fname)
+
+    if os.path.exists(fname):
+        printf("Updating \"%s\"\n"%fname)
+        fpi=open(fname, 'r')
+        fpo=open("/tmp/starbug.param",'w')
+
+        add_keys=set(default_param.keys())-set(current_param.keys())
+        del_keys=set(current_param.keys())-set(default_param.keys())
+        if add_keys: printf("-> adding: %s  \n"%(', '.join(add_keys)))
+        if del_keys: printf("-> removing: %s\n"%(', '.join(del_keys)))
+        
+        if not len(add_keys|del_keys): 
+            printf("-> No updates needed\n")
+            return 
+
+        for inline in default.split("\n"):
+            if inline and inline[0] not in "# \t\n":
+
+                key,value,comment=parse("{}={}//{}",inline)
+                key=key.strip().rstrip()
+
+                if key not in add_keys:
+                    value=current_param[key]
+                outline="%-24s"%("%-12s"%key+"= "+str(value))+" //"+comment
+            else: outline=inline
+
+            fpo.write("%s\n"%outline)
+        fpi.close()
+        fpo.close()
+        os.system("mv /tmp/starbug.param %s"%fname)
+    else: perror("local parameter file '%s' does not exist\n"%fname)
+

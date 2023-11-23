@@ -1,4 +1,5 @@
 import starbug2
+from starbug2.param import load_params, load_default_params
 from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.routines import *
@@ -38,9 +39,10 @@ class StarbugBase(object):
         pfile : parameter file name
         options : extra options to load into starbug
         """
-        if not pfile: pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
+        if not pfile:
+            if os.path.exists("starbug.param"): pfile="starbug.param"
+            else: pfile=None
         self.options=load_params(pfile)
-        #self.options.update(dict((key,options[key]) for key in options.keys() if key in self.options))
         self.options.update(options)
         self.load_image(fname)   ## Load the fits image
 
@@ -768,9 +770,9 @@ class StarbugBase(object):
         status=0
         #warn=lambda :perror(sbold("WARNING: "))
 
-        if self.filter not in starbug2.filters.keys():
+        if not self.filter:
             warn()
-            perror("Unknown filter '%s'\n"%self.filter)
+            perror("No FILTER set, please update parameter file or use \"-s FILTER=XXX\"\n")
             status=1
 
         dname = os.path.expandvars(starbug2.DATDIR)
@@ -779,19 +781,12 @@ class StarbugBase(object):
             perror("Unable to locate STARBUG_DATDIR='%s'\n"%dname)
             status=1
 
-        else:
-            pass
-            #if not os.path.exists("%s/%s%s.fits"%(dname, self.filter, self.info["DETECTOR"])):
-            #        warn()
-            #        perror("Unable to locate filter PSF for '%s'\n"%self.filter)
-            #        status=1
-        
         if not os.path.exists(self.outdir):
             warn()
             perror("Unable to locate OUTPUT='%s'\n"%self.outdir)
             status=1
 
-        tmp=load_params("%sdefault.param"%pkg_resources.resource_filename("starbug2","param/"))
+        tmp=load_default_params()
         if set(tmp.keys()) - set(self.options.keys()):
             warn()
             perror("Parameter file version mismatch. Run starbug2 --update-param to update\n")

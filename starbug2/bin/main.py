@@ -41,6 +41,7 @@ import os,sys,getopt
 sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
 import pkg_resources
 from starbug2.utils import *
+from starbug2 import param
 import starbug2.bin as scr
 
 VERBOSE =0x01
@@ -127,7 +128,7 @@ def starbug_parseargv(argv):
             options|=(GENRATREG|STOPPROC)
 
         if opt=="--local-param":
-            os.system("cp %s/default.param starbug.param"%pkg_resources.resource_filename("starbug2","param/"))
+            param.local_param()
             printf("--> generating starbug.param\n")
             options|=STOPPROC
 
@@ -148,23 +149,24 @@ def starbug_onetimeruns(options, setopt):
     """
     Options set, verify/run one time functions
     """
-    from starbug2.misc import init_starbug, generate_psf, generate_runscript, update_paramfile, calc_instrumental_zeropint
+    from starbug2.misc import init_starbug, generate_psf, generate_runscript, calc_instrumental_zeropint
 
     if options&SHOWHELP:
         scr.usage(__doc__,verbose=options&VERBOSE)
         return scr.EXIT_EARLY
 
-    ## Load parameter files
+    ## Load parameter files for onetime runs
     if (pfile:=setopt.get("PARAMFILE"))==None:
         if os.path.exists("./starbug.param"):pfile="starbug.param"
-        else: pfile="%s/default.param"%pkg_resources.resource_filename("starbug2","param/")
-    init_parameters=load_params(pfile)
+        else: pfile=None
+
+    init_parameters=param.load_params(pfile)
 
     if options&UPDATEPRM:
-        update_paramfile(pfile)
+        param.update_paramfile(pfile)
         return scr.EXIT_EARLY
 
-    tmp=load_params("%sdefault.param"%pkg_resources.resource_filename("starbug2","param/"))
+    tmp=param.load_default_params()
     if set(tmp.keys())-set(init_parameters.keys()) | set(init_parameters.keys())-set(tmp.keys()):
         warn()
         perror("Parameter file version mismatch. Run starbug2 --update-param to update\nquitting :(\n")
@@ -348,9 +350,12 @@ def fn(args):
 def starbug_main(argv):
     """Command entry"""
     options, setopt, args= starbug_parseargv(argv)
+
+    
+
+
     if options or setopt: 
         if (exit_code:=starbug_onetimeruns(options,setopt)):
-            print("EXIT:%d"%exit_code)
             return exit_code
 
     if args:

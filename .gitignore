@@ -6,6 +6,7 @@ TODO.md
 starbug2/tests/dat/*
 tests/dat/*
 *.reg
+starbug.param
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

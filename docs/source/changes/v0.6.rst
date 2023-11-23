@@ -5,6 +5,10 @@ What's New in v0.6?
 v0.6.2
 ------
 
+Parameters
+    The default parameter file has moved into a python source file
+
+    starbug2.param has been added to separate all the parameter code
 Package Details
     Sorting out some pytest functions
 

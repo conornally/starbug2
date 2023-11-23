@@ -121,34 +121,6 @@ def load_table(fname):
     return table
 """
 
-def load_params(fname):
-    """
-    Convert a parameter file into a dictionary of options
-    INPUT:  fname=path/to/file.param
-    RETURN: dictionary of options
-    """
-    config={}
-    if os.path.exists(fname):
-        with open(fname, "r") as fp:
-            for line in fp.readlines():
-                if line[0] in "# \t\n":
-                    continue
-                key,value,_=parse("{}={}//{}\n",line)
-                key=key.strip().rstrip()
-                value=value.strip().rstrip()
-                try:
-                    if '.' in value: value=float(value)
-                    else: value=int(value)
-                except:
-                    pass
-
-                ## Special case values
-                if key in ("OUTPUT", "AP_FILE","BGD_FILE","PSF_FILE"): value=os.path.expandvars(value)
-                config[key]=value
-    else:
-        perror("config file \"%s\" does not exist\n"%fname)
-        config=None
-    return config
 
 def parse_unit(raw):
     """
