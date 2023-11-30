@@ -12,6 +12,44 @@ from astropy.table import Column, Table, hstack, vstack
 import starbug2
 from starbug2.utils import *
 
+class Matcher(object):
+    """
+    Base matching class
+    ...
+    """
+    def __init__(self, catalogues, pfile=None):
+        self.catalogues=catalogues
+
+    def __call__(self, *args, **kwargs):
+        return self.match(*args, **kwargs)
+
+    def match(self, **kwargs):
+        return None
+
+    def finish_matching(self):
+        return None
+
+class CascadeMatch(Matcher):
+    def __init__(self, catalogues, pfile=None):
+        super(self,CascadeMatch).__init__(catalogues, pfile)
+
+    def match(self, **kwargs):
+        return None
+
+class DitherMatch(Matcher):
+    def __init__(self, catalogues, pfile=None):
+        super(self,DitherMatch).__init__(catalogues, pfile)
+
+    def match(self, **kwargs):
+        return None
+
+class BandMatch(Matcher):
+    def __init__(self, catalogues, pfile=None):
+        super(self,BandMatch).__init__(catalogues, pfile)
+
+    def match(self, **kwargs):
+        return None
+
 def exp_info(hdulist):
     """
     Get the exposure information about a hdulist 
