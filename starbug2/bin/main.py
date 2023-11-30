@@ -352,9 +352,6 @@ def starbug_main(argv):
     """Command entry"""
     options, setopt, args= starbug_parseargv(argv)
 
-    
-
-
     if options or setopt: 
         if (exit_code:=starbug_onetimeruns(options,setopt)):
             return exit_code
@@ -364,6 +361,7 @@ def starbug_main(argv):
         from multiprocessing import Pool
         from itertools import repeat
         puts(starbug2.logo%starbug2.motd)
+        exit_code=scr.EXIT_SUCCESS
 
         if (ncores:=setopt.get("NCORES")) is None or ncores==1 or len(args)==1:
             setopt["NCORES"]=None
@@ -382,15 +380,20 @@ def starbug_main(argv):
             if not sb: 
                 perror("FAILED: %s\n"%args[n])
                 starbugs.remove(sb)
+                exit_code=scr.EXIT_MIXED
+
+        if not starbug2: exit_code=EXIT_FAIL
+
             
         if options&DOMATCH and len(starbugs)>1:
             starbug_matchoutputs(starbugs, options, setopt)
-        return scr.EXIT_SUCCESS
         
 
     else:
         perror("fits image file must be included\n")
-        return scr.EXIT_FAIL
+        exit_code=scr.EXIT_FAIL
+
+    return exit_code
 
 def starbug_mainentry():
     """Entry point"""

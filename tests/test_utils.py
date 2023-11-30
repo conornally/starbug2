@@ -1,6 +1,32 @@
+import starbug2
 from starbug2 import utils
 import numpy as np
 from astropy.table import Table
+
+def test_strnktn():
+    assert utils.strnktn( "", 3, 'a') == "aaa"
+    assert utils.strnktn( "a", 3, 'a') == "aaaa"
+    assert utils.strnktn( "a", 0, 'a') == "a"
+
+def test_split_fname():
+    fname="/path/to/file.fits"
+    d,f,e = utils.split_fname(fname)
+    assert d=="/path/to"
+    assert f=="file"
+    assert e==".fits"
+
+    fname="file.fits"
+    d,f,e = utils.split_fname(fname)
+    assert d=="."
+    assert f=="file"
+    assert e==".fits"
+
+    fname="file"
+    d,f,e = utils.split_fname(fname)
+    assert d=="."
+    assert f=="file"
+    assert e==""
+
 
 def test_flux2mag():
     ## input shape
@@ -52,27 +78,6 @@ def test_find_colnames():
     assert res == ["word", "word1", "word2"]
     assert utils.find_colnames(tab, "badmatch")==[]
 
-def test_strnktn():
-    assert utils.strnktn( "", 3, 'a') == "aaa"
-
-def test_split_fname():
-    fname="/path/to/file.fits"
-    d,f,e = utils.split_fname(fname)
-    assert d=="/path/to"
-    assert f=="file"
-    assert e==".fits"
-
-    fname="file.fits"
-    d,f,e = utils.split_fname(fname)
-    assert d=="."
-    assert f=="file"
-    assert e==".fits"
-
-    fname="file"
-    d,f,e = utils.split_fname(fname)
-    assert d=="."
-    assert f=="file"
-    assert e==""
 
 def test_tabppend():
     base=Table( [[0,0], [0,0]], names=('a','b'))
@@ -86,5 +91,18 @@ def test_tabppend():
     assert np.all( out==tab) ## tab is not a typo
 
 
-#def test_parse_unit():
-    #assert all(utils.parse_unit("")==(None,None))
+def test_parse_unit():
+    assert utils.parse_unit("10p") == (10, starbug2.PIX)
+    assert utils.parse_unit("10s") == (10, starbug2.ARCSEC)
+    assert utils.parse_unit("10m") == (10, starbug2.ARCMIN)
+    assert utils.parse_unit("10d") == (10, starbug2.DEG)
+
+    assert utils.parse_unit("10.1s") == (10.1, starbug2.ARCSEC)
+    assert utils.parse_unit("-10.1s") == (-10.1, starbug2.ARCSEC)
+    assert utils.parse_unit("0s") == (0, starbug2.ARCSEC)
+    assert utils.parse_unit("0") == (0, None)
+
+    assert utils.parse_unit("") == (None, None)
+    assert utils.parse_unit("p") == (None, None)
+
+

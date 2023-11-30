@@ -14,7 +14,7 @@ Repository = "https://github.com/conornally/starbug2.git"
 
 [project.scripts]
 starbug2 = "starbug2.bin.main:starbug_mainentry"
-starbug2-match= "starbug2.bin.match:match_main"
+starbug2-match= "starbug2.bin.match:match_mainentry"
 
 [build-system]
 requires = ["setuptools"]

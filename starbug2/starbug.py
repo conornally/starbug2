@@ -3,6 +3,7 @@ from starbug2.param import load_params, load_default_params
 from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.routines import *
+from starbug2.artificialstars import Artificial_Stars
 
 from astropy.wcs import WCS
 from astropy.table import hstack, vstack
@@ -663,73 +664,48 @@ class StarbugBase(object):
 
         >>> This needs to get the background loaded into it somewhere!!
         """
-
-        fname=os.path.expandvars("%s/%s.fits"%(starbug2.DATDIR, self.filter))
-        with fits.open(fname) as fp:
-            psf_model=DiscretePRF(fp[0].data)
+        status=0
 
         detector=Detection_Routine( sig_src=self.options["SIGSRC"],
                                     sig_sky=self.options["SIGSKY"],
                                     fwhm=starbug2.filters[self.filter].pFWHM,
                                     sharplo=self.options["SHARP_LO"],
                                     sharphi=self.options["SHARP_HI"],
-                                    roundlo=self.options["ROUND_LO"],
-                                    roundhi=self.options["ROUND_HI"],
-                                    wcs=WCS(self.image.header),
+                                    round1hi=self.options["ROUND1_HI"],
                                     verbose=0)
+        phot=APPhot_Routine ( self.options["APPHOT_R"],
+                              self.options["SKY_RIN"],
+                              self.options["SKY_ROUT"])
 
-        phot=PSFPhot_Routine(   self.options["CRIT_SEP"],
-                                starbug2.filters[self.filter].pFWHM,
-                                psf_model,
-                                psf_model.shape,
-                                sig_sky=self.options["SIGSKY"],
-                                sig_src=self.options["SIGSRC"],
-                                sharplo=self.options["SHARP_LO"],
-                                sharphi=self.options["SHARP_HI"],
-                                roundlo=self.options["ROUND_LO"],
-                                roundhi=self.options["ROUND_HI"],
-                                wcs=WCS(self.image.header),
-                                verbose=0)
+        self.load_psf(self.options.get("PSF_FILE"))
+        psf_model=FittableImageModel(self.psf)
+        #phot=PSFPhot_Routine(   self.options["CRIT_SEP"],
+        #                        starbug2.filters[self.filter].pFWHM,
+        #                        psf_model,
+        #                        psf_model.shape,
+        #                        sig_sky=self.options["SIGSKY"],
+        #                        sig_src=self.options["SIGSRC"],
+        #                        sharplo=self.options["SHARP_LO"],
+        #                        sharphi=self.options["SHARP_HI"],
+        #                        roundlo=self.options["ROUND_LO"],
+        #                        roundhi=self.options["ROUND_HI"],
+        #                        wcs=WCS(self.image.header),
+        #                        verbose=0)
 
-        art=ArtificialStar_Routine(detector, phot, psf_model)
-        self.log("Artificial Star Testing (n=%d)\n"%(self.options["NUMBER_ARTIFICIAL_STARS"]))
-        result=art.run(self.image.data, ntests=self.options["NUMBER_ARTIFICIAL_STARS"], flux_range=(self.options["MIN_FLUX"], self.options["MAX_FLUX"]),
-                subimage_size=self.options["SUBIMAGE_SIZE"], separation_thresh=self.options["SEPARATION_THRESH"], fwhm=starbug2.filters[self.filter].pFWHM)
-        export_table(result, "/tmp/artificialstars.fits")
+        art=Artificial_Stars(detector=detector, photometry=phot, psf=psf_model)
+        self.log("Artificial Star Testing (n=%d)\n"%(self.options["NTESTS"]))
 
-    #def export_residuals(self):
-    #def export(self, outdir=None):
-    #    """
-    #    Export all the current catalogues
-    #    """
-    #    if not outdir: outdir=self.options["OUTPUT"]
-    #    if not os.path.exists("%s/"%outdir):
-    #        perror("output directory '%s' does not exist, using /tmp instead\n"%outdir)
-    #        outdir="/tmp"
+        result= art.run_auto( self.image.data.copy(), ntests=self.options.get("NTESTS"), stars_per_test=self.options.get("NSTARS"), 
+                            subimage_size=self.options.get("SUBIMAGE"), flux_range=( self.options["MIN_FLUX"],self.options["MAX_FLUX"]))
 
-    #    dname,fname,ext=split_fname(self.fname)
-    #    if self.detections:
-    #        self.detections.meta["FILTER"]=self.filter
-    #        reindex(self.detections)
-    #        hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.detections)]
-    #        fits.HDUList(hdulist).writeto("%s/%s-ap.fits"%(outdir,fname), overwrite=True)
-    #        #export_table(self.detections, fname="%s/%s-ap.fits"%(outdir,fname))
-    #    if self.psfcatalogue:
-    #        reindex(self.psfcatalogue)
-    #        hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.psfcatalogue)]
-    #        fits.HDUList(hdulist).writeto("%s/%s-psf.fits"%(outdir,fname), overwrite=True)
-    #        #export_table(self.psfcatalogue, fname="%s/%s-psf.fits"%(outdir,fname))
-    #    if self.background: 
-    #        #self.background.header.update(header)
-    #        self.background.writeto("%s/%s-bgd.fits"%(outdir,fname), overwrite=True)
-    #    if self.residuals is not None:
-    #        im=fits.ImageHDU(data=self.residuals, name="RES", header=self.header)
-    #        im.header.update(self.wcs.to_header())
-    #        im.writeto("%s/%s-res.fits"%(outdir,fname), overwrite=True)
-    #    if self.source_stats is not None:
-    #        reindex(self.source_stats)
-    #        hdulist=[fits.PrimaryHDU(header=self.header),fits.BinTableHDU(data=self.source_stats)]
-    #        fits.HDUList(hdulist).writeto("%s/%s-stat.fits"%(outdir,fname), overwrite=True)
+        _fname="%s/%s-art.fits"%(self.outdir, self.bname)
+        export_table(result, fname=_fname)
+
+        return status
+
+
+
+
 
     def source_geometry(self):
         """

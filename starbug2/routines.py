@@ -5,7 +5,7 @@ import os
 import sys
 import time
 import numpy as np
-from scipy.stats import norm#, mode
+from scipy.stats import norm
 from scipy.optimize import curve_fit
 from scipy.ndimage import convolve
 from skimage.feature import match_template
@@ -35,7 +35,7 @@ class Detection_Routine(StarFinderBase):
     Each run the background subtraction is differemt, bringing out a
     different set of sources
     """
-    def __init__(self,  sig_src=5, sig_sky=3, fwhm=1,
+    def __init__(self,  sig_src=5, sig_sky=3, fwhm=2,
                         sharplo=0.2, sharphi=1, round1hi=1, round2hi=1,
                         smoothlo=-np.inf, smoothhi=np.inf, ricker_r=1.0,
                         verbose=0, cleansrc=1, dobgd2d=1, boxsize=2, doconvl=1):
@@ -95,11 +95,10 @@ class Detection_Routine(StarFinderBase):
         is above the threshold self.match_threshold
         """
 
-        added=0
         base_sky=SkyCoord(x=base["xcentroid"], y=base["ycentroid"], z=np.zeros(len(base)), representation_type="cartesian")
         cat_sky=SkyCoord(x=cat["xcentroid"], y=cat["ycentroid"], z=np.zeros(len(cat)), representation_type="cartesian")
-        _,separation,_=cat_sky.match_to_catalog_3d(base_sky)
-        mask= separation.to_value() >self.fwhm
+        idx,separation,dist=cat_sky.match_to_catalog_3d(base_sky)
+        mask= dist.to_value() >self.fwhm
         return vstack((base,cat[mask]))
 
 
@@ -192,7 +191,7 @@ class APPhot_Routine():
     def __call__(self, detections, image, **kwargs):
         return self.run(detections, image, **kwargs)
 
-    def run(self, detections, image, error=1, dqflags=None, apcorr=1.0, sig_sky=3):
+    def run(self, detections, image, error=None, dqflags=None, apcorr=1.0, sig_sky=3):
         """
         Forced aperture photometry on a list of detections
         detections are a astropy.table.Table with columns xcentroid ycentroid or x_0 y_0
@@ -213,6 +212,8 @@ class APPhot_Routine():
             return None
 
         mask=np.isnan(image)
+        if error is None:
+            error=np.sqrt(image)
 
         apertures=CircularAperture(pos,self.radius)
         smooth_apertures=CircularAperture(pos, min(1.5*self.radius,self.sky_in))

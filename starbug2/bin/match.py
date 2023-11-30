@@ -16,7 +16,6 @@ usage: starbug2-match [-BCGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.f
 """
 import os,sys,getopt
 import numpy as np
-import pkg_resources
 from astropy.table import Table, hstack, vstack
 from starbug2 import utils
 from starbug2 import matching
@@ -38,12 +37,12 @@ CASCADEMATCH=0x80
 EXPFULL = 0x100
 
 
-def match_parsemargv():
+def match_parsemargv(argv):
     options=0
     setopt={}
 
-    cmd,argv=scr.parsecmd(sys.argv)
-    opts,args=getopt.getopt(sys.argv[1:], "BCDfGhvo:p:s:", ("band","cascade","dither","full","generic","help","verbose","output=","param=","set="))
+    cmd,argv=scr.parsecmd(argv)
+    opts,args=getopt.getopt(argv, "BCDfGhvo:p:s:", ("band","cascade","dither","full","generic","help","verbose","output=","param=","set="))
     for opt,optarg in opts:
         if opt in ("-h", "--help"):     options|=(SHOWHELP|STOPPROC)
         if opt in ("-v", "--verbose"):  options|=VERBOSE
@@ -104,9 +103,9 @@ def match_fullbandmatch(tables, parameters):
         
     return matched
 
-def match_main():
-    """Entry Point"""
-    options,setopt,args = match_parsemargv()
+def match_main(argv):
+    """"""
+    options,setopt,args = match_parsemargv(argv)
     if options or setopt:
         if (exit_code:=match_onetimeruns(options,setopt))!=scr.EXIT_SUCCESS:
             return exit_code
@@ -123,9 +122,14 @@ def match_main():
     #################
     # MAIN ROUTINES #
     #################
+    exit_code=scr.EXIT_SUCCESS
 
-    tables=[ utils.import_table(fname, verbose=1) for fname in args]
-    if tables:
+    tables=[ ]
+    for fname in args: 
+        t=utils.import_table(fname, verbose=1)
+        if t is not None: tables.append(t)
+
+    if len(tables)>1:
         colnames=starbug2.match_cols
         colnames+=[ name for name in parameters["MATCH_COLS"].split() if name not in colnames]
         dthreshold=parameters["MATCH_THRESH"]
@@ -173,7 +177,15 @@ def match_main():
         if options&EXPFULL: utils.export_table(full,fname="%s/%sfull.fits"%(dname,fname))
         if av: utils.export_table(av,"%s/%smatch.fits"%(dname,fname))
 
-        return scr.EXIT_SUCCESS
+        exit_code= scr.EXIT_SUCCESS
+    
+    elif len(tables)==1: 
+        exit_code=scr.EXIT_EARLY
     else:
         utils.perror("No tables loaded for matching.\n")
-        return scr.EXIT_FAIL
+        exit_code= scr.EXIT_FAIL
+    return exit_code
+
+def match_mainentry():
+    """StarbugII-match entry"""
+    return match_main(sys.argv)

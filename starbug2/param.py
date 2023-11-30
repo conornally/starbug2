@@ -61,12 +61,12 @@ NEXP_THRESH = -1         // Keep sources that appear in NUM >= NEXP_THRESH (if -
 SN_THRESH   = -1         // Remove sources with SN ratio < SN_THRESH before matching (default -1 to not apply this cut)
 BRIDGE_COL  =            // Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam catalogue has a match in BRIDGE_COL
 
-## ARTIFICAL STARS
-NUMBER_ARTIFICIAL_STARS= 500 //number of individual stars to test
-SUBIMAGE_SIZE= 500       //number of pixels ? to crop around artificial star
-MIN_FLUX    = 10         //minimun flux for artificial star
-MAX_FLUX    = 10000      //maximum flux for artificial star
-SEPARATION_THRESH= 2     //number pixels above which the separation is too high and the artifical star failed to be detected
+## ARTIFICAL STAR TESTS
+NTESTS      = 100        // Number of artificial star tests
+NSTARS      = 1          // Number of stars per artifical test
+SUBIMAGE    = 500        //number of pixels ? to crop around artificial star
+MIN_FLUX    = 1e-6       //minimun flux for artificial star
+MAX_FLUX    = 1e+6       //maximum flux for artificial star
 
 ## MISC EXTRAS
 REGION_COL  = green      //DS9 region colour
@@ -83,7 +83,8 @@ def parse_param(line):
     """
     param={}
     if line and line[0] not in "# \t\n":
-        key,value,_=parse("{}={}//{}",line)
+        if "//" in line: key,value,_=parse("{}={}//{}",line)
+        else: key,value=parse("{}={}",line)
         key=key.strip().rstrip()
         value=value.strip().rstrip()
         try:
@@ -120,7 +121,6 @@ def load_params(fname):
                 config.update(parse_param(line))
     else:
         perror("config file \"%s\" does not exist\n"%fname)
-        config=None
     return config
 
 def local_param():

@@ -3,24 +3,42 @@ from astropy.table import Table, hstack
 from astropy.io import fits
 from astropy.wcs import WCS
 
-import os
-go=os.path.exists("tests/dat/image.fits")
-if go: image=fits.open("tests/dat/image.fits")
-else: image=None
+image=fits.open("tests/dat/image.fits")
 
-def test_Detection_Routine_none():
-    dt=routines.Detection_Routine()
-    assert dt.find_stars(None) is None
+class Test_Detection():
+    im=image["SCI"].data
+    a=Table([[0,10],[0,10]],names=["xcentroid","ycentroid"])
+    b=Table([[20,10,50],[20,10,0]],names=["xcentroid","ycentroid"])
 
-def test_Detection_Routine_crashes():
-    dt=routines.Detection_Routine()
-    if image:
-        out=dt.find_stars(image["SCI"].data)
+    def test_Detection_Routine_none(self):
+        dt=routines.Detection_Routine()
+        assert dt.find_stars(None) is None
+
+    def test_Detection_Routine_crashes(self):
+        dt=routines.Detection_Routine()
+        out=dt.find_stars(self.im.copy())
         assert out is not None
 
-def test_BackGround_Estimate_Routine_none():
-    bg=routines.BackGround_Estimate_Routine(None)
-    assert bg(None) is None
+    def test_Detection_match(self):
+        dt=routines.Detection_Routine()
+        _a=self.a.copy()
+        _b=self.b.copy()
+        c=dt.match(_a,_b)
+        assert type(c)==Table
+        assert len(_a)==len(self.a)
+        assert len(_b)==len(self.b)
+        assert len(c)==4
+
+    def test_bkg2d(self):
+        b=routines.Detection_Routine()._bkg2d(self.im.copy())
+        assert type(b)==type(self.im)
+        assert b.shape==self.im.shape
+
+
+class Test_Background():
+    def test_BackGround_Estimate_Routine_none(self):
+        bg=routines.BackGround_Estimate_Routine(None)
+        assert bg(None) is None
 
 #def test_BackGround_Estimate_Routine_crashes():
 #    pass
@@ -38,6 +56,7 @@ def test_SourceProperties_none():
 #    ## im just verifying it doesnt crash
 #    print("testing crashes")
 #    slist=Table.read("tests/dat/image-ap.fits", format="fits")
+
 #    sp=routines.SourceProperties(image["SCI"].data, slist[["xcentroid","ycentroid"]])
 #    a=sp(fwhm=2.3)
 #

@@ -401,7 +401,7 @@ def finish_matching(tab, colnames, fltr=None):
         av[name]=col
     if len(set(["flux","eflux"])&set(av.colnames))==2:
         _errcol= "stdflux" if "stdflux" in av.colnames else "e%s"%fltr
-        mag,magerr=flux2ABmag(av["flux"],av[_errcol], fltr)
+        mag,magerr=flux2ABmag(av["flux"],av[_errcol]) ##### hmmmmmm
         if fltr is None: fltr="mag"
 
         if fltr in av.colnames: av.remove_column(fltr)

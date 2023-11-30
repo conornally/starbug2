@@ -8,9 +8,13 @@ v0.6.2
 Parameters
     The default parameter file has moved into a python source file
 
-    starbug2.param has been added to separate all the parameter code
+    starbug2/param.py has been added to separate all the parameter code
+
+
 Package Details
-    Sorting out some pytest functions
+    Trying to fix some of the pytest code, especially when it runs in a github action
+
+    Adding CITATION.bib
 
 v0.6.1
 ------

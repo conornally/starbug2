@@ -289,11 +289,8 @@ def flux2mag(flux,fluxerr=None, zp=1):
     return mag,magerr
 
 
-def flux2ABmag(flux,fluxerr=None, zp=1, filter=None):
-    zp=3631.0
-    if filter and filter in list(starbug2.ZP.keys()): zp=starbug2.ZP[filter][0]
-
-    return flux2mag( flux, fluxerr, zp=zp)
+def flux2ABmag(flux,fluxerr=None):
+    return flux2mag( flux, fluxerr, zp=3631.0)
 
 
 def wget(address, fname=None):

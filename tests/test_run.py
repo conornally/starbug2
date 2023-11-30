@@ -45,9 +45,51 @@ def test_psf():
     assert run("starbug2 -DB tests/dat/image.fits")==EXIT_SUCCESS
     assert run("starbug2 -d tests/dat/image-ap.fits -b tests/dat/image-bgd.fits -P tests/dat/image.fits")==EXIT_SUCCESS
     assert run("starbug2 -fP tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -d tests/dat/image-ap.fits P tests/dat/image.fits")==EXIT_SUCCESS
     assert run("starbug2 -fBP tests/dat/image.fits")==EXIT_SUCCESS
     assert run("starbug2 -fPs GEN_RESIDUAL=1 tests/dat/image.fits")==EXIT_SUCCESS
     clean()
+
+def test_residual():
+    clean()
+    assert run("starbug2 -DB tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -fSs GEN_RESIDUAL=1 tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 tests/dat/image-res.fits")==EXIT_SUCCESS
+    assert run("starbug2 -D tests/dat/image-res.fits")==EXIT_SUCCESS
+    assert run("starbug2 -fB tests/dat/image-res.fits")==EXIT_SUCCESS
+    assert run("starbug2 -fP tests/dat/image-res.fits")==EXIT_SUCCESS
+    assert run("starbug2 -fPs GEN_RESIDUAL=1 tests/dat/image-res.fits")==EXIT_SUCCESS
+
+    assert run("starbug2 -fSA tests/dat/image.fits")==EXIT_SUCCESS
+    clean()
+
+
+def test_ncores():
+    clean()
+    assert run("starbug2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -n2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -vD tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -Dn0 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -Dn1 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -Dn2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -Dn4 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+
+    assert run("starbug2 -DBP tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -vDBPn2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -DM tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -DMn2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+
+    assert run("starbug2 -D tests/dat/image-ap.fits tests/dat/image.fits")==EXIT_MIXED
+    assert run("starbug2 -D bad.fits tests/dat/image.fits")==EXIT_MIXED
+    clean()
+
+
+
+
+
+
+
+
 
 def clean():
     files=glob.glob("tests/dat/*")
