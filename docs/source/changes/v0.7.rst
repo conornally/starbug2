@@ -1,0 +1,25 @@
+*******************
+What's New in v0.7?
+*******************
+
+v0.7.0
+------
+
+Matching:
+    The core matching package is having a bit of an overhaul to make it a little bit simpler to use.
+
+    -   Addition of Matcher and CascadeMatch classes where generic_match and cascade_match were
+
+Artificial Stars:
+    Setting out the groundwork for artificial star testing. 
+
+    -   Artificial_Stars class added
+
+
+Still To Do:
+    -   Integrate Artificial_Stars class into starbug.py and ~starbug2
+
+    -   Move band_match to a subclass of Matcher
+
+    -   Do some matching tests
+

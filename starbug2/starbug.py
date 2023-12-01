@@ -152,6 +152,9 @@ class StarbugBase(object):
                     self._image=fits.open(fname)
                     _=self.image ## Force assigning _nHDU
                     self.log("-> using image HDU: %d (%s)\n"%(self._nHDU,self.image.name))
+                    if self.image.data is None:
+                        warn()
+                        perror("Image seems to be empty.\n")
 
                     if (val:=self.header.get("TELESCOP")) is None or (val.find("JWST")<0):
                         warn(); perror("Telescope not JWST, there may be undefined behaviour.\n")
@@ -747,7 +750,7 @@ class StarbugBase(object):
         status=0
         #warn=lambda :perror(sbold("WARNING: "))
         
-        printf("Checking internal systems..\n")
+        self.log("Checking internal systems..\n")
 
         if not self.filter:
             warn()
@@ -769,6 +772,11 @@ class StarbugBase(object):
         if set(tmp.keys()) - set(self.options.keys()):
             warn()
             perror("Parameter file version mismatch. Run starbug2 --update-param to update\n")
+            status=1
+        
+        if self._image is None or self.image.data is None:
+            warn()
+            perror("Image did not load correctly\n")
             status=1
 
         if self.options["AP_FILE"] and self.detections is not None:

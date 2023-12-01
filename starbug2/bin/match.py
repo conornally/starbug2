@@ -18,7 +18,7 @@ import os,sys,getopt
 import numpy as np
 from astropy.table import Table, hstack, vstack
 from starbug2 import utils
-from starbug2 import matching
+from starbug2.matching import Matcher, CascadeMatch
 from starbug2 import param
 import starbug2.bin as scr
 import starbug2
@@ -75,6 +75,7 @@ def match_onetimeruns(options, setopt):
     return scr.EXIT_SUCCESS
 
 def match_fullbandmatch(tables, parameters):
+    perror("THIS NEEDS A TEST\n")
     tomatch={ starbug2.NIRCAM:[], starbug2.MIRI:[] }
     _colnames=["RA","DEC","flag"]
     dthreshold=parameters.get("MATCH_THRESH")
@@ -86,8 +87,8 @@ def match_fullbandmatch(tables, parameters):
     
     if tomatch[starbug2.NIRCAM] and tomatch[starbug2.MIRI]:
         utils.printf("Detected NIRCam to MIRI matching\n")
-        nircam_matched=matching.band_match(tomatch[starbug2.NIRCAM], colnames=_colnames)
-        miri_matched=matching.band_match(tomatch[starbug2.MIRI], colnames=_colnames)
+        nircam_matched=band_match(tomatch[starbug2.NIRCAM], colnames=_colnames)
+        miri_matched=band_match(tomatch[starbug2.MIRI], colnames=_colnames)
 
         load=utils.loading(len(miri_matched), msg="Combining NIRCAM-MIRI(%.2g\")"%dthreshold)
         if (bridgecol:=parameters.get("BRIDGE_COL")):
@@ -95,11 +96,14 @@ def match_fullbandmatch(tables, parameters):
             utils.printf("-> bridging catalogues with %s\n"%bridgecol)
         else: mask=np.full(len(nircam_matched), False)
 
-        matched,_=matching.generic_match((nircam_matched[~mask],miri_matched), threshold=dthreshold, add_src=True, load=load)
+        m=Matcher(threshold=dthreshold, load=load)
+        full=m((nircam_matched[~mask],miri_matched))
+        matched = m.finish_matching(full)
+        #matched,_=matching.generic_match((nircam_matched[~mask],miri_matched), threshold=dthreshold, add_src=True, load=load)
         matched.remove_column("NUM")
         matched=vstack((matched, nircam_matched[mask]))
     else:
-        matched=matching.band_match(tables, colnames=_colnames)
+        matched=band_match(tables, colnames=_colnames)
         
     return matched
 
@@ -155,18 +159,19 @@ def match_main(argv):
             full=None
 
         else:
-            if options & DITHERMATCH:  av,full=matching.dither_match(tables, threshold=dthreshold, colnames=colnames)
-            elif options & CASCADEMATCH: av,full=matching.cascade_match(tables, threshold=dthreshold, colnames=colnames)
-            elif options & GENERICMATCH: av,full=matching.generic_match(tables,threshold=dthreshold, add_src=True, average=True, load=options&VERBOSE)
-            else:
+            if options & CASCADEMATCH: matcher=CascadeMatch(threshold=dthreshold, colnames=colnames)
+            elif options & GENERICMATCH: matcher=Matcher(threshold=dthreshold, colnames=colnames)
+            else: 
+                matcher=Matcher(threshold=dthreshold, colnames=colnames)
                 options|=EXPFULL
-                av,full=matching.generic_match(tables,threshold=dthreshold, add_src=True, average=True, load=options&VERBOSE)
+            full= matcher( tables, join_type="or" )
+            av = matcher.finish_matching(full, num_thresh=nthreshold, zpmag=parameters["ZP_MAG"] )
 
-            if av: 
-                av.meta.update(tables[0].meta)
-                if nthreshold!=-1:
-                    mask=av["NUM"]>=nthreshold
-                    av=av[mask]
+           # if av: 
+           #     av.meta.update(tables[0].meta)
+           #     if nthreshold!=-1:
+           #         mask=av["NUM"]>=nthreshold
+           #         av=av[mask]
 
         output=parameters.get("OUTPUT")
         if output is None or output == '.':

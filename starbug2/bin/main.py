@@ -102,7 +102,7 @@ def starbug_parseargv(argv):
             else: perror("BGD_FILE \"%s\" does not exist\n"%optarg)
 
         if opt in ("-f","--find"): options|=FINDFILE
-        if opt in ("-n","--ncores"): setopt["NCORES"]=int(optarg)
+        if opt in ("-n","--ncores"): setopt["NCORES"]=max(1,int(optarg))
 
         if opt in ("-o","--output"):
             output=optarg
@@ -258,9 +258,10 @@ def starbug_matchoutputs(starbugs, options, setopt):
     """
     Matching output catalogues
     """
-    from starbug2.matching import dither_match
+    from starbug2.matching import Matcher
     if options&VERBOSE: printf("Matching outputs\n")
-    params=starbugs[0].options
+    params=param.load_params(setopt.get("PARAMFILE"))
+    params.update(setopt)
 
     if (fname:=combine_fnames( [sb.fname for sb in starbugs] )):
         _,name,_=split_fname(os.path.basename(fname))
@@ -268,35 +269,26 @@ def starbug_matchoutputs(starbugs, options, setopt):
     else: fname="out"
 
     header=starbugs[0].header
-    colnames=starbug2.match_cols
-    colnames+=[ name for name in params["MATCH_COLS"].split() if name not in colnames]
-    dthreshold=params["MATCH_THRESH"]
-    nthreshold=params["NEXP_THRESH"]
+    #colnames=starbug2.match_cols
+    #colnames+=[ name for name in params["MATCH_COLS"].split() if name not in colnames]
 
+    match=Matcher( threshold= params["MATCH_THRESH"], colnames=None, pfile=setopt.get("PARAMFILE"))
 
     if options&(DODETECT|DOAPPHOT):
-        av,full=dither_match([sb.detections for sb in starbugs], threshold=dthreshold, colnames=colnames)
+        full=match( [sb.detections for sb in starbugs], join_type="or")
+        av =match.finish_matching(full, num_thresh=params["NEXP_THRESH"], zpmag=params["ZP_MAG"])
 
-        if nthreshold>0:
-            mask=av["NUM"] >= nthreshold
-        else: mask=np.ones(len(av),dtype=bool)
-
-        av.meta.update(header)
         printf("-> %s-ap*...\n"%(fname))
         export_table(full, fname="%s-apfull.fits"%(fname), header=header)
-        export_table(av[mask], fname="%s-apmatch.fits"%(fname), header=header)
+        export_table(av, fname="%s-apmatch.fits"%(fname), header=header)
 
     if options&DOPHOTOM:
-        av,full=dither_match([sb.psfcatalogue for sb in starbugs], threshold=dthreshold, colnames=colnames)
+        full=match( [sb.psfcatalogue for sb in starbugs], join_type="or")
+        av =match.finish_matching(full, num_thresh=params["NEXP_THRESH"], zpmag=params["ZP_MAG"])
 
-        if nthreshold>0:
-            mask=av["NUM"] >= nthreshold
-        else: mask=np.ones(len(av))
-
-        av.meta.update(header)
         printf("-> %s-psf*...\n"%(fname))
         export_table(full, fname="%s-psffull.fits"%(fname), header=header)
-        export_table(av[mask], fname="%s-psfmatch.fits"%(fname), header=header)
+        export_table(av, fname="%s-psfmatch.fits"%(fname), header=header)
 
 
 
@@ -325,8 +317,9 @@ def fn(args):
             sb=StarbugBase(fname, pfile=setopt.get("PARAMFILE"), options=setopt)
             if sb.verify(): 
                 warn()
-                perror("Input verification failed, there may be unexpected behaviour\n")
-                pass
+                perror("System verification failed\n")
+                return None
+                #pass
                 #_input=input("Continue with warnings y/N:")
                 #if _input=="" or _input not in "yY":
                 #    return#quit("..quitting :(")

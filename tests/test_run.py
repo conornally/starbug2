@@ -1,7 +1,7 @@
 import os,glob
 import pytest
 from starbug2.utils import wget
-from starbug2.bin import EXIT_SUCCESS, EXIT_EARLY, EXIT_FAIL
+from starbug2.bin import EXIT_SUCCESS, EXIT_EARLY, EXIT_FAIL, EXIT_MIXED
 from starbug2.bin.main import starbug_main
 
 run = lambda s:starbug_main(s.split())
@@ -45,7 +45,7 @@ def test_psf():
     assert run("starbug2 -DB tests/dat/image.fits")==EXIT_SUCCESS
     assert run("starbug2 -d tests/dat/image-ap.fits -b tests/dat/image-bgd.fits -P tests/dat/image.fits")==EXIT_SUCCESS
     assert run("starbug2 -fP tests/dat/image.fits")==EXIT_SUCCESS
-    assert run("starbug2 -d tests/dat/image-ap.fits P tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -d tests/dat/image-ap.fits -P tests/dat/image.fits")==EXIT_SUCCESS
     assert run("starbug2 -fBP tests/dat/image.fits")==EXIT_SUCCESS
     assert run("starbug2 -fPs GEN_RESIDUAL=1 tests/dat/image.fits")==EXIT_SUCCESS
     clean()

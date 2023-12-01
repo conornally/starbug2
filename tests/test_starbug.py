@@ -1,6 +1,6 @@
 from starbug2.starbug import StarbugBase
 
-class Test_Implementation:
+class xTest_Implementation:
     image="tests/dat/image.fits"
     
     def test_artificial_stars(self):

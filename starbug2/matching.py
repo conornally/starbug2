@@ -3,6 +3,7 @@ Starbug matching functions
 Primarily this is the main routines for dither/band/generic matching which are at the core
 of starbug2 and starbug2-matc
 """
+import os
 import numpy as np
 import astropy.io.fits as fits
 import astropy.units as u
@@ -11,30 +12,278 @@ from astropy.table import Column, Table, hstack, vstack
 
 import starbug2
 from starbug2.utils import *
+from starbug2.param import load_params
 
 class Matcher(object):
     """
     Base matching class
-    ...
+
+    Parameters
+    ----------
+    catalogues :
+
+    colnames : list
+        List of str column names to include in the matching.
+        Everything else will be discarded
+
+    fltr : str
+        Specifically set the filter of the catalogues 
+
+    threshold : float
+        Separation threshold in arcseconds
+
+    pfile : str
+        Parameter filename
+
     """
-    def __init__(self, catalogues, pfile=None):
-        self.catalogues=catalogues
+    method="Generic Matching"
+    def __init__(self, threshold=None, colnames=None, fltr=None, verbose=None, pfile=None):
+        options=load_params(pfile)
+        self.threshold  =options.get("MATCH_THRESH")
+        self.filter     =options.get("FILTER")
+        self.verbose    =options.get("VERBOSE")
+        #self.zpmag      =options.get("ZP_MAG")
+
+        if threshold is not None: self.threshold=threshold
+        self.threshold *= u.arcsec
+
+        if fltr is not None: self.filter=fltr
+        if verbose is not None: self.verbose=verbose
+        #if zpmag is not None: self.zpmag=zpmag
+
+        self.colnames=colnames 
+        self.load=loading(1)
+        
+    def log(self,msg):
+        if self.verbose: printf(msg)
+
+    def __str__(self):
+        s=[ "%s:"%self.method,
+            "Filter: %s"%self.filter,
+            "Colnames: %s"%self.colnames,
+            "Threshold: %s\""%self.threshold]
+        return "\n".join(s)
 
     def __call__(self, *args, **kwargs):
         return self.match(*args, **kwargs)
 
-    def match(self, **kwargs):
-        return None
+    def init_catalogues(self, catalogues):
+        """
+        """
+        ## Must copy here maybe?
+        if len(catalogues)>=2:
+            self.load=loading( sum( len(cat) for cat in catalogues[1:]), msg="matching")
 
-    def finish_matching(self):
-        return None
+        if self.colnames is None:
+            self.colnames=[]
+            for cat in catalogues:
+                self.colnames+=cat.colnames
+        self.colnames = rmduplicates(self.colnames)
+        if "Catalogue_Number" in self.colnames: self.colnames.remove("Catalogue_Number")
+
+        for n,catalogue in enumerate(catalogues):
+            keep=set(catalogue.colnames)&set(self.colnames)
+            keep=sorted( keep, key= lambda s:self.colnames.index(s))
+            catalogues[n]=catalogue[keep]
+            self.colnames=keep  # This maybe wants to go somewhere else but it ensures that colnames doesnt contain anything not in any tables
+
+        if not self.filter:
+            if (fltr:=catalogues[0].meta.get("FILTER")) is None:
+                fltr="MAG"
+            self.filter=fltr
+
+        return catalogues
+
+
+    def match(self, catalogues, join_type="or", **kwargs):
+        """
+        This matching works as a basic match. Everything is included and the column
+        names have _N appended to the end. 
+        Parameters
+        ----------
+        join_type : str
+            Joing method
+            "or" include sources in any catalogue
+            "and" only include sources in all catalogues
+        
+        Returns
+        -------
+        .
+        """
+        catalogues=self.init_catalogues(catalogues)
+        base=Table(None)
+        if join_type=="and": perror("join_type 'and' not fully implemented\n")
+
+        for n,cat in enumerate(catalogues,1):
+            if not len(base):
+                tmp=cat.copy()
+            else:
+                idx,d2d,_=self._match(base,cat)
+                tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames)
+
+                for src,IDX,sep in zip(cat,idx,d2d):
+                    self.load()
+                    if self.verbose: self.load.show()
+
+                    if (sep<=self.threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
+                        tmp[IDX]=src
+                    elif join_type=="or":##BAD MATCH / NEW SOURCE
+                        tmp.add_row( src )
+
+            tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
+            base=fill_nan(hstack((base,tmp)))
+        return base
+
+    @staticmethod
+    def _match(cat1, cat2):
+        """
+        Base matching function between two catalogues
+        
+        Parameters
+        ----------
+        cat1 and cat2 : `astropy.table.Table`
+            two astropy tables containing columns with "RA/DEC" in the column names.
+            This could be RA_1, RA_2 .. 
+            If several columns are located, they will be nanmeaned together
+
+        Returns
+        -------
+            idx,d2d,d3d : the same as SkyCoord.match_to_catalog_3d
+        """
+        _ra_cols= list( name for name in cat1.colnames if "RA" in name)
+        _dec_cols= list( name for name in cat1.colnames if "DEC" in name)
+        _ra= np.nanmean( tab2array( cat1, colnames=_ra_cols), axis=1) # this still breaks if the source isnt matched in all the columns, the 999 will increase the average
+        _dec=np.nanmean( tab2array( cat1, colnames=_dec_cols), axis=1)
+        skycoord1=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
+
+        _ra_cols= list( name for name in cat2.colnames if "RA" in name)
+        _dec_cols= list( name for name in cat2.colnames if "DEC" in name)
+        _ra= np.nanmean( tab2array( cat2, colnames=_ra_cols), axis=1)
+        _dec=np.nanmean( tab2array( cat2, colnames=_dec_cols), axis=1)
+        skycoord2=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
+
+        return skycoord2.match_to_catalog_3d(skycoord1)
+
+
+    def finish_matching(self, tab, error_column="eflux", num_thresh=-1, discard_outliers=False, zpmag=0):
+        """
+        Averaging all the values. Combining source flags and building a NUM column
+
+        Parameters
+        ----------
+        tab : `astropy.table.Table`
+            Table to work on
+
+        error_column : str
+            Column containing resultant photometric errors to be used to calculate the magnitude error
+            "eflux" - use the eflux column (the normal photometric error column)
+            "stdflux"   - use "stdflux" column as error on flux
+
+        num_thresh : int
+            Minimum number of matches a source must have.
+            NUM values smaller than this will be removed from the table.
+            If num_thresh<=0, no cropping will happen
+
+        discard_outliers : bool
+            Choose whether to remove outling values from the averaging. 
+            This may be usful if some flux values are wildly different from others in the set
+
+        zpmag : float
+            Zero point (Magnitude) to be applied to the magnitude after it is calculated
+        """
+        flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint16)
+        av=Table(np.full((len(tab),len(self.colnames)),np.nan), names=self.colnames)
+
+        for name in self.colnames:
+            if (all_cols:=find_colnames(tab,name)):
+                col=Column(None, name=name)
+                ar=tab2array(tab, colnames=all_cols)
+                if name=="flux":
+                    col=Column(np.nanmedian(ar,axis=1), name=name)
+                    mean=np.nanmean(ar,axis=1)
+                    if "stdflux" not in self.colnames: av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux")) 
+                    ## if median and mean are >5% different, flag as SRC_VAR
+                    flags[ np.abs(mean-col)>(col/5.0)] |= starbug2.SRC_VAR
+                elif name== "eflux":
+                    col=Column(np.sqrt(np.nansum(ar*ar, axis=1)), name=name)
+                elif name=="stdflux": 
+                    col=Column(np.nanmedian(ar,axis=1),name=name)
+                elif name=="flag":
+                    col=Column(flags, name=name)
+                    for fcol in ar.T: flags|=fcol.astype(np.uint16)
+                elif name=="NUM":
+                    col=Column(np.nansum(ar, axis=1), name=name)
+                else: col=Column(np.nanmedian(ar, axis=1),name=name)
+                
+                av[name]=col
+
+        av["flag"]=Column(flags,name="flag")
+        if "flux" in av.colnames:
+            ecol=av[error_column] if error_column in av.colnames else None
+            mag,magerr=flux2mag(av["flux"], fluxerr=ecol)
+            mag+=zpmag
+
+            if self.filter in av.colnames: av.remove_column(self.filter)
+            if "e%s"%self.filter in av.colnames: av.remove_column("e%s"%self.filter)
+            av.add_column(mag,name=self.filter)
+            av.add_column(magerr,name="e%s"%self.filter)
+            #perror("There was no zero point added here!\n")
+
+        if "NUM" not in av.colnames:
+            narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,self.colnames[0])))),axis=1)
+            av.add_column(Column(narr, name="NUM"))
+
+            if num_thresh>0:
+                av.remove_rows( av["NUM"]<num_thresh)
+        return av
 
 class CascadeMatch(Matcher):
-    def __init__(self, catalogues, pfile=None):
-        super(self,CascadeMatch).__init__(catalogues, pfile)
+    method="Cascade Matching"
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-    def match(self, **kwargs):
-        return None
+    def match(self, catalogues, **kwargs):
+        """
+        match a list of catalogues with RA and DEC columns
+        INPUT: 
+            catalogues : list( astropy.table.Tables) catalogues to match
+            threshold  : max separation (arcsec) for two soures to be considered the same source
+            colnames   : column names to include in matches
+        RETURN:
+            a left aligned catalogue of all the matched values
+        """
+        catalogues=self.init_catalogues(catalogues)
+        base=Table( None, meta=catalogues[0].meta)
+
+        for n,cat in enumerate(catalogues,1):
+            if n==1:
+                tmp=cat.copy()
+            else:
+                idx,d2d,_=self._match(base,cat)
+                #tmp=Table(np.full((len(base),ncol),np.nan), names=colnames)
+
+                ## If the tmp table is larger than cat, then I can copy in the unmatched
+                ## sources without add_row
+                drow=len(base) 
+                mask=(d2d>self.threshold)
+                tmp=Table(np.full((len(base)+sum(mask),len(self.colnames)),np.nan), names=self.colnames)
+
+                for src,IDX,sep in zip(cat,idx,d2d):
+                    self.load()
+                    if self.verbose: self.load.show()
+
+                    if (sep<=self.threshold) and (sep==min(d2d[idx==IDX])): ##It does match
+                        tmp[IDX]=src
+                    else:   ##APPEND
+                        if drow<len(tmp): ##This is a time saving idea im trying
+                            tmp[drow]=src
+                            drow+=1 
+                        else: 
+                            tmp.add_row(src[self.colnames]) ##i can purely use add_row to simplifiy the code
+            tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
+            base=hcascade((base,tmp), colnames=self.colnames)
+        base=fill_nan(base)
+        return base
 
 class DitherMatch(Matcher):
     def __init__(self, catalogues, pfile=None):
@@ -108,62 +357,6 @@ def sort_exposures(catalogues):
         #out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["EXPOSURE"]][index] = cat
     return out
 
-def _match(cat1, cat2):
-    _ra_cols= list( name for name in cat1.colnames if "RA" in name)
-    _dec_cols= list( name for name in cat1.colnames if "DEC" in name)
-    _ra= np.nanmean( tab2array( cat1, colnames=_ra_cols), axis=1) # this still breaks if the source isnt matched in all the columns, the 999 will increase the average
-    _dec=np.nanmean( tab2array( cat1, colnames=_dec_cols), axis=1)
-    skycoord1=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
-
-    _ra_cols= list( name for name in cat2.colnames if "RA" in name)
-    _dec_cols= list( name for name in cat2.colnames if "DEC" in name)
-    _ra= np.nanmean( tab2array( cat2, colnames=_ra_cols), axis=1)
-    _dec=np.nanmean( tab2array( cat2, colnames=_dec_cols), axis=1)
-    skycoord2=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
-
-    return skycoord2.match_to_catalog_3d(skycoord1)
-
-def generic_match(catalogues, threshold=0.25, add_src=True, load=None, average=True):
-    """
-    This matching works as a basic match. Everything is included and the column
-    names have _N appended to the end. 
-    INPUT:  catalogues=a list of Tables
-            threshold =separation threshold in units arcsecs
-            add_src= bool, append "new/unmatched" source to the end of the table
-            average= bool, try to calculate averages at the end
-    """
-    threshold=threshold*u.arcsec
-    base=Table(None)
-    colnames=[]
-
-    if load==True:
-        n=sum( [len(c) for c in catalogues[1:]] )
-        load=loading(n,msg="matching",res=n/10)
-
-    for n,cat in enumerate(catalogues,1):
-        if "Catalogue_Number" in cat.colnames: cat.remove_column("Catalogue_Number")
-        if not len(base):
-            tmp=cat.copy()
-        else:
-            idx,d2d,_=_match(base,cat)
-            tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames)
-
-            for src,IDX,sep in zip(cat,idx,d2d):
-                if load:
-                    load()
-                    load.show()
-                if (sep<=threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
-                    tmp[IDX]=src
-                elif add_src:   ##BAD MATCH / NEW SOURCE
-                    tmp.add_row( src )
-
-        for name in tmp.colnames: 
-            if name not in colnames: colnames.append(name)
-        tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
-
-        base=fill_nan(hstack((base,tmp)))
-    if average: return finish_matching(base,colnames)
-    else: return base
 
 def dither_match(catalogues, threshold, colnames):
     """
@@ -197,50 +390,6 @@ def dither_match(catalogues, threshold, colnames):
     
     return finish_matching(base, colnames)
 
-def cascade_match(catalogues, threshold, colnames):
-    """
-    match a list of catalogues with RA and DEC columns
-    INPUT: 
-        catalogues : list( astropy.table.Tables) catalogues to match
-        threshold  : max separation (arcsec) for two soures to be considered the same source
-        colnames   : column names to include in matches
-    RETURN:
-        a left aligned catalogue of all the matched values
-    """
-    threshold*=u.arcsec
-    colnames= list( name for name in catalogues[0].colnames if name in colnames)
-    ncol=len(colnames)
-    base=Table( None, meta=catalogues[0].meta)#, names=colnames )
-    load=loading(sum([len(cat) for cat in catalogues[1:]]),"matching")
-    fltr=find_filter(catalogues[0])
-
-    for n,cat in enumerate(catalogues,1):
-        if n==1:
-            tmp=cat[colnames].copy()
-        else:
-            idx,d2d,_=_match(base,cat)
-            #tmp=Table(np.full((len(base),ncol),np.nan), names=colnames)
-
-            ## If the tmp table is larger than cat, then I can copy in the unmatched
-            ## sources without add_row
-            drow=len(base) 
-            mask=(d2d>threshold)
-            tmp=Table(np.full((len(base)+sum(mask),ncol),np.nan), names=colnames)
-
-            for src,IDX,sep in zip(cat,idx,d2d):
-                load();load.show()
-                if (sep<=threshold) and (sep==min(d2d[idx==IDX])): ##It does match
-                    for name in colnames: tmp[IDX][name]=src[name]
-                else:   ##APPEND
-                    if drow<len(tmp): ##This is a time saving idea im trying
-                        tmp[drow]=src[colnames]
-                        drow+=1 
-                    else: 
-                        tmp.add_row(src[colnames]) ##i can purely use add_row to simplifiy the code
-        tmp.rename_columns(colnames, list("%s_%d"%(name,n) for name in colnames))
-        base=hcascade((base,tmp), colnames=colnames)
-    base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
-    return finish_matching(base, colnames, fltr=fltr)
 
 def bootstrap_match(catalogues):
     """
@@ -402,63 +551,6 @@ def stage_match(stage2, stage3, threshold):
 
 
 
-def finish_matching(tab, colnames, fltr=None):
-    """
-    Averaging all the values. Combining source flags and building a NUM column
-    """
-    flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint16)
-    av=Table(np.full((len(tab),len(colnames)),np.nan), names=colnames)
-    if not fltr:
-        if not (fltr:=tab.meta.get("FILTER")):
-            if not (fltr:=find_filter(tab)):
-                fltr=None
-
-    for name in colnames:
-        all_cols=find_colnames(tab,name)
-        #if not (all_cols:=find_colnames(tab,name)): continue
-        if not all_cols: continue
-        col=Column(None, name=name)
-        ar=tab2array(tab, colnames=all_cols)
-        if name=="flux":
-            col=Column(np.nanmedian(ar,axis=1), name=name)
-            mean=np.nanmean(ar,axis=1)
-            if "stdflux" not in colnames: av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux")) 
-            ## if median and mean are >5% different, flag as SRC_VAR
-            flags[ np.abs(mean-col)>(col/5.0)] |= starbug2.SRC_VAR
-        elif name== "eflux":
-            col=Column(np.sqrt(np.nansum(ar*ar, axis=1)), name=name)
-        elif name=="stdflux": 
-            col=Column(np.nanmedian(ar,axis=1),name=name)
-        elif name=="flag":
-            col=Column(flags, name=name)
-            for fcol in ar.T: col|=fcol.astype(np.uint16)
-        elif name=="NUM":
-            col=Column(np.nansum(ar, axis=1), name=name)
-        else: col=Column(np.nanmedian(ar, axis=1),name=name)
-        
-        av[name]=col
-    if len(set(["flux","eflux"])&set(av.colnames))==2:
-        _errcol= "stdflux" if "stdflux" in av.colnames else "e%s"%fltr
-        mag,magerr=flux2ABmag(av["flux"],av[_errcol]) ##### hmmmmmm
-        if fltr is None: fltr="mag"
-
-        if fltr in av.colnames: av.remove_column(fltr)
-        if "e%s"%fltr in av.colnames: av.remove_column("e%s"%fltr)
-        av.add_column(mag,name=fltr)
-        av.add_column(magerr,name="e%s"%fltr)
-        perror("There was no zero point added here!\n")
-
-    if "NUM" not in av.colnames:
-        narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,colnames[0])))),axis=1)
-        av.add_column(Column(narr, name="NUM"))
-    return (av,tab)
 
 
-def remove_NUM(tab, N):
-    """
-    Remove sources from the list of tab if they have >N non matches
-    """
-    if "NUM" in tab.colnames:
-        pass#mask=tab["NUM"]
-
-
+def generic_match():pass

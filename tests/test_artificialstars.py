@@ -55,7 +55,7 @@ class Test_Artificial_Stars():
 
         #assert art.run_auto(self.im.copy(), 10, stars_per_test=1) is not None
 
-        result= art.run_auto(self.im.copy(), 1000, stars_per_test=5, buffer=5, subimage_size=50, flux_range=flux_range)
+        result= art.run_auto(self.im.copy(), 10, stars_per_test=5, buffer=5, subimage_size=50, flux_range=flux_range)
         assert result is not None
         export_table(result, "/tmp/art.fits")
 

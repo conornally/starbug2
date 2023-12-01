@@ -237,12 +237,13 @@ def hcascade(tables, colnames=None):
         tables: list of Tables to hstack
         colnames: colnames to use
     """
-    tab=hstack(tables)
-    tab=Table(tab, dtype=[float]*len(tab.colnames)).filled(np.nan)
+    tab=fill_nan(hstack(tables))
+    #tab=Table(tab, dtype=[float]*len(tab.colnames)).filled(np.nan)
 
     if not colnames: colnames=tables[0].colnames
     for name in colnames:
         cols=find_colnames(tab,name)
+        if not cols: continue
         move=1
         while move:
             move=0
@@ -258,6 +259,10 @@ def hcascade(tables, colnames=None):
         if name != "flag": ## this is a bodge because it was removing the column if all the stars were good
             empty= ( np.nansum( tab2array( tab[cols] ),axis=0 ) ==0)
             if any(empty): tab.remove_columns(np.array(cols)[empty])
+
+            #for col in cols:
+            #    if sum(np.isnan(tab[col]))==len(col):
+            #        tab.remove_columns(col)
 
         cols=find_colnames(tab,name)#[ colname for colname in tab.colnames if name in colname]
         if cols: tab.rename_columns(cols, ["%s_%d"%(name,i+1) for i in range(len(cols))])
@@ -346,6 +351,9 @@ def get_version():
     except: version="UNKNOWN" ## Github pytest work around for now
     return version
 
+def rmduplicates(seq):
+    seen = set()
+    return [x for x in seq if not (x in seen or seen.add(x))]
 
 
 if __name__ == "__main__":

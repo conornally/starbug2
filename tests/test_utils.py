@@ -105,4 +105,11 @@ def test_parse_unit():
     assert utils.parse_unit("") == (None, None)
     assert utils.parse_unit("p") == (None, None)
 
+def test_rmduplicates():
+    lst=["a","b","b","c","b","c"]
+    lst2=utils.rmduplicates(lst)
+    assert lst2==["a","b","c"]
+
+    assert utils.rmduplicates([]) == []
+    assert utils.rmduplicates(["a"]) == ["a"]
 
