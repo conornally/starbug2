@@ -1,14 +1,16 @@
 """StarbugII Matching 
-usage: starbug2-match [-BCGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
+usage: starbug2-match [-BCGfhv] [-e column] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
     -C  --cascade            : match in "CASCADE" mode (left justify columns)
-    -D  --dither             : match in "DITHER" mode (preserves a column for every frame)
-    -f  --full               : export full catalogue
     -G  --generic            : match in "GENERIC" mode
+
+    -e  --error   column     : photometric error column ("eflux" or "stdflux")
+    -f  --full               : export full catalogue
     -h  --help               : show help message
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file
     -s  --set     option     : set value in parameter file at runtime (-s MATCH_THRESH=1)
+
 
     --> typical runs
        $~ starbug2-match -Gfo outfile.fits tab1.fits tab2.fits
@@ -42,13 +44,15 @@ def match_parsemargv(argv):
     setopt={}
 
     cmd,argv=scr.parsecmd(argv)
-    opts,args=getopt.getopt(argv, "BCDfGhvo:p:s:", ("band","cascade","dither","full","generic","help","verbose","output=","param=","set="))
+    opts,args=getopt.gnu_getopt(argv, "BCfGhve:o:p:s:", ("band","cascade","dither","full","generic","help","verbose",
+                                                    "error=","output=","param=","set="))
     for opt,optarg in opts:
         if opt in ("-h", "--help"):     options|=(SHOWHELP|STOPPROC)
         if opt in ("-v", "--verbose"):  options|=VERBOSE
         if opt in ("-o", "--output"):   setopt["OUTPUT"]=optarg
         if opt in ("-p", "--param"):    setopt["PARAMFILE"]=optarg
 
+        if opt in ("-e","--error"): setopt["ERRORCOLUMN"]=optarg
         if opt in ("-f","--full"): options|=EXPFULL
         if opt in ("-s","--set"): 
             if '=' in optarg:
@@ -58,9 +62,10 @@ def match_parsemargv(argv):
                 setopt[key]=val
             else: utils.perror("unable to set parameter, use syntax -s KEY=VALUE\n")
 
+
         if opt in ("-B","--band"): options|=BANDMATCH
         if opt in ("-C","--cascade"): options|=CASCADEMATCH
-        if opt in ("-D","--dither"): options|=DITHERMATCH
+        #if opt in ("-D","--dither"): options|=DITHERMATCH
         if opt in ("-G","--generic"): options|=GENERICMATCH
     return options, setopt, args
 
@@ -75,7 +80,7 @@ def match_onetimeruns(options, setopt):
     return scr.EXIT_SUCCESS
 
 def match_fullbandmatch(tables, parameters):
-    perror("THIS NEEDS A TEST\n")
+    utils.perror("THIS NEEDS A TEST\n")
     tomatch={ starbug2.NIRCAM:[], starbug2.MIRI:[] }
     _colnames=["RA","DEC","flag"]
     dthreshold=parameters.get("MATCH_THRESH")
@@ -138,6 +143,8 @@ def match_main(argv):
         colnames+=[ name for name in parameters["MATCH_COLS"].split() if name not in colnames]
         dthreshold=parameters["MATCH_THRESH"]
         nthreshold=parameters["NEXP_THRESH"]
+        error_column = setopt.get("ERRORCOLUMN") if setopt.get("ERRORCOLUMN") else "eflux"
+
         ## snthresh=parameters["SN_THRESH"]
 
         ## #################
@@ -165,7 +172,8 @@ def match_main(argv):
                 matcher=Matcher(threshold=dthreshold, colnames=colnames)
                 options|=EXPFULL
             full= matcher( tables, join_type="or" )
-            av = matcher.finish_matching(full, num_thresh=nthreshold, zpmag=parameters["ZP_MAG"] )
+            av = matcher.finish_matching(full, num_thresh=nthreshold, zpmag=parameters["ZP_MAG"],
+                    error_column=error_column)
 
            # if av: 
            #     av.meta.update(tables[0].meta)

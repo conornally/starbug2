@@ -42,14 +42,12 @@ class Matcher(object):
         self.threshold  =options.get("MATCH_THRESH")
         self.filter     =options.get("FILTER")
         self.verbose    =options.get("VERBOSE")
-        #self.zpmag      =options.get("ZP_MAG")
 
         if threshold is not None: self.threshold=threshold
         self.threshold *= u.arcsec
 
         if fltr is not None: self.filter=fltr
         if verbose is not None: self.verbose=verbose
-        #if zpmag is not None: self.zpmag=zpmag
 
         self.colnames=colnames 
         self.load=loading(1)
@@ -119,7 +117,7 @@ class Matcher(object):
                 tmp=cat.copy()
             else:
                 idx,d2d,_=self._match(base,cat)
-                tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames)
+                tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames, dtype=cat[self.colnames].dtype)
 
                 for src,IDX,sep in zip(cat,idx,d2d):
                     self.load()
@@ -165,7 +163,7 @@ class Matcher(object):
         return skycoord2.match_to_catalog_3d(skycoord1)
 
 
-    def finish_matching(self, tab, error_column="eflux", num_thresh=-1, discard_outliers=False, zpmag=0):
+    def finish_matching(self, tab, error_column="eflux", num_thresh=-1, discard_outliers=False, zpmag=0, colnames=None):
         """
         Averaging all the values. Combining source flags and building a NUM column
 
@@ -190,11 +188,15 @@ class Matcher(object):
 
         zpmag : float
             Zero point (Magnitude) to be applied to the magnitude after it is calculated
+
+        colnames : list
+            List of colnames to include in the averaging. If None, use self.colnames instead
         """
         flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint16)
         av=Table(np.full((len(tab),len(self.colnames)),np.nan), names=self.colnames)
-
-        for name in self.colnames:
+        
+        if colnames is None: colnames=self.colnames 
+        for name in colnames:
             if (all_cols:=find_colnames(tab,name)):
                 col=Column(None, name=name)
                 ar=tab2array(tab, colnames=all_cols)
@@ -266,7 +268,7 @@ class CascadeMatch(Matcher):
                 ## sources without add_row
                 drow=len(base) 
                 mask=(d2d>self.threshold)
-                tmp=Table(np.full((len(base)+sum(mask),len(self.colnames)),np.nan), names=self.colnames)
+                tmp=Table(np.full((len(base)+sum(mask),len(self.colnames)),np.nan), names=self.colnames, dtype=cat[self.colnames].dtype)
 
                 for src,IDX,sep in zip(cat,idx,d2d):
                     self.load()
@@ -293,144 +295,162 @@ class DitherMatch(Matcher):
         return None
 
 class BandMatch(Matcher):
-    def __init__(self, catalogues, pfile=None):
-        super(self,BandMatch).__init__(catalogues, pfile)
+    method="Band Matching"
+    def __init__(self, **kwargs):
 
-    def match(self, **kwargs):
-        return None
+        if "fltr" in kwargs:
+            if not isinstance(kwargs["fltr"], list):
+                warn()
+                perror("fltr input should be a list, there may be unexpected behaviour\n")
 
-def exp_info(hdulist):
-    """
-    Get the exposure information about a hdulist 
-    INPUT:  HDUList or ImageHDU or BinTableHDU
-    RETURN: dictionary of relevant information:
-            >   EXPOSURE, DETECTOR, FILTER
-    """
-    info={  "FILTER":None,
-            "OBSERVTN":0,
-            "VISIT":0,
-            "EXPOSURE":0,
-            "DETECTOR":None
-            }
+        if "threshold" in kwargs:
+            if isinstance(kwargs["threshold"],list):
+                kwargs["threshold"]=np.array(kwargs["threshold"])
 
-    if type(hdulist) in (fits.ImageHDU, fits.BinTableHDU):
-        hdulist=fits.HDUList(hdulist)
 
-    for hdu in hdulist:
-        for key in info:
-            if key in hdu.header: info[key]=hdu.header[key]
-    return info
+        super().__init__(**kwargs)
 
-def sort_exposures(catalogues):
-    """
-    Given a list of catalogue files, this will return the fitsHDULists as a series of
-    nested dictionaries sorted by:
-    >   BAND
-    >   OBSERVATION ID
-    >   VISIT ID
-    >   DETECTOR                -- These two have been switched
-    >   DITHER (EXPOSURE)       -- These two have been switched
-    """
-    out={}
-    modules=["NRCA1","NRCA2","NRCA3","NRCA4","NRCB1","NRCB2","NRCB3","NRCB4","NRCALONG","NRCBLONG", "UNKNOWN"]
-    for cat in catalogues:
-        info=exp_info(cat)
-        #print(info, cat[0].header["FILENAME"])
+    def order_catalogues(self,catalogues):
+        """
+        Reorder catalogue list into increasing wavelength size
+        This only works for JWST bands. Unrecognised filters will be left unchanged.
+        The function should also set the self.filter variable if possible
+
+        Parameter
+        ---------
+        catalogues : list
+            List of `astropy.table.Table` with meta keys "FILTER"
+
+        Returns
+        -------
+        The same list reordered
+        """
+
+        status=-1
+        _ii=None
+        sorters = [ lambda t: list(starbug2.filters.keys()).index( t.meta.get("FILTER")),   ## META in JWST filters
+                    lambda t: list(starbug2.filters.keys()).index( (set(t.colnames)&set(starbug2.filters.keys())).pop()), ## colnames in JWST filters
+                    lambda t: self.filter.index( t.meta.get("FILTER")),                     ## META in self.filters
+                    lambda t: self.filter.index( (set(t.colnames)&set(self.filter)).pop() ) ## colnames in JWST filters
+                    ]
+
+        for n,fn in enumerate(sorters):
+            try:
+                catalogues.sort(key=fn)
+                _ii=map(fn,catalogues)
+                status=n
+                break
+            except Exception as e:
+                pass
+
+        if status<0:
+            perror("Unable to reorder catalogues, leaving input order untouched.\n")
+        elif status<=1 and (_ii is not None): ## JWST filters
+            self.filter=[list(starbug2.filters.keys())[i] for i in _ii]
+
+        return catalogues
+
+    def jwst_order(self,catalogues):
+        pass
+
+    def match(self, catalogues, method="first", **kwargs):
+        """
+        Given a list of catalogues, it will reorder them into increasing wavelength
+        or to match the fltr= keyword in the initialiser. 
+        The matching then uses the shortest wavelegnth availables position.
+        I.e If F115W, F444W, F770W are input, the F115W centroid positions will be 
+        taken as "correct". If a source is not resolved in this band, the next most 
+        astrometrically accurate position is taken, i.e. F444W
+
+        Parameters
+        ----------
+        catalogues : list
+            List of `astropy.table.Table` objects containing the meta item "FILTER=XXX"
+
+        method: str
+            Centroid method:
+            -   "first" :   Use the position corresponding to the earliest appearance of the source
+            -   "last"  :   Use the position corresponding to the latest appearance of the source
+            -   "bootsrap": ..
+            -   "average" : ..
+
+        Returns
+        -------
+        """
+        catalogues=self.order_catalogues(catalogues)
+
+        if isinstance(self.filter,list) and len(self.filter)==len(catalogues):
+            printf("Bands: %s\n"%', '.join(self.filter))
+        else: printf("Bands: Unknown\n")
+
+        if type(self.threshold.value) in (list,np.ndarray):# and len(self.threshold)==(len(catalogues)-1):
+            if len(self.threshold)!=(len(catalogues)-1):
+                warn()
+                perror("Threshold values must be scalar or list with length 1 less than the catalogue list. The final element is being ignored.\n")
+                self.threshold = self.threshold[:-1]
+
+            printf("Thresholds: %s\n"%", ".join(["%g\""%g for g in self.threshold.value]))
+        else: printf("Threshold: %g\"\n"%self.threshold.value)
+
+        if self.colnames is None: self.colnames=["RA","DEC", "flag", "NUM", *self.filter, *["e%s"%f for f in self.filter]]
+        printf("Columns: %s\n"%", ".join(self.colnames))
+
+        #########
+        # Begin #
+        #########
         
-        if info["FILTER"] not in out.keys(): 
-            out[info["FILTER"]]={}
+        base=Table(None)
+        for n,tab in enumerate(catalogues):
+            colnames= [ name for name in self.colnames if name in tab.colnames]
+            #loading msg..
 
-        if info["OBSERVTN"] not in out[info["FILTER"]].keys(): 
-            out[info["FILTER"]][info["OBSERVTN"]]={}
+            if not len(base): 
+                tmp=tab[colnames].copy()
+            else:
+                idx,d2d,_=self._match(base,tab)
+                tmp=Table(np.full( (len(base),len(colnames)), np.nan), names=colnames, dtype=tab[colnames].dtype)
 
-        if info["VISIT"] not in out[info["FILTER"]][info["OBSERVTN"]].keys():
-            out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]]={}
+                for ii,(src,IDX,sep) in enumerate(zip(tab,idx,d2d)):
+                    if (sep<=self.threshold[n-1]) and (sep==min(d2d[idx==IDX])):
+                        tmp[IDX]=src[colnames]
+                    else:
+                        tmp.add_row(src[colnames])
 
-        if info["DETECTOR"] not in out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]].keys():
-            out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["DETECTOR"]]=[]
+            colnames.remove("RA")
+            colnames.remove("DEC")
+            base=fill_nan(hstack((base, tmp[colnames])))
+            base.rename_columns(colnames, ["%s_%d"%(name,n+1) for name in colnames])
 
-        #if info["EXPOSURE"] not in out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]].keys():
-            #out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["EXPOSURE"]]= np.full(len(modules), None)
+            if "RA" not in base.colnames: base=fill_nan( hstack((tmp["RA","DEC"], base)) )
+            elif method=="first":
+                _mask=np.logical_and( np.isnan(base["RA"]), tmp["RA"]!=np.nan)
+                base["RA"][_mask]=tmp["RA"][_mask]
+                base["DEC"][_mask]=tmp["DEC"][_mask]
+            elif method=="last":
+                _mask= ~np.isnan(tmp["RA"])
+                base["RA"][_mask]=tmp["RA"][_mask]
+                base["DEC"][_mask]=tmp["DEC"][_mask]
+            elif method=="bootstrap":
+                _mask= ~np.isnan(tmp["RA"])
+                base.rename_columns(("RA","DEC"),("_RA_%d"%n, "_DEC_%d"%n))
+                base=hstack( (base,tmp[["RA","DEC"]]) )
 
-        out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["DETECTOR"]].append(cat)
-        #index= modules.index(info["DETECTOR"]) if info["DETECTOR"] in modules else -1
-        #out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["EXPOSURE"]][index] = cat
-    return out
+        ####################
+        # Fix column names #
+        for name in self.colnames:
+            all_cols=find_colnames(base,name)
+            if len(all_cols)==1:
+                base.rename_column(all_cols.pop(), name)
 
+        ################################
+        # Finalise NUM and flag column #
+        tmp=self.finish_matching( base, colnames=["NUM", "flag"] )
+        base.remove_columns( (*find_colnames(base,"NUM"), *find_colnames(base,"flag")) )
+        base.add_column(tmp["NUM"], index=2)
+        base.add_column(tmp["flag"],index=3)
 
-def dither_match(catalogues, threshold, colnames):
-    """
-    This is the match for when you simultaneously detect sources over
-    a series of pipeline stage2 dithers and wich to combine it into a single catalogue
-    INPUT:  catalogues: a list of astropy tables
-            threshold:  (float) maximum separation between two sources to match
-            colnames:   names to include in the output catalogue
-    RETURNS: a combined catalogue with paired sources appearing on the same line
-    """
-    threshold=threshold*u.arcsec
-    colnames= list(name for name in colnames if name in catalogues[0].colnames)#list( set(catalogues[0].colnames) & set(colnames) )
-    base=Table( None)#, names=colnames )
+        return base
 
-    for n,cat in enumerate(catalogues,1):
-        if not len(base):
-            tmp=cat[colnames].copy()
-        else:
-            idx,d2d,_=_match(base,cat)
-            tmp=Table(np.full((len(base),len(colnames)),np.nan), names=colnames)
-
-            for src,IDX,sep in zip(cat,idx,d2d):
-                if (sep<=threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
-                    for name in colnames: tmp[IDX][name]=src[name]
-                else:   ##BAD MATCH / NEW SOURCE
-                    tmp.add_row( src[colnames] )
-
-        tmp.rename_columns( colnames, list("%s_%d"%(name,n) for name in colnames))
-        base=hstack((base,tmp))
-        base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
-    
-    return finish_matching(base, colnames)
-
-
-def bootstrap_match(catalogues):
-    """
-    A more generalised band matching routine
-    A - B
-    B - C
-    C - D
-    """
-    print("THIS ISNT READY")
-
-    output=Table()
-
-    THRESHHOLD=0.3
-    filters= [c.meta.get("FILTER") for c in catalogues]
-    base=None
-
-    if len( catalogues ) >1:
-        base=catalogues[0]["RA","DEC","%s"%filters[0],"e%s"%filters[0]]
-
-        for n,cat in enumerate(catalogues[1:],1):
-            f=filters[n]
-            cat=cat["RA","DEC","%s"%f,"e%s"%f]
-            base=generic_match( (base,cat), add_src=True, average=False)
-
-            _f=filters[n-1]   #fix base colnames. Lower filter columns get finalised
-            base.rename_columns(("RA_1","DEC_1","%s_1"%_f,"e%s_1"%_f), 
-                                ("RA_%s"%_f,"DEC_%s"%_f,"%s"%_f,"e%s"%_f) ) 
-            for cn in base.colnames:
-                if cn[-2:]=="_1": base.rename_column(cn,cn[:-2])
-
-            #Get larger wavelength ready for next match
-            base.rename_columns( ("RA_2","DEC_2","%s_2"%f,"e%s_2"%f),
-                                 ("RA","DEC","%s"%f,"e%s"%f) )
-
-            print(n,len(catalogues))
-            if n==len(catalogues)-1: ##Final match
-                base.rename_columns(("RA","DEC"),("RA_%s"%f,"DEC_%s"%f) )
-
-    else:
-        perror("Must include more than one catalogue.\n")
-    return base
 
 def band_match(catalogues, colnames=("RA","DEC")):
     """
@@ -523,6 +543,50 @@ def band_match(catalogues, colnames=("RA","DEC")):
     
     return base.filled(np.nan)
 
+
+
+
+
+
+####################################
+# Disgarded functions and what not #
+####################################
+
+
+def dither_match(catalogues, threshold, colnames):
+    """
+    This is the match for when you simultaneously detect sources over
+    a series of pipeline stage2 dithers and wich to combine it into a single catalogue
+    INPUT:  catalogues: a list of astropy tables
+            threshold:  (float) maximum separation between two sources to match
+            colnames:   names to include in the output catalogue
+    RETURNS: a combined catalogue with paired sources appearing on the same line
+    """
+    threshold=threshold*u.arcsec
+    colnames= list(name for name in colnames if name in catalogues[0].colnames)#list( set(catalogues[0].colnames) & set(colnames) )
+    base=Table( None)#, names=colnames )
+
+    for n,cat in enumerate(catalogues,1):
+        if not len(base):
+            tmp=cat[colnames].copy()
+        else:
+            idx,d2d,_=_match(base,cat)
+            tmp=Table(np.full((len(base),len(colnames)),np.nan), names=colnames)
+
+            for src,IDX,sep in zip(cat,idx,d2d):
+                if (sep<=threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
+                    for name in colnames: tmp[IDX][name]=src[name]
+                else:   ##BAD MATCH / NEW SOURCE
+                    tmp.add_row( src[colnames] )
+
+        tmp.rename_columns( colnames, list("%s_%d"%(name,n) for name in colnames))
+        base=hstack((base,tmp))
+        base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
+    
+    return finish_matching(base, colnames)
+
+
+
 def stage_match(stage2, stage3, threshold):
     """
     Match together a stage 2 and stage 3 catalogue
@@ -549,8 +613,104 @@ def stage_match(stage2, stage3, threshold):
     print(tab)
     return tab 
 
-
-
-
-
 def generic_match():pass
+def exp_info(hdulist):
+    """
+    Get the exposure information about a hdulist 
+    INPUT:  HDUList or ImageHDU or BinTableHDU
+    RETURN: dictionary of relevant information:
+            >   EXPOSURE, DETECTOR, FILTER
+    """
+    info={  "FILTER":None,
+            "OBSERVTN":0,
+            "VISIT":0,
+            "EXPOSURE":0,
+            "DETECTOR":None
+            }
+
+    if type(hdulist) in (fits.ImageHDU, fits.BinTableHDU):
+        hdulist=fits.HDUList(hdulist)
+
+    for hdu in hdulist:
+        for key in info:
+            if key in hdu.header: info[key]=hdu.header[key]
+    return info
+
+def sort_exposures(catalogues):
+    """
+    Given a list of catalogue files, this will return the fitsHDULists as a series of
+    nested dictionaries sorted by:
+    >   BAND
+    >   OBSERVATION ID
+    >   VISIT ID
+    >   DETECTOR                -- These two have been switched
+    >   DITHER (EXPOSURE)       -- These two have been switched
+    """
+    out={}
+    modules=["NRCA1","NRCA2","NRCA3","NRCA4","NRCB1","NRCB2","NRCB3","NRCB4","NRCALONG","NRCBLONG", "UNKNOWN"]
+    for cat in catalogues:
+        info=exp_info(cat)
+        #print(info, cat[0].header["FILENAME"])
+        
+        if info["FILTER"] not in out.keys(): 
+            out[info["FILTER"]]={}
+
+        if info["OBSERVTN"] not in out[info["FILTER"]].keys(): 
+            out[info["FILTER"]][info["OBSERVTN"]]={}
+
+        if info["VISIT"] not in out[info["FILTER"]][info["OBSERVTN"]].keys():
+            out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]]={}
+
+        if info["DETECTOR"] not in out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]].keys():
+            out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["DETECTOR"]]=[]
+
+        #if info["EXPOSURE"] not in out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]].keys():
+            #out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["EXPOSURE"]]= np.full(len(modules), None)
+
+        out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["DETECTOR"]].append(cat)
+        #index= modules.index(info["DETECTOR"]) if info["DETECTOR"] in modules else -1
+        #out[info["FILTER"]][info["OBSERVTN"]][info["VISIT"]][info["EXPOSURE"]][index] = cat
+    return out
+
+def bootstrap_match(catalogues):
+    """
+    A more generalised band matching routine
+    A - B
+    B - C
+    C - D
+    """
+    print("THIS ISNT READY")
+
+    output=Table()
+
+    THRESHHOLD=0.3
+    filters= [c.meta.get("FILTER") for c in catalogues]
+    base=None
+
+    if len( catalogues ) >1:
+        base=catalogues[0]["RA","DEC","%s"%filters[0],"e%s"%filters[0]]
+
+        for n,cat in enumerate(catalogues[1:],1):
+            f=filters[n]
+            cat=cat["RA","DEC","%s"%f,"e%s"%f]
+            base=generic_match( (base,cat), add_src=True, average=False)
+
+            _f=filters[n-1]   #fix base colnames. Lower filter columns get finalised
+            base.rename_columns(("RA_1","DEC_1","%s_1"%_f,"e%s_1"%_f), 
+                                ("RA_%s"%_f,"DEC_%s"%_f,"%s"%_f,"e%s"%_f) ) 
+            for cn in base.colnames:
+                if cn[-2:]=="_1": base.rename_column(cn,cn[:-2])
+
+            #Get larger wavelength ready for next match
+            base.rename_columns( ("RA_2","DEC_2","%s_2"%f,"e%s_2"%f),
+                                 ("RA","DEC","%s"%f,"e%s"%f) )
+
+            print(n,len(catalogues))
+            if n==len(catalogues)-1: ##Final match
+                base.rename_columns(("RA","DEC"),("RA_%s"%f,"DEC_%s"%f) )
+
+    else:
+        perror("Must include more than one catalogue.\n")
+    return base
+
+

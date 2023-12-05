@@ -1,7 +1,7 @@
 import starbug2
 from starbug2 import utils
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, MaskedColumn
 
 def test_strnktn():
     assert utils.strnktn( "", 3, 'a') == "aaa"
@@ -112,4 +112,40 @@ def test_rmduplicates():
 
     assert utils.rmduplicates([]) == []
     assert utils.rmduplicates(["a"]) == ["a"]
+
+def test_hcascade():
+    t1=[[1,1,0],
+        [2,2,0],
+        [3,3,0],
+        #[4,4,0]
+        ]
+    t2=[[1,1,0],
+        [2,2,0],
+        [3,3,1],
+        [4,4,0]
+        ]
+
+    tables=[Table(np.array(t1), names=["A","B","flag"], dtype=[float,float,np.uint16]),
+            Table(np.array(t2), names=["A","B","flag"], dtype=[float,float,np.uint16])]
+    nan=MaskedColumn(None,dtype=float).info.mask_val
+    nan=np.ma.masked
+    nan=np.nan
+    res=utils.hcascade(tables)
+    test=Table( np.ma.array([ [1,1,0,1,1,0],
+                            [2,2,0,2,2,0],
+                            [3,3,0,3,3,1],
+                            [4,4,0,nan,nan,0]]), 
+
+                            dtype=[float,float,np.uint16,float,float,np.uint16], 
+                            names=["A_1","B_1","flag_1","A_2","B_2","flag_2"])
+
+    res=utils.fill_nan(res)
+    assert np.shape(res)==np.shape(test)
+    for m in range(len(res)):
+        for n in range(len(res[m])):
+            a=res[m][n]
+            b=test[m][n]
+            assert np.isnan(a)==np.isnan(b)
+            if not np.isnan(a) or not np.isnan(b):
+                assert a==b
 

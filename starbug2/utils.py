@@ -240,6 +240,7 @@ def hcascade(tables, colnames=None):
     tab=fill_nan(hstack(tables))
     #tab=Table(tab, dtype=[float]*len(tab.colnames)).filled(np.nan)
 
+
     if not colnames: colnames=tables[0].colnames
     for name in colnames:
         cols=find_colnames(tab,name)
@@ -252,13 +253,21 @@ def hcascade(tables, colnames=None):
                 leftmask= np.isnan(tab[cols[n-1]])              ##everything empty in left neighbouring column
                 mask=np.logical_and(currmask,leftmask)          ##cur has value and left is empty
 
+                tab[cols[n]]=MaskedColumn(tab[cols[n]])
                 tab[cols[n-1]][mask] = tab[cols[n]][mask]
-                tab[cols[n]][mask]*=np.nan
+                tab[cols[n]][mask]=tab[cols[n]].info.mask_val
+                        #try: tab[cols[n]][mask]*=np.nan
+                        #except: tab[cols[n]][mask]*=0
                 if sum(mask): move=1
+                #tab[cols[n]]=MaskedColumn(np.ma.array(tab[cols[n]], mask=mask), mask=mask)
 
-        if name != "flag": ## this is a bodge because it was removing the column if all the stars were good
-            empty= ( np.nansum( tab2array( tab[cols] ),axis=0 ) ==0)
-            if any(empty): tab.remove_columns(np.array(cols)[empty])
+                #print(tab[cols[n]].info)
+
+        #if name != "flag": ## this is a bodge because it was removing the column if all the stars were good
+        #if tab[cols].dtype.kind=='f': # I suspect this could be done with masked bad_vals
+
+            #empty= ( np.nansum( tab2array( tab[cols] ),axis=0 ) ==0)
+            #if any(empty): tab.remove_columns(np.array(cols)[empty])
 
             #for col in cols:
             #    if sum(np.isnan(tab[col]))==len(col):
@@ -266,6 +275,13 @@ def hcascade(tables, colnames=None):
 
         cols=find_colnames(tab,name)#[ colname for colname in tab.colnames if name in colname]
         if cols: tab.rename_columns(cols, ["%s_%d"%(name,i+1) for i in range(len(cols))])
+
+    for name in tab.colnames:
+        col=tab[name]
+        try:
+            if col.info.n_bad==col.info.length:
+                tab.remove_column(col)
+        except: pass
     return tab
 
 def extnames(hdulist): return list(ext.name for ext in hdulist)

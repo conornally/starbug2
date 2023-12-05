@@ -1,6 +1,6 @@
 import os,numpy as np
 import pytest
-from starbug2.matching import Matcher, CascadeMatch
+from starbug2.matching import Matcher, CascadeMatch, BandMatch
 from starbug2.utils import import_table
 from starbug2.param import load_default_params
 from astropy.table import Table
@@ -33,8 +33,8 @@ def cats():
         [ 2.0, 2.0, 201, 0.1],
         ]
 
-    cat1 = Table( np.array(t1), names=["RA","DEC","flux","eflux"])
-    cat2 = Table( np.array(t2), names=["RA","DEC","flux","eflux"])
+    cat1 = Table( np.array(t1), names=["RA","DEC","flux","eflux"], meta={"FILTER":'a'})
+    cat2 = Table( np.array(t2), names=["RA","DEC","flux","eflux"], meta={"FILTER":'b'})
     return [cat1,cat2]
 
             
@@ -141,6 +141,7 @@ class Test_Cascade:
         c=Table(np.array(t), names=[ "RA_1","DEC_1","flux_1","eflux_1","RA_2","DEC_2","flux_2","eflux_2"])
         m=CascadeMatch()
         out=m.match(cats())
+        print(out)
 
         assert np.shape(c)==np.shape(out)
         for m in range(len(c)):
@@ -151,4 +152,75 @@ class Test_Cascade:
                 if not np.isnan(a) or not np.isnan(b):
                     assert a==b
 
+class Test_BandMatch:
+    def test_init(self):
+        filters = ["a","b","c"]
+        m=BandMatch(fltr=filters)
+        assert m.filter==["a","b","c"]
 
+    def test_order_catalogue_JWSTMETA(self):
+        a = Table(None, meta={"FILTER":'F115W'})
+        b = Table(None, meta={"FILTER":'F187N'})
+        c = Table(None, meta={"FILTER":'F770W'})
+
+        m=BandMatch()
+        assert m.filter==""
+        assert m.order_catalogues( [a,c,b] ) == [a,b,c]
+        assert m.filter==["F115W","F187N","F770W"]
+
+    def test_order_catalogue_JWSTcolnames(self):
+        a = Table(None, names=['F115W'])
+        b = Table(None, names=['F187N'])
+        c = Table(None, names=['F770W'])
+
+        m=BandMatch()
+        assert m.filter==""
+        assert m.order_catalogues( [a,c,b] ) == [a,b,c]
+        assert m.filter==["F115W","F187N","F770W"]
+
+    def test_order_catalogue_filterMETA(self):
+        a = Table(None, meta={"FILTER":'a'})
+        b = Table(None, meta={"FILTER":'b'})
+        c = Table(None, meta={"FILTER":'c'})
+
+        m=BandMatch(fltr=["a","b","c"])
+        assert m.order_catalogues( [a,c,b] ) == [a,b,c]
+
+    def test_order_catalogue_filtercolnames(self):
+        a = Table(None, names=['a'])
+        b = Table(None, names=['b'])
+        c = Table(None, names=['c'])
+
+        m=BandMatch(fltr=["a","b","c"])
+        assert m.order_catalogues( [a,c,b] ) == [a,b,c]
+
+    def test_match(self):
+        t1=[[1.,1.,1,1,0],
+            [2.,2.,2,2,0],
+            [3.,3.,3,3,0],
+            #[4.,4.,4,4,0],
+            ]
+        t2=[[1.,1.,1,1,0],
+            [2.,2.,2,2,0],
+            #[3.,3.,3,3,0],
+            [4.,4.,4,4,1],
+            ]
+        t3=[[1.,1.,1,1,0],
+            #[2.,2.,2,2,0],
+            #[3.,3.,3,3,0],
+            [4.,4.,4,4,2],
+            ]
+
+        f=float
+        cats = [Table(np.array(t1), names=["RA","DEC","A","NUM","flag"], dtype=[f,f,f,f,np.uint16], meta={"FILTER":"A"}),
+                Table(np.array(t2), names=["RA","DEC","B","NUM","flag"], dtype=[f,f,f,f,np.uint16], meta={"FILTER":"B"}),
+                Table(np.array(t3), names=["RA","DEC","C","NUM","flag"], dtype=[f,f,f,f,np.uint16], meta={"FILTER":"C"})]
+
+
+        bm=BandMatch(fltr=["A","B","C"], threshold=[0.1,0.2])
+        res=bm(cats)
+        print(res)
+        assert res.colnames==[ "RA","DEC","NUM","flag", "A","B","C"]
+        #res=bm(cats, method="last")
+        #print(res)
+        res=bm(cats, method="bootstrap")
