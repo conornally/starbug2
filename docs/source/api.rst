@@ -1,6 +1,11 @@
 Module
 ======
 
+.. note::
+   Just testing automodule. Documentation coming at some point soon
+
+
+
 Aperture Photometry
 -------------------
 .. autoclass:: starbug2.routines.APPhot_Routine
@@ -15,7 +20,7 @@ PSF Photometry
    :members:
 
 Indices and tables
-==================
+------------------
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`

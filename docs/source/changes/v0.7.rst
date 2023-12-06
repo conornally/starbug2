@@ -8,9 +8,18 @@ v0.7.0
 Matching:
     The core matching package is having a bit of an overhaul to make it a little bit simpler to use.
 
-    -   Addition of Matcher and CascadeMatch classes where generic_match and cascade_match were
+    -   generic_match -> Matcher class
 
-    -   Adding BandMatch class framework
+    -   cascade_match -> CascadeMatch class
+
+    -   band_match -> BandMatch class
+
+    -   dither_match -> deprecated
+
+Entry Points:
+    The bin.match entry point now has the new classes incorporated into it.
+    Band matching still needs a bit of work to fully reimplement the original functionality
+    back into it. For now, `--band-depr` can be used to continue using the old method
 
 
 Artificial Stars:
@@ -19,13 +28,18 @@ Artificial Stars:
     -   Artificial_Stars class added
 
 Minor Changes:
-    -   hcascade now uses MaskedColumn 
+    -   utils.hcascade now uses MaskedColumn 
+
+    -   utils.import_table now uses utils.fill_nan rather than doing its own thing
+
+    -   utils.find_filter now checks meta data too
+
+    -   utils.rmduplicates: function added for simple list cleaning duplicate values
 
 
-Still To Do:
-    -   Integrate Artificial_Stars class into starbug.py and ~starbug2
+Still To Do
+-----------
+-   Integrate Artificial_Stars class into starbug.py and ~starbug2
 
-    -   Move band_match to a subclass of Matcher
-
-    -   Do some matching tests
+-   Do some matching tests
 

@@ -571,6 +571,7 @@ def dither_match(catalogues, threshold, colnames):
             colnames:   names to include in the output catalogue
     RETURNS: a combined catalogue with paired sources appearing on the same line
     """
+    perror("Deprecated Function, use Matcher instead\n")
     threshold=threshold*u.arcsec
     colnames= list(name for name in colnames if name in catalogues[0].colnames)#list( set(catalogues[0].colnames) & set(colnames) )
     base=Table( None)#, names=colnames )
