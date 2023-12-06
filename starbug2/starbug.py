@@ -751,7 +751,7 @@ class StarbugBase(object):
         dname = os.path.expandvars(starbug2.DATDIR)
         if not os.path.exists(dname):
             warn("Unable to locate STARBUG_DATDIR='%s'\n"%dname)
-            status=1
+            #status=1
 
         if not os.path.exists(self.outdir):
             warn("Unable to locate OUTPUT='%s'\n"%self.outdir)
