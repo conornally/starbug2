@@ -3,14 +3,15 @@ import pytest
 from starbug2.matching import Matcher, CascadeMatch, BandMatch
 from starbug2.utils import import_table
 from starbug2.param import load_default_params
+from starbug2.bin.main import starbug_main
 from astropy.table import Table
 
 @pytest.fixture(autouse=True)
 def init():
 
     if not os.path.exists("tests/dat/image-ap.fits"):
-        os.system("starbug2 -Ds SIGSRC=10 tests/dat/image.fits")
-        os.system("starbug2 -Ds SIGSRC=3 -otests/dat/image2.fits  tests/dat/image.fits")
+        starbug_main("starbug2 -Ds SIGSRC=10 tests/dat/image.fits".split())
+        starbug_main("starbug2 -Ds SIGSRC=3 -otests/dat/image2.fits  tests/dat/image.fits".split())
 
 
 
