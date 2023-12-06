@@ -6,3 +6,4 @@ scipy
 webbpsf
 scikit-image
 sphinx-rtd-theme
+-e .
