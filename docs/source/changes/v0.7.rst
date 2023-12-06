@@ -10,10 +10,16 @@ Matching:
 
     -   Addition of Matcher and CascadeMatch classes where generic_match and cascade_match were
 
+    -   Adding BandMatch class framework
+
+
 Artificial Stars:
     Setting out the groundwork for artificial star testing. 
 
     -   Artificial_Stars class added
+
+Minor Changes:
+    -   hcascade now uses MaskedColumn 
 
 
 Still To Do:

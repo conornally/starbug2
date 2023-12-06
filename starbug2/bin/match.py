@@ -20,7 +20,7 @@ import os,sys,getopt
 import numpy as np
 from astropy.table import Table, hstack, vstack
 from starbug2 import utils
-from starbug2.matching import Matcher, CascadeMatch
+from starbug2.matching import Matcher, CascadeMatch, BandMatch, band_match
 from starbug2 import param
 import starbug2.bin as scr
 import starbug2
@@ -32,7 +32,7 @@ STOPPROC=0x04
 SHOWHELP=0x08
 
 BANDMATCH   =0x10
-DITHERMATCH =0x20
+BANDDEPR    =0x20
 GENERICMATCH=0x40
 CASCADEMATCH=0x80
 
@@ -45,7 +45,8 @@ def match_parsemargv(argv):
 
     cmd,argv=scr.parsecmd(argv)
     opts,args=getopt.gnu_getopt(argv, "BCfGhve:o:p:s:", ("band","cascade","dither","full","generic","help","verbose",
-                                                    "error=","output=","param=","set="))
+                                                    "error=","output=","param=","set=",
+                                                    "band-depr"))
     for opt,optarg in opts:
         if opt in ("-h", "--help"):     options|=(SHOWHELP|STOPPROC)
         if opt in ("-v", "--verbose"):  options|=VERBOSE
@@ -65,8 +66,8 @@ def match_parsemargv(argv):
 
         if opt in ("-B","--band"): options|=BANDMATCH
         if opt in ("-C","--cascade"): options|=CASCADEMATCH
-        #if opt in ("-D","--dither"): options|=DITHERMATCH
         if opt in ("-G","--generic"): options|=GENERICMATCH
+        if opt == "--band-depr": options|=BANDDEPR
     return options, setopt, args
 
 def match_onetimeruns(options, setopt):
@@ -142,7 +143,6 @@ def match_main(argv):
         colnames=starbug2.match_cols
         colnames+=[ name for name in parameters["MATCH_COLS"].split() if name not in colnames]
         dthreshold=parameters["MATCH_THRESH"]
-        nthreshold=parameters["NEXP_THRESH"]
         error_column = setopt.get("ERRORCOLUMN") if setopt.get("ERRORCOLUMN") else "eflux"
 
         ## snthresh=parameters["SN_THRESH"]
@@ -161,34 +161,41 @@ def match_main(argv):
         ##         else:
         ##             utils.perror("Unable to determine filter of \"%s\"\n"%args[i])
 
-        if options & BANDMATCH:
+        if options & BANDDEPR:
             av=match_fullbandmatch(tables, parameters)
             full=None
 
         else:
-            if options & CASCADEMATCH: matcher=CascadeMatch(threshold=dthreshold, colnames=colnames)
+            if options & BANDMATCH:
+                if isinstance(dthreshold, str):
+                    dthreshold=np.array(parameters["MATCH_THRESH"].split(','), float)
+                if parameters["FILTER"]!="":
+                    fltr=parameters["FILTER"].split(',')
+                else: fltr=utils.rmduplicates( [utils.find_filter(t) for t in tables] )
+                matcher=BandMatch(threshold=dthreshold, fltr=fltr)
+
+            elif options & CASCADEMATCH: matcher=CascadeMatch(threshold=dthreshold, colnames=colnames)
             elif options & GENERICMATCH: matcher=Matcher(threshold=dthreshold, colnames=colnames)
             else: 
                 matcher=Matcher(threshold=dthreshold, colnames=colnames)
                 options|=EXPFULL
-            full= matcher( tables, join_type="or" )
-            av = matcher.finish_matching(full, num_thresh=nthreshold, zpmag=parameters["ZP_MAG"],
-                    error_column=error_column)
+            full= matcher.match( tables, join_type="or" )
+            av = matcher.finish_matching(full, num_thresh=parameters["NEXP_THRESH"], zpmag=parameters["ZP_MAG"], error_column=error_column)
 
-           # if av: 
-           #     av.meta.update(tables[0].meta)
-           #     if nthreshold!=-1:
-           #         mask=av["NUM"]>=nthreshold
-           #         av=av[mask]
 
         output=parameters.get("OUTPUT")
         if output is None or output == '.':
             output=utils.combine_fnames( [ name for name in args] , ntrys=100)
         dname,fname,ext=utils.split_fname(output)
 
-        utils.printf("-> %s/%s*\n"%(dname,fname))
-        if options&EXPFULL: utils.export_table(full,fname="%s/%sfull.fits"%(dname,fname))
-        if av: utils.export_table(av,"%s/%smatch.fits"%(dname,fname))
+        suffix=""
+        if options&EXPFULL: 
+            utils.export_table(full,fname="%s/%sfull.fits"%(dname,fname))
+            utils.printf("-> %s/%s*\n"%(dname,fname))
+            suffix="match"
+        if av:
+            utils.export_table(av,"%s/%s%s.fits"%(dname,fname,suffix))
+            utils.printf("-> %s/%s%s\n"%(dname,fname,suffix))
 
         exit_code= scr.EXIT_SUCCESS
     

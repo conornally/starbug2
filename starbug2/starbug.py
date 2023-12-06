@@ -153,11 +153,10 @@ class StarbugBase(object):
                     _=self.image ## Force assigning _nHDU
                     self.log("-> using image HDU: %d (%s)\n"%(self._nHDU,self.image.name))
                     if self.image.data is None:
-                        warn()
-                        perror("Image seems to be empty.\n")
+                        warn("Image seems to be empty.\n")
 
                     if (val:=self.header.get("TELESCOP")) is None or (val.find("JWST")<0):
-                        warn(); perror("Telescope not JWST, there may be undefined behaviour.\n")
+                        warn("Telescope not JWST, there may be undefined behaviour.\n")
 
                     self.filter=self.options.get("FILTER")
                     if ("FILTER" in self.header) and (self.header["FILTER"] in starbug2.filters.keys()):
@@ -166,16 +165,15 @@ class StarbugBase(object):
                     if self.filter:
                         self.log("-> photometric band: %s\n"%self.filter)
                     else:
-                        warn()
-                        perror("Unable to determine image filter\n")
+                        warn("Unable to determine image filter\n")
 
                     if "DETECTOR" in self.info.keys():
                         self.log("-> detector module: %s\n"%self.info["DETECTOR"])
-                    else: warn();perror("Unable to determine Telescope DETECTOR.\n")
+                    else: warn("Unable to determine Telescope DETECTOR.\n")
 
                     if "BUNIT" in self.image.header:
                         self._unit=self.image.header["BUNIT"]
-                    else: warn();perror("Unable to determine image BUNIT.\n")
+                    else: warn("Unable to determine image BUNIT.\n")
 
                     self.wcs=WCS(self.image.header)
 
@@ -187,16 +185,15 @@ class StarbugBase(object):
                     elif "WHT" in exts: self.stage=3
                     elif "CALIBLEVEL" in self.image.header: self.stage=self.image.header["CALIBLEVEL"]
                     else:
-                        warn();
-                        perror("Unable to determine calibration level, assuming stage 3\n")
+                        warn("Unable to determine calibration level, assuming stage 3\n")
                         self.stage=3
 
 
                     #self.log("loaded: \"%s\"\n"%fname)
                     self.log("-> pipeline stage: %d\n"%self.stage)
 
-                else: warn();perror("fits file \"%s\" does not exist\n"%fname)
-            else: warn();perror("included file must be FITS format\n")
+                else: warn("fits file \"%s\" does not exist\n"%fname)
+            else: warn("included file must be FITS format\n")
 
     def load_apfile(self,fname=None):
         """
@@ -221,15 +218,13 @@ class StarbugBase(object):
                     try:
                         xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
                     except:
-                        warn()
-                        perror("Something went wrong converting WCS to pixels, trying wcs_world2pix next.\n")
+                        warn("Something went wrong converting WCS to pixels, trying wcs_world2pix next.\n")
                         xy=self.wcs.wcs_world2pix(self.detections["RA"], self.detections["DEC"],0)
                     if "xcentroid" in cn: self.detections.remove_column("xcentroid")
                     if "ycentroid" in cn: self.detections.remove_column("ycentroid")
                     self.detections.add_columns(xy,names=("xcentroid","ycentroid"),indexes=[0,0])
                 else:
-                    warn()
-                    perror("No 'RA' or 'DEC' found in AP_FILE\n")
+                    warn("No 'RA' or 'DEC' found in AP_FILE\n")
                     #self.options["USE_WCS"]=0
 
             if len( set(("x_0","y_0"))&cn)==2:
@@ -242,8 +237,7 @@ class StarbugBase(object):
                 self.detections.remove_rows(~mask)
                 self.log("-> loaded %d sources from AP_FILE\n"%len(self.detections))
             else:
-                warn()
-                perror("Unable to determine physical coordinates from detections table\n")
+                warn("Unable to determine physical coordinates from detections table\n")
         else: perror("AP_FILE='%s' does not exists\n"%fname)
 
     def load_bgdfile(self,fname=None):
@@ -385,8 +379,7 @@ class StarbugBase(object):
 
         if apcorr_fname: self.log("-> apcorr file: %s\n"%apcorr_fname)
         else: 
-            warn()
-            perror("No apcorr file available for instrument\n")
+            warn("No apcorr file available for instrument\n")
 
         radius=self.options["APPHOT_R"]
         eefrac=self.options["ENCENERGY"]
@@ -613,8 +606,7 @@ class StarbugBase(object):
                         unit=starbug2.ARCSEC
                     if unit==starbug2.ARCSEC:
                         if not self.header.get("PIXAR_A2"):
-                            warn()
-                            perror("MAX_XYDEV is units arcseconds, but starbug cannot locate a pixel scale in the header. Please use syntax MAX_XYDEV=%sp to set change to pixels\n"%maxydev)
+                            warn("MAX_XYDEV is units arcseconds, but starbug cannot locate a pixel scale in the header. Please use syntax MAX_XYDEV=%sp to set change to pixels\n"%maxydev)
                         else: maxydev /= np.sqrt(self.header.get("PIXAR_A2"))
 
                 if maxydev>0:
@@ -753,30 +745,25 @@ class StarbugBase(object):
         self.log("Checking internal systems..\n")
 
         if not self.filter:
-            warn()
-            perror("No FILTER set, please set in parameter file or use \"-s FILTER=XXX\"\n")
+            warn("No FILTER set, please set in parameter file or use \"-s FILTER=XXX\"\n")
             status=1
 
         dname = os.path.expandvars(starbug2.DATDIR)
         if not os.path.exists(dname):
-            warn()
-            perror("Unable to locate STARBUG_DATDIR='%s'\n"%dname)
+            warn("Unable to locate STARBUG_DATDIR='%s'\n"%dname)
             status=1
 
         if not os.path.exists(self.outdir):
-            warn()
-            perror("Unable to locate OUTPUT='%s'\n"%self.outdir)
+            warn("Unable to locate OUTPUT='%s'\n"%self.outdir)
             status=1
 
         tmp=load_default_params()
         if set(tmp.keys()) - set(self.options.keys()):
-            warn()
-            perror("Parameter file version mismatch. Run starbug2 --update-param to update\n")
+            warn("Parameter file version mismatch. Run starbug2 --update-param to update\n")
             status=1
         
         if self._image is None or self.image.data is None:
-            warn()
-            perror("Image did not load correctly\n")
+            warn("Image did not load correctly\n")
             status=1
 
         if self.options["AP_FILE"] and self.detections is not None:
@@ -786,8 +773,7 @@ class StarbugBase(object):
             test=test[ test["xcentroid"]<self.image.header["NAXIS1"]]
             test=test[ test["ycentroid"]<self.image.header["NAXIS2"]]
             if not len(test):
-                warn()
-                perror("Detection file empty or no sources overlap the image.\n")
+                warn("Detection file empty or no sources overlap the image.\n")
                 status=1
 
         return status

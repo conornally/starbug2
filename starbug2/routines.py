@@ -62,12 +62,26 @@ class Detection_Routine(StarFinderBase):
     def detect(self, data, bkg_estimator=None, xycoords=None, method=None):
         """
         The core detection step (DAOStarFinder
-        INPUT:  
-                data=array to detect on
-                bkg_estimator=background array the same shape as data array
-                xycorrds= table of initial guesses (xcentroid,ycentroid)
-        RETURNS:
-                Sourcelist Table
+
+        Parameters
+        ----------
+        data : `numpy.ndarray`
+            Image array to detect on
+
+        bkg_estimator : callable function
+            Function to call to generate the background array the same shape as data array
+
+        xycorrds : `astropy.table.Table` 
+            Table of initial guesses (xcentroid,ycentroid)
+
+        method : str
+            Detection method
+            "findpeaks" - use the photutils findpeaks method
+            None - Use the DAOStarFinder method
+
+        Returns
+        -------
+        Sourcelist Table 
         """
         bkg=np.zeros(data.shape)
         if bkg_estimator:
@@ -92,7 +106,19 @@ class Detection_Routine(StarFinderBase):
         Internal function to class
         Used to match detenctoins from separate background subtracted images
         into the main catalogue. This will append a source if its matched separation
-        is above the threshold self.match_threshold
+        is above the threshold = self.fwhm
+
+        Parameters
+        ----------
+        base : `astropy.table.Table`
+            Base catalogue to match to
+        
+        cat : `astropy.table.Table`
+            Catalogue to be matched
+
+        Returns
+        -------
+        The matched catalogue
         """
 
         base_sky=SkyCoord(x=base["xcentroid"], y=base["ycentroid"], z=np.zeros(len(base)), representation_type="cartesian")
@@ -104,18 +130,20 @@ class Detection_Routine(StarFinderBase):
 
     def find_stars(self, data, mask=None):
         """
-        Main function of Routine
-        FUNC:
-            This routine runs source detection several times, but on a different form
-            of the data array each time. Each form has been "skewed" somehow to brighten the
-            most faint sources and flatten the differential background.
-            1- Plain detections
-            2- Subtract Background estimation
-            3- RickerWave convolution
+        This routine runs source detection several times, but on a different form
+        of the data array each time. Each form has been "skewed" somehow to brighten the
+        most faint sources and flatten the differential background.
+        1- Plain detections
+        2- Subtract Background estimation
+        3- RickerWave convolution
 
-        INPUT:
-            data=array to detect on
-            mask=pixels to mask out
+        Parameters
+        ----------
+        data : `numpy.ndarray`
+            2D image array to detect on
+
+        mask : `numpy.ndarray`
+            Pixels to mask out on the data array
         """
         if data is None: return None
         if mask is None: mask=np.where(np.isnan(data))
@@ -173,13 +201,11 @@ class APPhot_Routine():
     """
     def __init__(self, radius, sky_in, sky_out, verbose=0):
         if sky_in < radius:
-            warn()
-            perror("Sky annulus radii must be larger than aperture radius.\n")
+            warn("Sky annulus radii must be larger than aperture radius.\n")
             sky_in=radius+1
 
         if sky_in >= sky_out: 
-            warn()
-            perror("Sky annulus outer radii must be larger than the inner.\n")
+            warn("Sky annulus outer radii must be larger than the inner.\n")
             sky_out=sky_in+1
 
         self.radius=radius
@@ -196,12 +222,30 @@ class APPhot_Routine():
         Forced aperture photometry on a list of detections
         detections are a astropy.table.Table with columns xcentroid ycentroid or x_0 y_0
         This will add extra columns into this table ap_flux ap_sky
-        INPUT:  detections - Astropy.Table containing source list
-                image       -2D image array to run photometry on
-                error       -2D image array OR scalar to act as photometric error
-                dqflags     -2D array of data quality flags where appropriate
 
-        RETURN: Photometry catalogue
+        Parameters
+        ----------
+        detections : `astropy.table.Table`
+            Table with source poisitions containing xcentroid,ycentroid columns
+
+        image : `numpy.ndarray`
+            2D Image data to run photometry on
+
+        error : `numpy.ndarray`
+            2D Image array containing photometric error per pixel
+
+        dqflags : `numpy.ndarray`
+            2D Image array containing JWST data quality flags per pixel
+
+        apcorr : float
+            Aperture correction to be applied to the flux
+
+        sig_sky : float
+            Sigma threshold above the median to clip from sky apertures
+
+        RETURN
+        ------
+        Photometry catalogue
         """
         if len( set(("xcentroid","ycentroid")) & set(detections.colnames))==2:
             pos=[(line["xcentroid"],line["ycentroid"]) for line in detections]
@@ -233,8 +277,7 @@ class APPhot_Routine():
             ## If annulus reaches the edge of the image, it will create a mask the wrong shape
             ## If for whatever reason the point lies outside the image, it will have None
             ## in the list, this needs to be caught too
-            warn()
-            perror("Ran into issues with the sky annuli, trying to fix them..\n")
+            warn("Ran into issues with the sky annuli, trying to fix them..\n")
             size=np.max( [np.shape(d) for d in dat if d is not None ])
             for i,d in enumerate(dat):
                 if d is None: dat[i]=np.zeros((size,size))
@@ -418,8 +461,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
                 rlist= FUDGE * self.fwhm/2 * np.sqrt( np.log( median/self.sourcelist["flux"]) )
                 rlist[np.isnan(rlist)]=DEFAULT_R
             else:
-                warn()
-                perror("Unable to caluclate aperture mask sizes, add '-A' to starbug command.\n")
+                warn("Unable to caluclate aperture mask sizes, add '-A' to starbug command.\n")
                 rlist=DEFAULT_R*np.ones(len(self.sourcelist))
 
         D=50
@@ -487,8 +529,7 @@ class _grouping(DAOGroup):
             ## It seems to not quite hit the recursion limit
             ## Crashed on 980 with a limit of 1000, so im going to try 90%
             if n_members > (0.9*sys.getrecursionlimit()):
-                warn()
-                perror("This run will exceed the recursion depth of the system. "
+                warn("This run will exceed the recursion depth of the system. "
                        "Starbug will intervene and override the recursion limit but "
                        "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
                        "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), int(2.0*n_members)))
@@ -497,6 +538,9 @@ class _grouping(DAOGroup):
         return res
 
 class _fitmodel(LevMarLSQFitter):
+    """
+    Deprecated
+    """
     load=None
     def __init__(self, grouper=None, verbose=1):
         super().__init__()
@@ -516,6 +560,27 @@ class _fitmodel(LevMarLSQFitter):
 class PSFPhot_Routine(PSFPhotometry):
     """
     PSF Photometry routine called by starbug
+
+    Parameters
+    ----------
+    psf_model : FittableImageModel
+        Model PSF to be used in the fitting
+
+    fitshape : int or tuple
+        Size of PSF to use in pixels. Must be less than or equal to the 
+        size of psf_model
+
+    apphot_r : float
+        Aperture radius to be used in initial guess photometry
+
+    force_fit : bool
+        Conduct forced centroid PSF fitting
+
+    background : image
+        2D array with the same dimensions as the data used in fitting
+
+    verbose : bool, int
+        Show verbose outputs
     """
     def __init__(self, psf_model, fitshape, apphot_r=3,
             force_fit=False, background=None, verbose=1):
@@ -566,7 +631,6 @@ class PSFPhot_Routine(PSFPhotometry):
         else: cat.rename_column("flux_err","eflux")
         
         keep=["x_fit","y_fit","flux_fit","eflux","xydev","qfit"]
-        #cat=hstack(( init_params, cat[keep]))
         return hstack((init_params, cat[keep]))
 
 class ArtificialStar_Routine(object):
@@ -590,16 +654,17 @@ class ArtificialStar_Routine(object):
             flux_range=(0,1e5), separation_thresh=2, save_progress=1):
         """
         run artificial star testing on an image
-        parameters:
-             ntests - number of tests to conduct
-             subimage_size - size of the cropped subimage 
-             sources - precalculated positions to test stars
-                astropy table with x_0 y_0 flux columns
-            fwhm - FWHM of the stars to be added,
-                this is used to ensure the source isnt too close to the border
-            flux_range - range of fluxes to test
-            separation_thresh - number pixels above which the separation is too high and the artificial star failed
-            save_progress - periodically save the catalogue 
+        PARAMETERS
+        ----------
+        ntests - number of tests to conduct
+        subimage_size - size of the cropped subimage 
+        sources - precalculated positions to test stars
+            astropy table with x_0 y_0 flux columns
+        fwhm - FWHM of the stars to be added,
+            this is used to ensure the source isnt too close to the border
+        flux_range - range of fluxes to test
+        separation_thresh - number pixels above which the separation is too high and the artificial star failed
+        save_progress - periodically save the catalogue 
 
 
 
@@ -610,8 +675,7 @@ class ArtificialStar_Routine(object):
         shape=np.array(image.shape)
         psfsize=self.psf.shape
         if np.any( subimage_size>shape):
-            warn()
-            perror("subimage_size bigger than image dimensions\n")
+            warn("subimage_size bigger than image dimensions\n")
             subimage_size=min(shape)
         subimage_size=int(subimage_size)
 

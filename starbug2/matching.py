@@ -148,6 +148,9 @@ class Matcher(object):
         -------
             idx,d2d,d3d : the same as SkyCoord.match_to_catalog_3d
         """
+        cat1=fill_nan(cat1)
+        cat2=fill_nan(cat2)
+
         _ra_cols= list( name for name in cat1.colnames if "RA" in name)
         _dec_cols= list( name for name in cat1.colnames if "DEC" in name)
         _ra= np.nanmean( tab2array( cat1, colnames=_ra_cols), axis=1) # this still breaks if the source isnt matched in all the columns, the 999 will increase the average
@@ -238,6 +241,10 @@ class Matcher(object):
             if num_thresh>0:
                 av.remove_rows( av["NUM"]<num_thresh)
         return av
+    
+    def build_meta(self,catalogues):
+        pass
+        
 
 class CascadeMatch(Matcher):
     method="Cascade Matching"
@@ -300,13 +307,11 @@ class BandMatch(Matcher):
 
         if "fltr" in kwargs:
             if not isinstance(kwargs["fltr"], list):
-                warn()
-                perror("fltr input should be a list, there may be unexpected behaviour\n")
+                warn("fltr input should be a list, there may be unexpected behaviour\n")
 
         if "threshold" in kwargs:
             if isinstance(kwargs["threshold"],list):
                 kwargs["threshold"]=np.array(kwargs["threshold"])
-
 
         super().__init__(**kwargs)
 
@@ -348,6 +353,8 @@ class BandMatch(Matcher):
         elif status<=1 and (_ii is not None): ## JWST filters
             self.filter=[list(starbug2.filters.keys())[i] for i in _ii]
 
+        self.load=loading(sum(len(c) for c in catalogues[1:]))
+
         return catalogues
 
     def jwst_order(self,catalogues):
@@ -385,15 +392,16 @@ class BandMatch(Matcher):
 
         if type(self.threshold.value) in (list,np.ndarray):# and len(self.threshold)==(len(catalogues)-1):
             if len(self.threshold)!=(len(catalogues)-1):
-                warn()
-                perror("Threshold values must be scalar or list with length 1 less than the catalogue list. The final element is being ignored.\n")
+                warn("Threshold values must be scalar or list with length 1 less than the catalogue list. The final element is being ignored.\n")
                 self.threshold = self.threshold[:-1]
-
-            printf("Thresholds: %s\n"%", ".join(["%g\""%g for g in self.threshold.value]))
-        else: printf("Threshold: %g\"\n"%self.threshold.value)
+        else: 
+            self.threshold=np.full(len(catalogues)-1, self.threshold)*u.arcsec
+        printf("Thresholds: %s\n"%", ".join(["%g\""%g for g in self.threshold.value]))
 
         if self.colnames is None: self.colnames=["RA","DEC", "flag", "NUM", *self.filter, *["e%s"%f for f in self.filter]]
         printf("Columns: %s\n"%", ".join(self.colnames))
+
+        if method not in ("first","last","bootstrap"): method="first"
 
         #########
         # Begin #
@@ -402,7 +410,7 @@ class BandMatch(Matcher):
         base=Table(None)
         for n,tab in enumerate(catalogues):
             colnames= [ name for name in self.colnames if name in tab.colnames]
-            #loading msg..
+            self.load.msg="%s (%g\")"%(self.filter[n], self.threshold[n-1].value)
 
             if not len(base): 
                 tmp=tab[colnames].copy()
@@ -411,6 +419,7 @@ class BandMatch(Matcher):
                 tmp=Table(np.full( (len(base),len(colnames)), np.nan), names=colnames, dtype=tab[colnames].dtype)
 
                 for ii,(src,IDX,sep) in enumerate(zip(tab,idx,d2d)):
+                    self.load();self.load.show()
                     if (sep<=self.threshold[n-1]) and (sep==min(d2d[idx==IDX])):
                         tmp[IDX]=src[colnames]
                     else:
@@ -493,7 +502,7 @@ def band_match(catalogues, colnames=("RA","DEC")):
         if not len(base): 
             tmp=tab[_colnames].copy()
         else:
-            idx,d2d,_=_match(base,tab)
+            idx,d2d,_=Matcher._match(base,tab)
             tmp=Table(np.full( (len(base),len(_colnames)), np.nan), names=_colnames)
             
             ###################################

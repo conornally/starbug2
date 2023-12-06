@@ -167,8 +167,7 @@ def starbug_onetimeruns(options, setopt):
 
     tmp=param.load_default_params()
     if set(tmp.keys())-set(init_parameters.keys()) | set(init_parameters.keys())-set(tmp.keys()):
-        warn()
-        perror("Parameter file version mismatch. Run starbug2 --update-param to update\nquitting :(\n")
+        warn("Parameter file version mismatch. Run starbug2 --update-param to update\nquitting :(\n")
         return scr.EXIT_FAIL
 
     init_parameters.update(setopt)
@@ -316,8 +315,7 @@ def fn(args):
         if ext==".fits":
             sb=StarbugBase(fname, pfile=setopt.get("PARAMFILE"), options=setopt)
             if sb.verify(): 
-                warn()
-                perror("System verification failed\n")
+                warn("System verification failed\n")
                 return None
                 #pass
                 #_input=input("Continue with warnings y/N:")

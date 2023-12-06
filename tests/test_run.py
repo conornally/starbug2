@@ -94,6 +94,7 @@ def test_ncores():
 def clean():
     files=glob.glob("tests/dat/*")
     files.remove("tests/dat/image.fits")
+    files.remove("tests/dat/psf.fits")
     for fname in files: os.remove(fname)
     if os.path.exists("starbug.param"): os.remove("starbug.param")
 

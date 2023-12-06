@@ -11,7 +11,7 @@ printf=sys.stdout.write
 perror=sys.stderr.write
 puts=lambda s:printf("%s\n"%s)
 sbold=lambda s:"\x1b[1m%s\x1b[0m"%s
-warn=lambda :perror(sbold("Warning: "))
+warn=lambda s:perror("%s%s"%(sbold("Warning: "), s))
 
 def strnktn(s,n,c):
     for _ in range(n): s+=c
@@ -68,6 +68,9 @@ class loading(object):
         if(dec==1): printf("\n")
 
 def tabppend(base, tab):
+    """
+    Is this the same as vstack?
+    """
     if(not base): base=tab
     else:
         for line in tab: base.add_row(line)
@@ -91,9 +94,6 @@ def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA
             ycol=ycols[0]
             printf("Using '%s' as y position column\n"%sbold(ycol))
             wcs=0
-
-    
-
 
     if "flux" in tab.colnames and scale_radius: 
         r= (-40.0/np.log10(tab["flux"]))
@@ -158,29 +158,37 @@ def export_table(table, fname=None, header=None):
 
 def import_table(fname, verbose=0):
     """
+    Slight tweak to `astropy.table.Table.read`. This makes sure that the 
+    proper column dtypes are maintained
+
+    Parameters
+    ----------
+    fname : str
+        Path to binary fits table file
+
+    verbose : bool
+        Display verbose information
     """
     tab=None
     if os.path.exists(fname):
         if os.path.splitext(fname)[1]==".fits":
-            tab=Table.read(fname,format="fits")
-            tmp=Table()
+            tab=fill_nan(Table.read(fname,format="fits"))
+            #tmp=Table()
 
-            names=[]
-            for index in range(len(tab.dtype.names)):
-                if tab.dtype[index].kind!='f':
-                    name=tab.colnames[index]
-                    names.append(name)
-                    tmp.add_column( tab[name] )
-            tab.remove_columns( names )
-            tab=tab.filled(np.nan)
-            if tmp: tab=hstack((tab,tmp))
+            #names=[]
+            #for index in range(len(tab.dtype.names)):
+            #    if tab.dtype[index].kind!='f':
+            #        name=tab.colnames[index]
+            #        names.append(name)
+            #        tmp.add_column( tab[name] )
+            #tab.remove_columns( names )
 
-            
+            #tab=tab.filled(np.nan)
+            #if tmp: tab=hstack((tab,tmp))
+
             if not tab.meta.get("FILTER"):
-                if (fltrs:=(set(tab.colnames)&set(starbug2.filters.keys()))):
-                    tab.meta["FILTER"]=list(fltrs).pop()
-                else: tab.meta["FILTER"]=None ## Maybe not set this?
-
+                if (fltr:=find_filter(tab)): 
+                    tab.meta["FILTER"]=fltr
             if verbose: printf("-> loaded %s (%s)\n"%(fname,tab.meta.get("FILTER")))
                 
         else: perror("Table must fits format\n")
@@ -209,8 +217,13 @@ def combine_fnames(fnames, ntrys=10):
     """
     when matching catalogues, combines the file names into an appropriate combination
     of all the inputs
-    INPUT:  fnames=list of file names
-            ntrys=the number of mismatched characters it will allow
+
+    Parameters
+    ----------
+    fnames : list of file names
+    
+    ntrys : int
+        The number of mismatched characters it will allow
     """
     trys=0
     fname=""
@@ -233,13 +246,17 @@ def hcascade(tables, colnames=None):
     Similar use as hstack
     Except rather than adding a full new column, the inserted value
     is placed into the leftmost empty column
-    INPUT:
-        tables: list of Tables to hstack
-        colnames: colnames to use
+
+    Parameters
+    ----------
+    tables: list of Tables 
+        Table to hcascade
+
+    colnames: list of str
+        List of column names to include in the stacking.
+        If colnames=None, use all possible columns
     """
     tab=fill_nan(hstack(tables))
-    #tab=Table(tab, dtype=[float]*len(tab.colnames)).filled(np.nan)
-
 
     if not colnames: colnames=tables[0].colnames
     for name in colnames:
@@ -358,16 +375,46 @@ def get_MJysr2Jy_scalefactor(ext):
     return scalefactor
 
 def find_filter(table):
-    lst=list(set(table.colnames)&set(starbug2.filters.keys()))
-    if lst: return lst.pop()
-    else: return None
+    """
+    Attempt to identify filter for a table from the meta data or column names
+
+    Parameters
+    ----------
+    table : `astropy.table.Table`
+        Table to work on
+
+    Returns
+    -------
+    Identified filter value, otherwise None
+    """
+    fltr=None
+    if not (fltr:=table.meta.get("FILTER")):
+        lst=(set(table.colnames)&set(starbug2.filters.keys()))
+        if lst: fltr= lst.pop()
+    return fltr
 
 def get_version():
+    """
+    Try to determine the installed starbug version on the system
+    """
     try: version=pkg_resources.get_distribution("starbug2").version 
     except: version="UNKNOWN" ## Github pytest work around for now
     return version
 
 def rmduplicates(seq):
+    """
+    Take a sequence and rm its duplicates while preserving the order
+    of the input
+
+    Parameters
+    ----------
+    seq : list
+        Input list to work on
+
+    Returns
+    -------
+    A copy of the list with the duplicate elements removed
+    """
     seen = set()
     return [x for x in seq if not (x in seen or seen.add(x))]
 

@@ -29,4 +29,5 @@ PSF photometry suite for complex and crowded regions in astronomical images.
 
    ref
    troubles
+   api
 

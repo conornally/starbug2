@@ -30,12 +30,12 @@ def test_match_basicrunthrough():
     assert run("starbug2-match tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
     assert run("starbug2-match -G tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
     assert run("starbug2-match -C tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -D tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
+    #assert run("starbug2-match -D tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
 
     assert run("starbug2-match -f tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
     assert run("starbug2-match -fG tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
     assert run("starbug2-match -fC tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -fD tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
+    #assert run("starbug2-match -fD tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
     clean()
 
 
@@ -52,6 +52,7 @@ def test_match_basicrunthrough():
 def clean():
     files=glob.glob("tests/dat/*")
     files.remove("tests/dat/image.fits")
+    files.remove("tests/dat/psf.fits")
     for fname in files: os.remove(fname)
     if os.path.exists("starbug.param"): os.remove("starbug.param")
 
