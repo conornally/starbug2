@@ -10,7 +10,9 @@ usage: starbug2-match [-BCGfhv] [-e column] [-o output] [-p file.param] [-s KEY=
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file
     -s  --set     option     : set value in parameter file at runtime (-s MATCH_THRESH=1)
+    -v  --verbose            : display verbose outputs
 
+        --band-depr          : match in "old" band mode
 
     --> typical runs
        $~ starbug2-match -Gfo outfile.fits tab1.fits tab2.fits
@@ -164,6 +166,7 @@ def match_main(argv):
         if options & BANDDEPR:
             av=match_fullbandmatch(tables, parameters)
             full=None
+            options&=~EXPFULL
 
         else:
             if options & BANDMATCH:
@@ -172,10 +175,10 @@ def match_main(argv):
                 if parameters["FILTER"]!="":
                     fltr=parameters["FILTER"].split(',')
                 else: fltr=utils.rmduplicates( [utils.find_filter(t) for t in tables] )
-                matcher=BandMatch(threshold=dthreshold, fltr=fltr)
+                matcher=BandMatch(threshold=dthreshold, fltr=fltr, verbose=parameters["VERBOSE"])
 
-            elif options & CASCADEMATCH: matcher=CascadeMatch(threshold=dthreshold, colnames=colnames)
-            elif options & GENERICMATCH: matcher=Matcher(threshold=dthreshold, colnames=colnames)
+            elif options & CASCADEMATCH: matcher=CascadeMatch(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
+            elif options & GENERICMATCH: matcher=Matcher(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
             else: 
                 matcher=Matcher(threshold=dthreshold, colnames=colnames)
                 options|=EXPFULL
@@ -191,11 +194,11 @@ def match_main(argv):
         suffix=""
         if options&EXPFULL: 
             utils.export_table(full,fname="%s/%sfull.fits"%(dname,fname))
-            utils.printf("-> %s/%s*\n"%(dname,fname))
+            utils.printf("-> %s/%sfull.fits\n"%(dname,fname))
             suffix="match"
         if av:
             utils.export_table(av,"%s/%s%s.fits"%(dname,fname,suffix))
-            utils.printf("-> %s/%s%s\n"%(dname,fname,suffix))
+            utils.printf("-> %s/%s%s.fits\n"%(dname,fname,suffix))
 
         exit_code= scr.EXIT_SUCCESS
     

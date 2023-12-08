@@ -2,19 +2,20 @@
 usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
+   -D  --detect          : run source detection
+   -G  --geom            : calculate geometric stats on source list
+   -M  --match           : match outputs from all input image files
+   -P  --psf             : run psf photometry
+   -S  --subbgd          : subtract background from image
+
    -b  --bgdfile         : load background (-bgd.fits) file
    -d  --apfile  ap.fits : load a source detection (-ap.fits) file to skip the source detection step
-   -D  --detect          : run source detection
    -f  --find            : attempt to find associated -ap -bgd files
-   -G  --geom            : calculate geometric stats on source list
    -h  --help            : display uasage information
-   -M  --match           : match outputs from all input image files
    -n  --ncores      num : number of CPU cores to split process between
    -o  --output      dir : output directory
    -p  --param   a.param : load parameter file
-   -P  --psf             : run psf photometry
    -s  --set      option : set value in parameter file at runtime (-s SIGSKY=3)
-   -S  --subbgd          : subtract background from image
    -v  --verbose         : display verbose outputs
 
    --> Single run commands

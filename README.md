@@ -42,9 +42,8 @@ $~ starbug2 --init
 
 See the [full documentation](https://starbug2.readthedocs.io/en/latest/?badge=latest) for the complete installation and detailed guides to using the photometric routines.
 Basic usage information is produced by running:
-```bash
-$~ starbug2 -vh
 
+```bash
 StarbugII - JWST PSF photometry
 usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
@@ -85,19 +84,21 @@ See https://starbug2.readthedocs.io for more information.
 ```
 
 ```bash
-$~ starbug2-match -vh
-
-StarbugII Matching
-usage: starbug2-match [-BGfhv] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
+StarbugII Matching 
+usage: starbug2-match [-BCGfhv] [-e column] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
     -C  --cascade            : match in "CASCADE" mode (left justify columns)
-    -D  --dither             : match in "DITHER" mode (preserves a column for every frame)
-    -f  --full               : export full catalogue
     -G  --generic            : match in "GENERIC" mode
+
+    -e  --error   column     : photometric error column ("eflux" or "stdflux")
+    -f  --full               : export full catalogue
     -h  --help               : show help message
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file
     -s  --set     option     : set value in parameter file at runtime (-s MATCH_THRESH=1)
+    -v  --verbose            : display verbose outputs
+
+        --band-depr          : match in "old" band mode
 
     --> typical runs
        $~ starbug2-match -Gfo outfile.fits tab1.fits tab2.fits

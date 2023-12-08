@@ -189,7 +189,7 @@ def import_table(fname, verbose=0):
             if not tab.meta.get("FILTER"):
                 if (fltr:=find_filter(tab)): 
                     tab.meta["FILTER"]=fltr
-            if verbose: printf("-> loaded %s (%s)\n"%(fname,tab.meta.get("FILTER")))
+            if verbose: printf("-> loaded %s (%s:%d)\n"%(fname,tab.meta.get("FILTER"), len(tab)))
                 
         else: perror("Table must fits format\n")
     else: perror("Unable to locate \"%s\"\n"%fname)

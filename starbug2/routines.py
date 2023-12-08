@@ -289,12 +289,14 @@ class APPhot_Routine():
         mask=(dat>0 & np.isfinite(dat))
         dat[~mask]=np.nan
         dat=sigma_clip(dat.reshape(dat.shape[0],-1), sigma=sig_sky,axis=1)
-        self.catalogue["sky"]=np.ma.median(dat,axis=1)
+        self.catalogue["sky"]=np.ma.median(dat,axis=1).filled(fill_value=0)
         std=np.ma.std(dat,axis=1)
 
         epoisson=phot["aperture_sum_err_0"]
         esky_scatter= apertures.area*std**2
         esky_mean=  (std**2 * apertures.area**2) / annulus_aperture.area
+        print(phot["aperture_sum_0"])
+        print(np.nanmean(phot["aperture_sum_0"]))
 
         self.catalogue["eflux"]=np.sqrt( epoisson**2 +esky_scatter**2 +esky_mean**2)
         self.catalogue["flux"]=apcorr*(phot["aperture_sum_0"] - (self.catalogue["sky"]*apertures.area))
