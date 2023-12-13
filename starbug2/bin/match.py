@@ -76,9 +76,12 @@ def match_onetimeruns(options, setopt):
     """
     Options set, one time runs
     """
+    if options&VERBOSE:
+        setopt["VERBOSE"]=1
     if options&SHOWHELP:
         scr.usage(__doc__,verbose=options&VERBOSE)
         return scr.EXIT_EARLY
+
 
     return scr.EXIT_SUCCESS
 

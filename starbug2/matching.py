@@ -70,7 +70,8 @@ class Matcher(object):
         """
         ## Must copy here maybe?
         if len(catalogues)>=2:
-            self.load=loading( sum( len(cat) for cat in catalogues[1:]), msg="matching")
+            self.load=loading( sum( len(cat) for cat in catalogues[1:]), msg="initialising")
+            if self.verbose: self.load.show()
 
         if self.colnames is None:
             self.colnames=[]
@@ -83,7 +84,7 @@ class Matcher(object):
             keep=set(catalogue.colnames)&set(self.colnames)
             keep=sorted( keep, key= lambda s:self.colnames.index(s))
             catalogues[n]=catalogue[keep]
-            self.colnames=keep  # This maybe wants to go somewhere else but it ensures that colnames doesnt contain anything not in any tables
+            #self.colnames=keep  # This maybe wants to go somewhere else but it ensures that colnames doesnt contain anything not in any tables
 
         if not self.filter:
             if (fltr:=catalogues[0].meta.get("FILTER")) is None:
@@ -113,14 +114,16 @@ class Matcher(object):
         if join_type=="and": perror("join_type 'and' not fully implemented\n")
 
         for n,cat in enumerate(catalogues,1):
+            colnames=[n for n in self.colnames if n in cat.colnames]
             if not len(base):
                 tmp=cat.copy()
             else:
                 idx,d2d,_=self._match(base,cat)
-                tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames, dtype=cat[self.colnames].dtype)
+                tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames, dtype=cat[colnames].dtype)
 
                 for src,IDX,sep in zip(cat,idx,d2d):
                     self.load()
+                    self.load.msg="matching: %d"%n
                     if self.verbose: self.load.show()
 
                     if (sep<=self.threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
@@ -269,16 +272,18 @@ class CascadeMatch(Matcher):
                 tmp=cat.copy()
             else:
                 idx,d2d,_=self._match(base,cat)
+                colnames=[name for name in self.colnames if name in cat.colnames]
                 #tmp=Table(np.full((len(base),ncol),np.nan), names=colnames)
 
                 ## If the tmp table is larger than cat, then I can copy in the unmatched
                 ## sources without add_row
                 drow=len(base) 
                 mask=(d2d>self.threshold)
-                tmp=Table(np.full((len(base)+sum(mask),len(self.colnames)),np.nan), names=self.colnames, dtype=cat[self.colnames].dtype)
+                tmp=Table(np.full((len(base)+sum(mask),len(colnames)),np.nan), names=colnames, dtype=cat[colnames].dtype)
 
                 for src,IDX,sep in zip(cat,idx,d2d):
                     self.load()
+                    self.load.msg="matching: %d"%n
                     if self.verbose: self.load.show()
 
                     if (sep<=self.threshold) and (sep==min(d2d[idx==IDX])): ##It does match
@@ -288,7 +293,7 @@ class CascadeMatch(Matcher):
                             tmp[drow]=src
                             drow+=1 
                         else: 
-                            tmp.add_row(src[self.colnames]) ##i can purely use add_row to simplifiy the code
+                            tmp.add_row(src[colnames]) ##i can purely use add_row to simplifiy the code
             tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
             base=hcascade((base,tmp), colnames=self.colnames)
         base=fill_nan(base)

@@ -295,8 +295,6 @@ class APPhot_Routine():
         epoisson=phot["aperture_sum_err_0"]
         esky_scatter= apertures.area*std**2
         esky_mean=  (std**2 * apertures.area**2) / annulus_aperture.area
-        print(phot["aperture_sum_0"])
-        print(np.nanmean(phot["aperture_sum_0"]))
 
         self.catalogue["eflux"]=np.sqrt( epoisson**2 +esky_scatter**2 +esky_mean**2)
         self.catalogue["flux"]=apcorr*(phot["aperture_sum_0"] - (self.catalogue["sky"]*apertures.area))

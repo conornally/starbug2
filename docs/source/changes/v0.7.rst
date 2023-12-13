@@ -19,6 +19,8 @@ Matching:
     -   Matcher.finish_matching now takes column name for the values to go into the photometric error calculation.
         This allows the user to set whether the errors come from the std or eFILTER columns at the entry point 
 
+    -   Verbose flag passed properly now
+
 Entry Points:
     The bin.match entry point now has the new classes incorporated into it.
     Band matching still needs a bit of work to fully reimplement the original functionality
