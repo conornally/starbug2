@@ -8,7 +8,7 @@ v0.7.0
 Matching:
     The core matching package is having a bit of an overhaul to make it a little bit simpler to use.
 
-    -   generic_match -> Matcher class
+    -   generic_match -> GenericMatch class
 
     -   cascade_match -> CascadeMatch class
 
@@ -16,10 +16,14 @@ Matching:
 
     -   dither_match -> deprecated
 
-    -   Matcher.finish_matching now takes column name for the values to go into the photometric error calculation.
+    -   GenericMatch.finish_matching now takes column name for the values to go into the photometric error calculation.
         This allows the user to set whether the errors come from the std or eFILTER columns at the entry point 
 
     -   Verbose flag passed properly now
+
+    -   Moved all core matching into _match
+
+    -   Added -m"masking" to starbug2-match entry point and GenericMatch. This is still very experimental
 
 Entry Points:
     The bin.match entry point now has the new classes incorporated into it.

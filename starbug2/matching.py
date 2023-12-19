@@ -1,7 +1,7 @@
 """
 Starbug matching functions
 Primarily this is the main routines for dither/band/generic matching which are at the core
-of starbug2 and starbug2-matc
+of starbug2 and starbug2-match
 """
 import os
 import numpy as np
@@ -14,7 +14,7 @@ import starbug2
 from starbug2.utils import *
 from starbug2.param import load_params
 
-class Matcher(object):
+class GenericMatch(object):
     """
     Base matching class
 
@@ -93,8 +93,26 @@ class Matcher(object):
 
         return catalogues
 
+    def mask_catalogues(self, catalogues, mask):
+        """
+        """
+        masked=Table(None)
 
-    def match(self, catalogues, join_type="or", **kwargs):
+        if mask is None or type(mask) not in (list,np.ndarray): return masked
+        if len(catalogues)!=len(catalogues): return masked
+
+        for subset,cat in zip(mask,catalogues):
+            if subset is not None:
+                if type(subset)==list: 
+                    subset=np.array(subset)
+                if len(subset)==len(cat):
+                    masked=vstack( (masked,cat[~subset]) )
+                    cat.remove_rows(~subset)
+        return masked
+
+
+
+    def match(self, catalogues, join_type="or", mask=None, **kwargs):
         """
         This matching works as a basic match. Everything is included and the column
         names have _N appended to the end. 
@@ -104,39 +122,32 @@ class Matcher(object):
             Joing method
             "or" include sources in any catalogue
             "and" only include sources in all catalogues
+
+        mask : list
+            
         
         Returns
         -------
         .
         """
         catalogues=self.init_catalogues(catalogues)
-        base=Table(None)
+        masked= self.mask_catalogues(catalogues, mask)
+        base=self.build_meta(catalogues)
+
         if join_type=="and": perror("join_type 'and' not fully implemented\n")
 
-        for n,cat in enumerate(catalogues,1):
-            colnames=[n for n in self.colnames if n in cat.colnames]
-            if not len(base):
-                tmp=cat.copy()
-            else:
-                idx,d2d,_=self._match(base,cat)
-                tmp=Table(np.full( (len(base),len(cat.colnames)), np.nan), names=cat.colnames, dtype=cat[colnames].dtype)
-
-                for src,IDX,sep in zip(cat,idx,d2d):
-                    self.load()
-                    self.load.msg="matching: %d"%n
-                    if self.verbose: self.load.show()
-
-                    if (sep<=self.threshold) and (sep==min(d2d[idx==IDX])): ## GOOD MATCH
-                        tmp[IDX]=src
-                    elif join_type=="or":##BAD MATCH / NEW SOURCE
-                        tmp.add_row( src )
-
+        for n,cat in enumerate(catalogues,1): # Bulk matching processes (column naming)
+            self.load.msg="matching: %d"%n
+            tmp=self._match(base,cat, join_type=join_type)
             tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
             base=fill_nan(hstack((base,tmp)))
+
+        if len(masked): # Add in any masked bits
+            masked.rename_columns( masked.colnames, ["%s_0"%n for n in masked.colnames])
+            base=fill_nan(vstack(( base,masked)))
         return base
 
-    @staticmethod
-    def _match(cat1, cat2):
+    def _match(self, base, cat, join_type="or"):
         """
         Base matching function between two catalogues
         
@@ -151,22 +162,40 @@ class Matcher(object):
         -------
             idx,d2d,d3d : the same as SkyCoord.match_to_catalog_3d
         """
-        cat1=fill_nan(cat1)
-        cat2=fill_nan(cat2)
+        if not len(base): return cat.copy()
 
-        _ra_cols= list( name for name in cat1.colnames if "RA" in name)
-        _dec_cols= list( name for name in cat1.colnames if "DEC" in name)
-        _ra= np.nanmean( tab2array( cat1, colnames=_ra_cols), axis=1) # this still breaks if the source isnt matched in all the columns, the 999 will increase the average
-        _dec=np.nanmean( tab2array( cat1, colnames=_dec_cols), axis=1)
+        base=fill_nan(base.copy())
+        colnames=[n for n in self.colnames if n in cat.colnames]
+        cat=fill_nan(cat[colnames].copy())
+
+        _ra_cols= list( name for name in base.colnames if "RA" in name)
+        _dec_cols= list( name for name in base.colnames if "DEC" in name)
+        _ra= np.nanmean( tab2array( base, colnames=_ra_cols), axis=1)
+        _dec=np.nanmean( tab2array( base, colnames=_dec_cols), axis=1)
         skycoord1=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
 
-        _ra_cols= list( name for name in cat2.colnames if "RA" in name)
-        _dec_cols= list( name for name in cat2.colnames if "DEC" in name)
-        _ra= np.nanmean( tab2array( cat2, colnames=_ra_cols), axis=1)
-        _dec=np.nanmean( tab2array( cat2, colnames=_dec_cols), axis=1)
+        _ra_cols= list( name for name in cat.colnames if "RA" in name)
+        _dec_cols= list( name for name in cat.colnames if "DEC" in name)
+        _ra= np.nanmean( tab2array( cat, colnames=_ra_cols), axis=1)
+        _dec=np.nanmean( tab2array( cat, colnames=_dec_cols), axis=1)
         skycoord2=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
 
-        return skycoord2.match_to_catalog_3d(skycoord1)
+        #######################
+        # The actual Matching #
+        #######################
+        idx,d2d,d3d=skycoord2.match_to_catalog_3d(skycoord1)
+        tmp=Table(np.full( (len(base),len(colnames)),np.nan), names=colnames, dtype=cat[colnames].dtype)
+
+        for src,IDX,sep in zip(cat, idx, d2d):
+            self.load()
+            if self.verbose: self.load.show()
+
+            if (sep<=self.threshold) and (sep==min(d2d[idx==IDX])): ##GOODMATCH
+                tmp[IDX]=src
+            elif join_type=="or": ## Append a source
+                tmp.add_row(src)
+        
+        return tmp
 
 
     def finish_matching(self, tab, error_column="eflux", num_thresh=-1, discard_outliers=False, zpmag=0, colnames=None):
@@ -224,6 +253,7 @@ class Matcher(object):
                 else: col=Column(np.nanmedian(ar, axis=1),name=name)
                 
                 av[name]=col
+            else: av.remove_column(name) ## Clean empty columns in table
 
         av["flag"]=Column(flags,name="flag")
         if "flux" in av.colnames:
@@ -235,10 +265,9 @@ class Matcher(object):
             if "e%s"%self.filter in av.colnames: av.remove_column("e%s"%self.filter)
             av.add_column(mag,name=self.filter)
             av.add_column(magerr,name="e%s"%self.filter)
-            #perror("There was no zero point added here!\n")
-
+        
         if "NUM" not in av.colnames:
-            narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,self.colnames[0])))),axis=1)
+            narr= np.nansum( np.invert( np.isnan(tab2array(tab,find_colnames(tab,"RA")))),axis=1)
             av.add_column(Column(narr, name="NUM"))
 
             if num_thresh>0:
@@ -246,28 +275,57 @@ class Matcher(object):
         return av
     
     def build_meta(self,catalogues):
-        pass
+        """
+        Not happy with this yet
+        """
+        meta=catalogues[0].meta
+        #for n,cat in enumerate(catalogues):
+        #    for key,val in cat.meta.items():
+        #        if key not in meta: meta[key]=val
+        #        if meta[key]!=val:
+        #            if type(meta[key])==list: meta[key].append(val)
+        #            else: meta[key]=[meta[key],val]
+
+        base=Table(None, meta=meta)
+        return base
+
         
 
-class CascadeMatch(Matcher):
+class CascadeMatch(GenericMatch):
+    """
+    A simple advancement on "Generic Matching" where the number
+    of columns are not preserved. At the end of each sub match, the 
+    table is left justified, to reduce the total number of columns needed.
+
+    Parameters
+    ----------
+    See `GenericMatch`
+
+    """
     method="Cascade Matching"
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def match(self, catalogues, **kwargs):
         """
-        match a list of catalogues with RA and DEC columns
-        INPUT: 
-            catalogues : list( astropy.table.Tables) catalogues to match
-            threshold  : max separation (arcsec) for two soures to be considered the same source
-            colnames   : column names to include in matches
-        RETURN:
-            a left aligned catalogue of all the matched values
+        Match a list of catalogues with RA and DEC columns
+
+        Parameters
+        ----------
+        See `GenericMatch.match`
+
+        Returns
+        -------
+        output : `astropy.table.Table`
+            A left aligned catalogue of all the matched values
         """
         catalogues=self.init_catalogues(catalogues)
-        base=Table( None, meta=catalogues[0].meta)
+        base=self.build_meta(catalogues)
 
         for n,cat in enumerate(catalogues,1):
+            self.load.msg="matching: %d"%n
+            tmp=self._match(base,cat, join_type="or")
+            """
             if n==1:
                 tmp=cat.copy()
             else:
@@ -294,19 +352,20 @@ class CascadeMatch(Matcher):
                             drow+=1 
                         else: 
                             tmp.add_row(src[colnames]) ##i can purely use add_row to simplifiy the code
+            """
             tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
             base=hcascade((base,tmp), colnames=self.colnames)
         base=fill_nan(base)
         return base
 
-class DitherMatch(Matcher):
+class DitherMatch(GenericMatch):
     def __init__(self, catalogues, pfile=None):
         super(self,DitherMatch).__init__(catalogues, pfile)
 
     def match(self, **kwargs):
         return None
 
-class BandMatch(Matcher):
+class BandMatch(GenericMatch):
     method="Band Matching"
     def __init__(self, **kwargs):
 
@@ -412,11 +471,15 @@ class BandMatch(Matcher):
         # Begin #
         #########
         
-        base=Table(None)
+        base=self.build_meta(catalogues)
+        _threshold=self.threshold.copy()
         for n,tab in enumerate(catalogues):
+            self.threshold=_threshold[n-1] ## Temporarily recast threshold
+            self.load.msg="%s (%g\")"%(self.filter[n], self.threshold.value)
             colnames= [ name for name in self.colnames if name in tab.colnames]
-            self.load.msg="%s (%g\")"%(self.filter[n], self.threshold[n-1].value)
 
+            tmp=self._match(base,tab, join_type="or")
+            """
             if not len(base): 
                 tmp=tab[colnames].copy()
             else:
@@ -429,6 +492,7 @@ class BandMatch(Matcher):
                         tmp[IDX]=src[colnames]
                     else:
                         tmp.add_row(src[colnames])
+            """
 
             colnames.remove("RA")
             colnames.remove("DEC")
@@ -449,6 +513,7 @@ class BandMatch(Matcher):
                 base.rename_columns(("RA","DEC"),("_RA_%d"%n, "_DEC_%d"%n))
                 base=hstack( (base,tmp[["RA","DEC"]]) )
 
+        self.threshold=_threshold # Set threshold back at the end
         ####################
         # Fix column names #
         for name in self.colnames:
@@ -507,7 +572,7 @@ def band_match(catalogues, colnames=("RA","DEC")):
         if not len(base): 
             tmp=tab[_colnames].copy()
         else:
-            idx,d2d,_=Matcher._match(base,tab)
+            idx,d2d,_=GenericMatch._match(base,tab)
             tmp=Table(np.full( (len(base),len(_colnames)), np.nan), names=_colnames)
             
             ###################################
@@ -576,7 +641,7 @@ def dither_match(catalogues, threshold, colnames):
             colnames:   names to include in the output catalogue
     RETURNS: a combined catalogue with paired sources appearing on the same line
     """
-    perror("Deprecated Function, use Matcher instead\n")
+    perror("Deprecated Function, use GenericMatch instead\n")
     threshold=threshold*u.arcsec
     colnames= list(name for name in colnames if name in catalogues[0].colnames)#list( set(catalogues[0].colnames) & set(colnames) )
     base=Table( None)#, names=colnames )
@@ -628,7 +693,6 @@ def stage_match(stage2, stage3, threshold):
     print(tab)
     return tab 
 
-def generic_match():pass
 def exp_info(hdulist):
     """
     Get the exposure information about a hdulist 
@@ -727,5 +791,40 @@ def bootstrap_match(catalogues):
     else:
         perror("Must include more than one catalogue.\n")
     return base
+
+
+def parse_mask(string, table):
+    """
+    Parse an commandline mask string to be passed into a matching routine
+    Example: --mask=F444W!=nan
+
+    Parameters
+    ----------
+    string : str
+        Raw mask sting to be parsed
+    
+    ? table : `astropy.table.Table`
+        Table to work on
+
+    Returns
+    -------
+    mask : `np.ndarray`
+        Boolean mask array to index into a table or array
+
+    """
+    mask=None
+    
+    for colname in table.colnames: string=string.replace(colname,"table[\"%s\"]"%colname)
+    #string=string.replace("nan","np.nan")
+    try:
+        mask = eval(string)
+        if not isinstance(mask,np.ndarray):
+            raise Exception
+    except NameError as e:
+        perror("Unable to create mask: %s\n"%repr(e))
+    except Exception as e:
+        perror(repr(e))
+
+    return mask
 
 

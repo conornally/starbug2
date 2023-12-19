@@ -1,5 +1,5 @@
 """StarbugII Matching 
-usage: starbug2-match [-BCGfhv] [-e column] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
+usage: starbug2-match [-BCGfhv] [-e column] [-m mask] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
     -C  --cascade            : match in "CASCADE" mode (left justify columns)
     -G  --generic            : match in "GENERIC" mode
@@ -7,6 +7,7 @@ usage: starbug2-match [-BCGfhv] [-e column] [-o output] [-p file.param] [-s KEY=
     -e  --error   column     : photometric error column ("eflux" or "stdflux")
     -f  --full               : export full catalogue
     -h  --help               : show help message
+    -m  --mask    eval       : column evaluation to mask out of matching e.g. -m F444W==nan
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file
     -s  --set     option     : set value in parameter file at runtime (-s MATCH_THRESH=1)
@@ -22,7 +23,7 @@ import os,sys,getopt
 import numpy as np
 from astropy.table import Table, hstack, vstack
 from starbug2 import utils
-from starbug2.matching import Matcher, CascadeMatch, BandMatch, band_match
+from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, band_match, parse_mask
 from starbug2 import param
 import starbug2.bin as scr
 import starbug2
@@ -46,8 +47,8 @@ def match_parsemargv(argv):
     setopt={}
 
     cmd,argv=scr.parsecmd(argv)
-    opts,args=getopt.gnu_getopt(argv, "BCfGhve:o:p:s:", ("band","cascade","dither","full","generic","help","verbose",
-                                                    "error=","output=","param=","set=",
+    opts,args=getopt.gnu_getopt(argv, "BCfGhve:m:o:p:s:", ("band","cascade","dither","full","generic","help","verbose",
+                                                    "error=","mask=","output=","param=","set=",
                                                     "band-depr"))
     for opt,optarg in opts:
         if opt in ("-h", "--help"):     options|=(SHOWHELP|STOPPROC)
@@ -57,6 +58,7 @@ def match_parsemargv(argv):
 
         if opt in ("-e","--error"): setopt["ERRORCOLUMN"]=optarg
         if opt in ("-f","--full"): options|=EXPFULL
+        if opt in ("-m","--mask"): setopt["MASKEVAL"]=optarg
         if opt in ("-s","--set"): 
             if '=' in optarg:
                 key,val=optarg.split('=')
@@ -76,8 +78,7 @@ def match_onetimeruns(options, setopt):
     """
     Options set, one time runs
     """
-    if options&VERBOSE:
-        setopt["VERBOSE"]=1
+    if options&VERBOSE: setopt["VERBOSE"]=1
     if options&SHOWHELP:
         scr.usage(__doc__,verbose=options&VERBOSE)
         return scr.EXIT_EARLY
@@ -107,7 +108,7 @@ def match_fullbandmatch(tables, parameters):
             utils.printf("-> bridging catalogues with %s\n"%bridgecol)
         else: mask=np.full(len(nircam_matched), False)
 
-        m=Matcher(threshold=dthreshold, load=load)
+        m=GenericMatch(threshold=dthreshold, load=load)
         full=m((nircam_matched[~mask],miri_matched))
         matched = m.finish_matching(full)
         #matched,_=matching.generic_match((nircam_matched[~mask],miri_matched), threshold=dthreshold, add_src=True, load=load)
@@ -143,6 +144,13 @@ def match_main(argv):
     for fname in args: 
         t=utils.import_table(fname, verbose=1)
         if t is not None: tables.append(t)
+    if (raw:=parameters.get("MASKEVAL")):
+        masks = [ parse_mask(raw,t) for t in tables ]
+        for m in masks:
+            try: print(m, sum(m), len(m))
+            except: print( m )
+    else: masks=None
+
 
     if len(tables)>1:
         colnames=starbug2.match_cols
@@ -181,11 +189,11 @@ def match_main(argv):
                 matcher=BandMatch(threshold=dthreshold, fltr=fltr, verbose=parameters["VERBOSE"])
 
             elif options & CASCADEMATCH: matcher=CascadeMatch(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
-            elif options & GENERICMATCH: matcher=Matcher(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
+            elif options & GENERICMATCH: matcher=GenericMatch(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
             else: 
-                matcher=Matcher(threshold=dthreshold, colnames=colnames)
+                matcher=GenericMatch(threshold=dthreshold, verbose=parameters["VERBOSE"])
                 options|=EXPFULL
-            full= matcher.match( tables, join_type="or" )
+            full= matcher.match( tables, join_type="or", mask=masks )
             av = matcher.finish_matching(full, num_thresh=parameters["NEXP_THRESH"], zpmag=parameters["ZP_MAG"], error_column=error_column)
 
 

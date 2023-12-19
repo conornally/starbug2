@@ -5,4 +5,3 @@ parse
 scipy
 webbpsf
 scikit-image
-sphinx-rtd-theme

@@ -12,7 +12,7 @@ def test_match_start():
     assert run("starbug2-match -vh")==EXIT_EARLY
 
 def test_match_badinput():
-    clean()
+    #clean()
     assert run("starbug2-match ")==EXIT_FAIL
     assert run("starbug2-match tests/dat/image.fits")==EXIT_EARLY
     assert run("starbug2-match badinput.fits")==EXIT_FAIL
@@ -21,10 +21,10 @@ def test_match_badinput():
     starbug_main("starbug2 -D tests/dat/image.fits".split())
     assert run("starbug2-match tests/dat/image-ap.fits")==EXIT_EARLY
     
-    clean()
+    #clean()
 
 def test_match_basicrunthrough():
-    clean()
+    #clean()
     starbug_main("starbug2 -Do tests/dat/out1.fits tests/dat/image.fits".split())
     starbug_main("starbug2 -Do tests/dat/out2.fits tests/dat/image.fits".split())
     assert run("starbug2-match tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
@@ -36,20 +36,17 @@ def test_match_basicrunthrough():
     assert run("starbug2-match -fG tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
     assert run("starbug2-match -fC tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
     #assert run("starbug2-match -fD tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    clean()
+    #clean()
+
+def test_mask():
+    starbug_main("starbug2 -Do tests/dat/out1.fits tests/dat/image.fits".split())
+    starbug_main("starbug2 -Do tests/dat/out2.fits tests/dat/image.fits".split())
+    assert run("starbug2-match -vmF444W>20 tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
 
 
 
-
-
-
-
-
-
-
-
-
-def clean():
+@pytest.fixture(autouse=True)
+def init():
     files=glob.glob("tests/dat/*")
     files.remove("tests/dat/image.fits")
     files.remove("tests/dat/psf.fits")

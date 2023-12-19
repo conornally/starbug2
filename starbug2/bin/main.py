@@ -103,7 +103,8 @@ def starbug_parseargv(argv):
             else: perror("BGD_FILE \"%s\" does not exist\n"%optarg)
 
         if opt in ("-f","--find"): options|=FINDFILE
-        if opt in ("-n","--ncores"): setopt["NCORES"]=max(1,int(optarg))
+        if opt in ("-n","--ncores"): 
+            setopt["NCORES"]=max(1,int(optarg))
 
         if opt in ("-o","--output"):
             output=optarg
@@ -258,7 +259,7 @@ def starbug_matchoutputs(starbugs, options, setopt):
     """
     Matching output catalogues
     """
-    from starbug2.matching import Matcher
+    from starbug2.matching import GenericMatch
     if options&VERBOSE: printf("Matching outputs\n")
     params=param.load_params(setopt.get("PARAMFILE"))
     params.update(setopt)
@@ -272,7 +273,7 @@ def starbug_matchoutputs(starbugs, options, setopt):
     #colnames=starbug2.match_cols
     #colnames+=[ name for name in params["MATCH_COLS"].split() if name not in colnames]
 
-    match=Matcher( threshold= params["MATCH_THRESH"], colnames=None, pfile=setopt.get("PARAMFILE"))
+    match=GenericMatch( threshold= params["MATCH_THRESH"], colnames=None, pfile=setopt.get("PARAMFILE"))
 
     if options&(DODETECT|DOAPPHOT):
         full=match( [sb.detections for sb in starbugs], join_type="or")
@@ -310,7 +311,7 @@ def fn(args):
         if options&VERBOSE: 
             printf("-> showing starbug stdout for \"%s\"\n"%fname)
             setopt["VERBOSE"]=1
-        elif setopt.get("NCORES"): printf("-> hiding starbug stdout for \"%s\"\n"%fname)
+        elif setopt.get("NCORES")>1: printf("-> hiding starbug stdout for \"%s\"\n"%fname)
         else: printf("-> %s\n"%fname)
 
         if ext==".fits":
@@ -356,7 +357,7 @@ def starbug_main(argv):
         exit_code=scr.EXIT_SUCCESS
 
         if (ncores:=setopt.get("NCORES")) is None or ncores==1 or len(args)==1:
-            setopt["NCORES"]=None
+            setopt["NCORES"]=1
             starbugs=[fn((fname,options,setopt)) for fname in args]
         else:
 

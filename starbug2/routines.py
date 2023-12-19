@@ -1,5 +1,5 @@
 """
-Routines for Starbug
+Core routines for StarbugII.
 """
 import os
 import sys
@@ -28,12 +28,64 @@ from starbug2 import *
 
 class Detection_Routine(StarFinderBase):
     """
-    Detection routine- called by starbug
+    Detection routine
+    -----------------
     A standalone detection that runs on a 2D image.
     It uses DAOStarFinder as the base for peak detection but run
     several times on a series of background subtracted images.
     Each run the background subtraction is differemt, bringing out a
     different set of sources
+
+    Parameters
+    ----------
+    sig_src : float
+        The detection flux threshold, this sets the number of sigma above the image median flux
+        that a source must be brighter than. Default: sig_src=5 is a "solid" detection.
+
+    sig_sky : float
+        The number of sigma above the image median flux that is still considered "sky". Pixels
+        below this will be cut out during the detection steps.
+
+    fwhm: float
+        Full width half maximum of a standard source in the image.
+
+    sharplo : float
+        Lowest bound for a source "sharpness".
+
+    sharphi : float
+        Upper bound for a source "sharpness".
+
+    round1hi : float
+        Upper bound for a source "roundness1", this distribution is symmetric and the lower
+        bound is taken as negative round1hi.
+    
+    round2hi : float
+        Upper bound for a source "roundness2", this distribution is symmetric and the lower
+        bound is taken as negative round2hi.
+
+    smoothlo : float
+        Lower bound for source "smoothness".
+
+    smoothhi : float
+        Upper bound for source "smoothness".
+
+    ricker_r : float
+        Pixel radius for the wavelet used in the CONVL detection step.
+
+    cleansrc : bool
+        Set whether to "clean" the catalogue after detection based on the above source geometric properties.
+
+    dobgd2d : bool
+        Set whether to run the BGD2D detection step.
+
+    doconvl : bool
+        Set whether to run the CONVL detection step.
+
+    boxsize : int
+        Set kernel size for BGD2D background measuring step.
+
+    verbose : bool
+        Set whether to print verbose output information.
     """
     def __init__(self,  sig_src=5, sig_sky=3, fwhm=2,
                         sharplo=0.2, sharphi=1, round1hi=1, round2hi=1,
@@ -61,7 +113,7 @@ class Detection_Routine(StarFinderBase):
 
     def detect(self, data, bkg_estimator=None, xycoords=None, method=None):
         """
-        The core detection step (DAOStarFinder
+        The core detection step (DAOStarFinder)
 
         Parameters
         ----------
@@ -133,9 +185,10 @@ class Detection_Routine(StarFinderBase):
         This routine runs source detection several times, but on a different form
         of the data array each time. Each form has been "skewed" somehow to brighten the
         most faint sources and flatten the differential background.
-        1- Plain detections
-        2- Subtract Background estimation
-        3- RickerWave convolution
+
+        - Plain detections
+        - Subtract Background estimation
+        - RickerWave convolution
 
         Parameters
         ----------
@@ -197,7 +250,20 @@ class Detection_Routine(StarFinderBase):
 class APPhot_Routine():
     """
     Aperture photometry called by starbug
-    Given photometry radius, sky annuli radii rad_inner rad_outer
+
+    Parameters
+    ----------
+    radius : float
+        Pixel radius of photometric aperture.
+
+    sky_in : float
+        Pixel radius of inner sky annuli.
+
+    sky_out : float
+        Pixel radius of outer sky annuli.
+
+    verbose : bool
+        Set whether to print verbose output information
     """
     def __init__(self, radius, sky_in, sky_out, verbose=0):
         if sky_in < radius:
@@ -298,6 +364,8 @@ class APPhot_Routine():
 
         self.catalogue["eflux"]=np.sqrt( epoisson**2 +esky_scatter**2 +esky_mean**2)
         self.catalogue["flux"]=apcorr*(phot["aperture_sum_0"] - (self.catalogue["sky"]*apertures.area))
+
+        self.catalogue["flux"][ self.catalogue["flux"]==0]=np.nan
         
         ######################
         # Source "smoothness", the gradient of median pixel values within the two test apertures
@@ -389,6 +457,27 @@ class APPhot_Routine():
 
 class BackGround_Estimate_Routine(BackgroundBase):
     """
+    Diffuse background emission estimator run by starbug.
+
+    Parameters
+    ----------
+    sourcelist : `astropy.table.Table`
+        List of sources in the image in a table containing "xcentroid" "ycentroid".
+
+    boxsize : int
+        Size of the kernel to pass over the image in unsharp masking.
+
+    fwhm : float
+        Source full width hald maximum in the image.
+
+    sigsky : float
+        .
+
+    bgd_r : float
+        .
+
+    verbose : bool
+        .
     """
     def __init__(self, sourcelist, boxsize=2, fwhm=2, sigsky=2, bgd_r=-1, verbose=0, bgd=None):#mask_r0=7, mask_r1=9
         self.sourcelist=sourcelist
@@ -414,31 +503,6 @@ class BackGround_Estimate_Routine(BackgroundBase):
     
     def log(self,msg):
         if self.verbose: printf(msg)
-
-
-    """
-    def calc_rlist(self,data):
-
-        _NCALC_BGDR=5.0
-        FUDGE=1/2.0
-        N=int(len(self.sourcelist)/_NCALC_BGDR)
-        ii=np.random.choice( len(self.sourcelist), size=N)
-        sources=self.sourcelist[ii]
-        shape=int(self.fwhm)*5
-        if not shape%2: shape+=1
-
-        mask=np.isnan(data)|np.isinf(data)
-        _,median,_=sigma_clipped_stats(data, sigma=3)
-        ro= 0.5*self.fwhm * np.sqrt( np.log(median/sources["flux"]))
-        ro*=FUDGE
-
-        with open("test.reg",'w') as fp:
-            for i in range(len(sources)):
-                if not np.isnan(ro[i]):
-                    src=sources[i]
-                    fp.write("fk5;circle %f %f %fi\n"%( src["RA"], src["DEC"], ro[i]))
-        x=np.array([min(sources["flux"]), max(sources["flux"])])
-    """
 
     def __call__(self, data, axis=None, masked=False):
         if self.sourcelist is None or data is None: return self.bgd
@@ -497,6 +561,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
 
 class _grouping(DAOGroup):
     """
+    Deprecated
     Overwritten DAOGroup that just holds the number of groups
     for use in verbose loading of psfphot routine
     >>> This is now a bit redundant after photoutils added progress_bar=true
@@ -794,32 +859,3 @@ class SourceProperties:
         daofind=DAOStarFinder(-np.inf, fwhm, sharplo=-np.inf, sharphi=np.inf, roundlo=-np.inf, roundhi=np.inf, xycoords=xycoords, peakmax=np.inf)
         return daofind._get_raw_catalog(self.image).to_table()
 
-
-
-
-
-
-if __name__=="__main__":
-    tab=Table.read("/dat/ngc346/jwst/stage2/F444W/jw01227002001_02105_00001_nrcalong_cal_destrip-ap.fits")
-    crowding=SourceProperties(None, tab).calculate_crowding()
-    ii=np.argsort(crowding)[len(crowding)//2:]
-
-
-    import matplotlib.pyplot as plt
-    plt.scatter( tab["RA"],tab["DEC"], c='k')
-    plt.scatter( tab["RA"][ii],tab["DEC"][ii], c='r')
-    plt.show()
-
-    #sb=StarbugBase("/home/conor/dat/NGC346/MIRAGE/Pipeline_Level3/ngc346-f115w-mosaic_i2d-cropped.fits")
-    #sb.detect()
-    #sb.photometry()
-    #sb.export()
-    #sb.artificial_stars()
-    #sb.detect()
-    #sb.photometry()
-    #sb.export()
-
-
-
-
-       

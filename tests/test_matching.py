@@ -1,6 +1,6 @@
 import os,numpy as np
 import pytest
-from starbug2.matching import Matcher, CascadeMatch, BandMatch
+from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, parse_mask
 from starbug2.utils import import_table
 from starbug2.param import load_default_params
 from starbug2.bin.main import starbug_main
@@ -40,19 +40,19 @@ def cats():
 
             
 
-class Test_Matcher():
+class Test_GenericMatch():
 
     def test_initialsing(self):
         cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
         options = load_default_params()
 
-        m=Matcher( )
+        m=GenericMatch( )
         assert m.colnames is None
         assert not m.filter 
         assert m.threshold.value == float(options.get("MATCH_THRESH"))
         assert m.verbose == options.get("VERBOSE")
 
-        m=Matcher(fltr="MAG", colnames=["RA"], threshold=0.5, verbose=True)
+        m=GenericMatch(fltr="MAG", colnames=["RA"], threshold=0.5, verbose=True)
         assert m.colnames == ["RA"]
         assert m.filter == "MAG"
         assert m.threshold.value == 0.5
@@ -62,7 +62,7 @@ class Test_Matcher():
 
     def test_generic_match1(self):
         cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
-        m=Matcher()
+        m=GenericMatch()
 
         out=m(cats)
         assert isinstance(out, Table)
@@ -75,28 +75,29 @@ class Test_Matcher():
         assert m.filter=="F444W"
 
         out=m(cats, join_type="and")
+        print(out)
         assert len(out)<=len(cats[0])
         assert len(out)<=len(cats[1])
 
     def test_generic_match2(self):
         cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
-        m=Matcher( colnames=["RA"])
+        m=GenericMatch( colnames=["RA"])
         out=m(cats)
 
         assert out.colnames == ["RA_1","RA_2"]
 
     def test_finishmatching(self):
         cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
-        m=Matcher()
+        m=GenericMatch()
         out=m(cats)
         av=m.finish_matching(out)
         
 
-        m=Matcher(colnames=["RA","DEC","flux"], fltr="F444W")
+        m=GenericMatch(colnames=["RA","DEC","flux"], fltr="F444W")
         av=m.finish_matching(m.match(cats))
         assert av.colnames==["RA","DEC","flux","stdflux","flag","F444W","eF444W","NUM"]
 
-        m=Matcher(colnames=["RA","DEC","flux"])
+        m=GenericMatch(colnames=["RA","DEC","flux"])
         for c in cats: del c.meta["FILTER"]
         av=m.finish_matching(m.match(cats))
         assert av.colnames==["RA","DEC","flux","stdflux","flag","MAG","eMAG","NUM"]
@@ -105,7 +106,7 @@ class Test_Matcher():
 
 
     def test_vals(self):
-        m=Matcher()
+        m=GenericMatch()
         out=m(cats())
         t=[[ 0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
            [ 0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
@@ -225,3 +226,39 @@ class Test_BandMatch:
         #res=bm(cats, method="last")
         #print(res)
         res=bm(cats, method="bootstrap")
+
+def test_parsemask():
+    table=import_table("tests/dat/image-ap.fits")
+    tests=[ "F444W!=nan",
+            "F444W==nan",
+            "F444W>0",
+            "(F444W>0)&(F444W<20)", ## Dont like this "syntax"
+            "F444W+0"
+            ]
+
+    for test in tests:
+        assert parse_mask(test,table) is not None
+
+def test_matchwithmasks():
+    t1=[[0,0,1],
+        [1,1,1],
+        [2,2,1],
+        [3,3,1]]
+    t2=[[0,0,1],
+        [1,1,1],
+        [2,2,0],
+        [3,3,1]]
+    t3=[[0,0,1],
+        [1,1,1],
+        [2,2,0],
+        [3,3,1]]
+    cat1=Table(np.array(t1,float),names=["RA","DEC","a"])
+    cat2=Table(np.array(t2,float),names=["RA","DEC","a"])
+    cat3=Table(np.array(t3,float),names=["RA","DEC","a"])
+    mask=[ np.array([True,True,False,True]), None, np.array([True,True,True,False])]
+
+    res=GenericMatch().match([cat1,cat2,cat3], mask=mask)
+    print(res)
+
+        
+

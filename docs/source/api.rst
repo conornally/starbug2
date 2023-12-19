@@ -5,18 +5,9 @@ Module
    Just testing automodule. Documentation coming at some point soon
 
 
-
-Aperture Photometry
--------------------
-.. autoclass:: starbug2.routines.APPhot_Routine
-   :members: 
-
-PSF Photometry
--------------------
-.. autoclass:: starbug2.routines.PSFPhot_Routine
-   :members: 
-
 .. automodule:: starbug2.utils
+   :members:
+.. automodule:: starbug2.matching
    :members:
 
 Indices and tables

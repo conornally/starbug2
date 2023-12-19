@@ -4,7 +4,7 @@ Miscillaneous functions...
 import os,stat,sys,numpy as np
 import starbug2
 from starbug2.utils import *
-from starbug2.matching import sort_exposures, generic_match
+from starbug2.matching import sort_exposures, GenericMatch
 from astropy.io import fits
 
 
@@ -152,7 +152,10 @@ def calc_instrumental_zeropint(psftable, aptable, fltr=None ):
         return None
     printf("Calculating instrumental zeropoint %s.\n"%fltr)
 
-    matched=generic_match((psftable, aptable), threshold=0.1, add_src=False, average=False)
+    #matched=generic_match((psftable, aptable), threshold=0.1, add_src=False, average=False)
+    printf("This is untested\n")
+    m=GenericMatch(threshold=0.1, colnames=[fltr])
+    matched=m([psftable,aptable], join_type="and")
     dist=np.array((matched["%s_2"%fltr]-matched["%s_1"%fltr]).value)
     zp=np.nanmedian(dist)
     std=np.nanstd(dist)

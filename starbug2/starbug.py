@@ -580,7 +580,7 @@ class StarbugBase(object):
             # Run Fit #
             ###########
             apphot_r=self.options.get("APPHOT_R")
-            if apphot_r is None or apphot_r <=0: apphot_r=3
+            if not apphot_r or apphot_r <=0: apphot_r=3
 
             if self.options["FORCE_POS"]:
                 phot=PSFPhot_Routine(psf_model, size, apphot_r=apphot_r, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
