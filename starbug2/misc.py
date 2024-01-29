@@ -26,12 +26,18 @@ def init_starbug():
     printf("-> using %s=%s\n"%( "STARBUG_DATDIR" if os.getenv("STARBUG_DATDIR") else "DEFAULT_DIR", dname))
     generate_psfs()
 
+    _miri_apcorr=  "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_miri_apcorr_0010.fits"
+    _nircam_apcorr="https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_nircam_apcorr_0004.fits"
+
     printf("Downloading APPCORR CRDS files. NB: \x1b[1mTHESE MAY NOT BE THE LATEST!\x1b[0m\n")
-    wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_miri_apcorr_0010.fits", "%s/apcorr_miri.fits"%dname)
-    wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_nircam_apcorr_0004.fits", "%s/apcorr_nircam.fits"%dname)
+    printf("-> %s\n"%_miri_apcorr)
+    printf("-> %s\n"%_nircam_apcorr)
+    wget(_miri_apcorr,   "%s/apcorr_miri.fits"%dname)
+    wget(_nircam_apcorr, "%s/apcorr_nircam.fits"%dname)
+
     printf("Downloading ABVEGA offsets.\n")
     wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_miri_abvegaoffset_0001.asdf","%s/abvegaoffset_miri.asdf"%dname)
-    wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_nircam_abvegaoffset_0001.asdf","%s/abvegaoffset_nircam.asdf"%dname)
+    wget("https://jwst-crds.stsci.edu/unchecked_get/references/jwst/jwst_nircam_abvegaoffset_0002.asdf","%s/abvegaoffset_nircam.asdf"%dname)
     puts("Downloading The Junior Colour Encyclopedia of Space\n")
 
 
@@ -101,7 +107,7 @@ def generate_psf(fltr, detector=None, fov_pixels=None):
             try: 
                 psf=model.calc_psf(fov_pixels=fov_pixels)["DET_SAMP"]
                 psf=fits.PrimaryHDU(data=psf.data,header=psf.header)
-            except: perror("Something went from with: %s %s\n"%(fltr,detector))
+            except: perror("\x1b[2KSomething went from with: %s %s\n"%(fltr,detector))
         else: perror("Unable to determing instrument from fltr '%s'\n"%fltr)
     else: perror("Unable to locate '%s' in JWST filter list\n"%fltr)
     return psf

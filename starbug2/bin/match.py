@@ -193,6 +193,7 @@ def match_main(argv):
             else: 
                 matcher=GenericMatch(threshold=dthreshold, verbose=parameters["VERBOSE"])
                 options|=EXPFULL
+            print(matcher)
             full= matcher.match( tables, join_type="or", mask=masks )
             av = matcher.finish_matching(full, num_thresh=parameters["NEXP_THRESH"], zpmag=parameters["ZP_MAG"], error_column=error_column)
 
