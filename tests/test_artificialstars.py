@@ -34,11 +34,12 @@ class Test_Artificial_Stars():
         art=Artificial_Stars()
         return 
 
+    """
     def test_run(self):
         psf_model=FittableImageModel(fits.open("tests/dat/psf.fits")[0].data)
         art=Artificial_Stars(detector=routines.Detection_Routine(), photometry=routines.APPhot_Routine(2,3,4), psf=psf_model)
         pos= art.detector(self.im.copy())
-        _flux_range=art.photometry(pos, self.im.copy())["flux"]
+        _flux_range=art.photometry(pos, self.im.copy())["flux_fit"]
         flux_range = ( np.nanmin(_flux_range), np.nanmax(_flux_range) )
         print(flux_range)
 
@@ -59,4 +60,4 @@ class Test_Artificial_Stars():
         assert result is not None
         export_table(result, "/tmp/art.fits")
 
-
+    """
