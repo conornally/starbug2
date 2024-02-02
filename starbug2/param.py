@@ -1,9 +1,11 @@
 import os
 from parse import parse
-from starbug2.utils import printf,perror
+from starbug2.utils import printf,perror,get_version
 
 default="""## STARBUG CONFIG FILE
+# Generated with starbug2-v%s
 PARAM       =  STARBUGII PARAMETERS     //COMMENT
+
 
 ## GENERIC
 VERBOSE     = 0          // (0:false 1:true)
@@ -65,8 +67,8 @@ BRIDGE_COL  =            // Bridge --band matching NIRCam and MIRI catalogues by
 NTESTS      = 100        // Number of artificial star tests
 NSTARS      = 1          // Number of stars per artifical test
 SUBIMAGE    = 500        //number of pixels ? to crop around artificial star
-MIN_FLUX    = 1e-6       //minimun flux for artificial star
-MAX_FLUX    = 1e+6       //maximum flux for artificial star
+MIN_FLUX    = 0.00001      //minimun flux for artificial star
+MAX_FLUX    = 100.0      //maximum flux for artificial star
 
 ## MISC EXTRAS
 REGION_COL  = green      //DS9 region colour
@@ -75,7 +77,7 @@ REGION_RAD  = 3          //Region radius default
 REGION_XCOL = RA         //X column name to use for region
 REGION_YCOL = DEC        //Y column name to use for region
 REGION_WCS  = 1          //If X/Y column names correspind to WCS values
-"""
+"""%get_version()
 
 def parse_param(line):
     """

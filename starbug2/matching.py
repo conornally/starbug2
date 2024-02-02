@@ -173,6 +173,7 @@ class GenericMatch(object):
         _ra= np.nanmean( tab2array( base, colnames=_ra_cols), axis=1)
         _dec=np.nanmean( tab2array( base, colnames=_dec_cols), axis=1)
         skycoord1=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
+        print(skycoord1)
 
         _ra_cols= list( name for name in cat.colnames if "RA" in name)
         _dec_cols= list( name for name in cat.colnames if "DEC" in name)
@@ -238,7 +239,8 @@ class GenericMatch(object):
                 if name=="flux":
                     col=Column(np.nanmedian(ar,axis=1), name=name)
                     mean=np.nanmean(ar,axis=1)
-                    if "stdflux" not in self.colnames: av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux")) 
+                    if "stdflux" not in self.colnames: 
+                        av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux"))
                     ## if median and mean are >5% different, flag as SRC_VAR
                     flags[ np.abs(mean-col)>(col/5.0)] |= starbug2.SRC_VAR
                 elif name== "eflux":

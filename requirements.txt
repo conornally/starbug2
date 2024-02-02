@@ -1,5 +1,5 @@
 numpy>=1.25
-photutils>=1.9.0
+photutils>=1.10.0
 astropy
 parse
 scipy

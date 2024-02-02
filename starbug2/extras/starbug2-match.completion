@@ -1,0 +1,52 @@
+# file: starbug2-match
+#
+
+## need to make this local at some point
+## cat starbug2/param/default.param | grep -v '\#' | sed -s/\=//g| awk '{print $1}' ORS=' '
+PARAMLIST="VERBOSE OUTPUT FILTER  ZP_MAG  MATCH_THRESH MATCH_COLS NEXP_THRESH SN_THRESH BRIDGE_COL" 
+
+_starbug2_match ()
+{
+    COMPREPLY=()
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    local prev=${COMP_WORDS[COMP_CWORD-1]}
+    local xpat
+
+    case "$prev" in 
+      -p|--param)
+          xpat="!*.param";;
+      #
+      ### THIS ONE STILL NEEDS SOME WORK
+      -s|--set) 
+          COMPREPLY=($(compgen -o nospace -W "$PARAMLIST" -- $cur))
+          if [ ${#COMPREPLY[@]} == 1 ]
+          then
+              COMPREPLY=${COMPREPLY}"="
+          fi
+          return 0;;
+      esac
+
+    if [  $xpat ] 
+    then
+        COMPREPLY=($(compgen -o plusdirs -f -X "$xpat" -- $cur))
+        return 0
+    fi
+
+    case "$cur" in 
+
+
+    --*)
+		COMPREPLY=( $( compgen -W '--band --cascade --generic --error --full --help --mask --output --param --set --verbose --band-depr' -- $cur ));;
+    -*)
+        COMPREPLY=($(compgen -W '-B -C -G \
+								-e -f -h -m -o -p -s -v' -- $cur));;
+
+    *) 
+        xpat='!*.fits'
+        COMPREPLY=($(compgen -o plusdirs -f -X "$xpat" -- $cur));;
+    esac
+
+    return 0
+}
+
+complete -o nospace -o filenames -F _starbug2_match starbug2-match

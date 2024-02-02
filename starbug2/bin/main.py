@@ -80,7 +80,7 @@ def starbug_parseargv(argv):
                 "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
                 "init", "generate-psf", "local-param", "generate-region=", "version", "generate-run", "update-param",
                 "calc-instr-zp=", "apply-zeropoint=",
-                "debug"))
+                "debug", "dev"))
     for opt,optarg in opts:
         if opt in ("-h","--help"):   options|=(SHOWHELP|STOPPROC)
         if opt in ("-p","--param"):  setopt["PARAMFILE"]= optarg
@@ -93,6 +93,8 @@ def starbug_parseargv(argv):
         if opt in ("-M","--match"):     options |= DOMATCH
         if opt in ("-P","--psf"):       options |= DOPHOTOM
         if opt in ("-S","--subbgd"):    options |= DOBGDSUB
+
+        if opt == "--dev": options |= DOARTIFL
 
         if opt in ("-d","--apfile"):
             if os.path.exists(optarg): setopt["AP_FILE"]=optarg
@@ -146,7 +148,7 @@ def starbug_parseargv(argv):
 
     return options,setopt,args
 
-def starbug_onetimeruns(options, setopt):
+def starbug_onetimeruns(options, setopt, args):
     """
     Options set, verify/run one time functions
     """
@@ -346,7 +348,8 @@ def starbug_main(argv):
     options, setopt, args= starbug_parseargv(argv)
 
     if options or setopt: 
-        if (exit_code:=starbug_onetimeruns(options,setopt)):
+
+        if (exit_code:=starbug_onetimeruns(options,setopt, args)):
             return exit_code
 
     if args:

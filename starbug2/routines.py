@@ -280,10 +280,10 @@ class APPhot_Routine():
         self.catalogue=Table(None)#, names=["ap_flux_r%d"%n for n in range(len(radii))]+["sky_median"])
         self.verbose=verbose
 
-    def __call__(self, detections, image, **kwargs):
-        return self.run(detections, image, **kwargs)
+    def __call__(self, image, detections, **kwargs):
+        return self.run(image, detections, **kwargs)
 
-    def run(self, detections, image, error=None, dqflags=None, apcorr=1.0, sig_sky=3):
+    def run(self, image, detections, error=None, dqflags=None, apcorr=1.0, sig_sky=3):
         """
         Forced aperture photometry on a list of detections
         detections are a astropy.table.Table with columns xcentroid ycentroid or x_0 y_0
@@ -675,7 +675,7 @@ class PSFPhot_Routine(PSFPhotometry):
         """
 
     def __call__(self,*args,**kwargs): return self.do_photometry(*args,**kwargs)
-    def do_photometry(self, image, mask=None, init_params=None, progress_bar=False):
+    def do_photometry(self, image, init_params=None, mask=None, progress_bar=False):
         """
         """ 
 
@@ -694,8 +694,11 @@ class PSFPhot_Routine(PSFPhotometry):
             cat.add_column(Column(np.full(len(cat),np.nan), name="eflux"))
             perror("NO ERRORS??\n")
         else: cat.rename_column("flux_err","eflux")
+
+        cat.rename_column("flux_fit","flux")
+        #printf("!! Renaming flux_fit to flux, this may cause problems\n")
         
-        keep=["x_fit","y_fit","flux_fit","eflux","xydev","qfit"]
+        keep=["x_fit","y_fit","flux","eflux","xydev","qfit"]
         return hstack((init_params, cat[keep]))
 
 class ArtificialStar_Routine(object):

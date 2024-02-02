@@ -5,6 +5,8 @@ from astropy.table import Table,hstack,vstack
 from starbug2.routines import Detection_Routine
 from starbug2.utils import perror, loading
 
+from astropy.io import fits
+
 
 class Artificial_Stars(object):
 
@@ -24,9 +26,13 @@ class Artificial_Stars(object):
         load=loading(ntests, msg="artificial star testing")
         test_result=None
 
-        if subimage_size>0:
+        ntests=int(ntests)
+        stars_per_test=int(stars_per_test)
+
+        if True:#subimage_size>0:
 
             test_result=Table(None, names=["x_0","y_0","flux","x_det","y_det","flux_det", "status"])
+            im=fits.HDUList()
             for test in range(ntests):
                 x_edge=0
                 y_edge=0
@@ -39,6 +45,7 @@ class Artificial_Stars(object):
                 star_overlay=make_model_sources_image( image.shape, self.psf, sourcelist)    
 
                 if image.shape==star_overlay.shape:
+                    im.append(fits.ImageHDU(image+star_overlay))
                     result=self.single_test( image+star_overlay, sourcelist, threshold=2)
                     result["x_0"]+=x_edge
                     result["y_0"]+=y_edge
@@ -47,7 +54,7 @@ class Artificial_Stars(object):
                     test_result=vstack((test_result,result))
                 load();load.show()
 
-        
+            im.writeto("/tmp/out.fits", overwrite=True)
         return test_result
 
     def single_test(self, image, contains, threshold=2):
@@ -87,7 +94,7 @@ class Artificial_Stars(object):
                     test_result["status"][i]=DETECT
 
                     if self.photometry:
-                        test_result["flux_det"][i]=self.photometry(Table(detections[["x_0","y_0"]][best_match]), image)["flux"]
+                        test_result["flux_det"][i]=self.photometry(image, Table(detections[["x_0","y_0"]][best_match]))["flux"]
                 else:
                     test_result["status"][i]=NULL
 
@@ -123,6 +130,8 @@ class Artificial_Stars(object):
         x_edge=0
         y_edge=0
 
+
+        if size<=0: return image,0,0
 
         if any(imshape < size):
             size=min(imshape)
@@ -160,4 +169,5 @@ class Artificial_Stars(object):
         
     def periodic_export(self,fname=""):
         return 0
+
 

@@ -413,10 +413,10 @@ class StarbugBase(object):
                 dqflags=self._image["DQ"].data
             else: dqflags=None
 
-            ap_cat=apphot(self.detections, image, error=error, dqflags=dqflags, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+            ap_cat=apphot(image, self.detections, error=error, dqflags=dqflags, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
         else: ##stage 3 version
-            ap_cat=apphot(self.detections, image, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+            ap_cat=apphot(image, self.detections, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
 
         fltr=self.filter if self.filter else "mag"
@@ -668,9 +668,9 @@ class StarbugBase(object):
                                     sharphi=self.options["SHARP_HI"],
                                     round1hi=self.options["ROUND1_HI"],
                                     verbose=0)
-        phot=APPhot_Routine ( self.options["APPHOT_R"],
-                              self.options["SKY_RIN"],
-                              self.options["SKY_ROUT"])
+        #phot=APPhot_Routine ( self.options["APPHOT_R"],
+        #                      self.options["SKY_RIN"],
+        #                      self.options["SKY_ROUT"])
 
         self.load_psf(self.options.get("PSF_FILE"))
         psf_model=FittableImageModel(self.psf)
@@ -686,6 +686,9 @@ class StarbugBase(object):
         #                        roundhi=self.options["ROUND_HI"],
         #                        wcs=WCS(self.image.header),
         #                        verbose=0)
+        phot=PSFPhot_Routine( psf_model, psf_model.shape,
+                apphot_r=self.options["APPHOT_R"], force_fit=False, 
+                background=None, verbose=0)
 
         art=Artificial_Stars(detector=detector, photometry=phot, psf=psf_model)
         self.log("Artificial Star Testing (n=%d)\n"%(self.options["NTESTS"]))
