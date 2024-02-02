@@ -633,11 +633,13 @@ class StarbugBase(object):
 
             if self.options["GEN_RESIDUAL"]:
                 self.log("-> generating residual\n")
-                residual = subtract_psf(image-bgd, psf_model, psf_cat[["x_fit","y_fit","flux_fit"]], subshape=(size,size))
+                _tmp=psf_cat["x_fit","y_fit","flux"].copy()
+                _tmp.rename_column("flux","flux_fit")
+                residual = subtract_psf(image-bgd, psf_model, _tmp, subshape=(size,size))
                 self.residuals=residual*scalefactor
                 fits.ImageHDU(data=self.residuals, name="RES", header=fits.Header({**self.info, **self.header,**self.wcs.to_header()})).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
 
-            psf_cat.rename_column("flux_fit","flux")
+            #psf_cat.rename_column("flux_fit","flux")
             mag,magerr=flux2mag(psf_cat["flux"],psf_cat["eflux"])
 
             fltr= self.filter if self.filter else "mag"

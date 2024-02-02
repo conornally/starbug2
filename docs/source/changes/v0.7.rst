@@ -12,6 +12,8 @@ Minor Changes:
 
     -   Incremented nircam abvegaoffset number
 
+    -   PSF photometry now returns flux not flux_fit
+
 Bug Fixes:
     -   Generic matching wasn't adding stdflux into the output table
 
