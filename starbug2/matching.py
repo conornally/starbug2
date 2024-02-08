@@ -173,7 +173,6 @@ class GenericMatch(object):
         _ra= np.nanmean( tab2array( base, colnames=_ra_cols), axis=1)
         _dec=np.nanmean( tab2array( base, colnames=_dec_cols), axis=1)
         skycoord1=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
-        print(skycoord1)
 
         _ra_cols= list( name for name in cat.colnames if "RA" in name)
         _dec_cols= list( name for name in cat.colnames if "DEC" in name)

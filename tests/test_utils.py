@@ -2,6 +2,7 @@ import starbug2
 from starbug2 import utils
 import numpy as np
 from astropy.table import Table, MaskedColumn
+from astropy.io import fits
 
 def test_strnktn():
     assert utils.strnktn( "", 3, 'a') == "aaa"
@@ -149,3 +150,11 @@ def test_hcascade():
             if not np.isnan(a) or not np.isnan(b):
                 assert a==b
 
+def test_collapseheader():
+    header=fits.Header( {"OK":0,
+                         "PARAMFILE":"/PATH/TO/FILE/THAT/IS/TOO/LONG/FOR/A/HIERARCH/CARD",
+                        "PARAMFILE2":"/PATH/TO/FILE/THAT/IS/TOO/LONG/FOR/A/HIERARCH/CARD"})
+
+    h=utils.collapse_header(header)
+    assert h["COMMENT"] is not None
+    assert type(utils.collapse_header( {"a":"b"} ))==fits.Header

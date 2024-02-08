@@ -55,14 +55,19 @@ class StarbugBase(object):
     @property
     def header(self):
         """
-        """
-        head=fits.Header({**self.options,**self.info})
+        Construct relevant base header information for routine products
 
+        Returns
+        -------
+        `fits.Header` : Header file containing a series of relevvant information
+        """
+        head={}
         head["STARBUG"]=get_version()
         head["CALIBLEVEL"]=self.stage
-        head["FILTER"]=self.filter
+        if self.filter: head["FILTER"]=self.filter
+        head.update(self.options)
         head.update(self.info)
-        return head
+        return utils.collapse_header(head)
 
 
     @property
@@ -198,17 +203,18 @@ class StarbugBase(object):
     def load_apfile(self,fname=None):
         """
         Load a AP_FILE to be used during photometry
-        INPUT:
-            fname : file-ap.fits (this file is exported during source detection step
+
+        Parameters:
+        -----------
+        fname : str
+            Filename for fits table containg source coordinates. These coorindates can be
+            xcentroid/ycentroid, x_init/y_init, x_0,y_0 or RA/DEC. The latter is used if 
+            starbug gets "USE_WCS=1" in the parameter file.
         """
         if not fname: fname=self.options["AP_FILE"]
         if os.path.exists(fname):
             self.detections=import_table(fname)
             cn=set(self.detections.colnames)
-
-            #if "flag" in cn:
-                #self.detections["flag"]=Column(self.detections["flag"], dtype=np.uint16)
-
 
             self.log("loaded AP_FILE='%s'\n"%fname)
 
@@ -227,9 +233,9 @@ class StarbugBase(object):
                     warn("No 'RA' or 'DEC' found in AP_FILE\n")
                     #self.options["USE_WCS"]=0
 
-            if len( set(("x_0","y_0"))&cn)==2:
+            elif len( set(("x_0","y_0"))&cn)==2:
                 self.detections.rename_columns(("x_0","y_0"),("xcentroid","ycentroid"))
-            if len( set(("x_init","y_init"))&cn)==2:
+            elif len( set(("x_init","y_init"))&cn)==2:
                 self.detections.rename_columns(("x_init","y_init"),("xcentroid","ycentroid"))
 
             if len( set(("xcentroid","ycentroid"))&cn)==2:
@@ -243,8 +249,11 @@ class StarbugBase(object):
     def load_bgdfile(self,fname=None):
         """
         Load a BGD_FILE to be used during photometry
-        INPUT:
-            fname : file-bgd.fits (this file is exported during background estimation step
+        
+        Parameters:
+        -----------
+        fname : str
+            Filename of fits image the same dimensions as the main image
         """
         if not fname: fname=self.options["BGD_FILE"]
         if os.path.exists(fname):
@@ -255,8 +264,11 @@ class StarbugBase(object):
     def load_psf(self,fname=None):
         """
         Load a PSF_FILE to be used during photometry
-        INPUT:
-            fname : psf.fits
+
+        Parameters:
+        -----------
+        fname : str
+            Filename of a PSF fits image
         """
         status=0
         if not fname:
@@ -308,7 +320,6 @@ class StarbugBase(object):
                                         fwhm=FWHM,
                                         sharplo=self.options["SHARP_LO"],
                                         sharphi=self.options["SHARP_HI"],
-                                        #roundlo=-self.options["ROUND_HI"],
                                         round1hi=self.options["ROUND1_HI"],
                                         round2hi=self.options["ROUND2_HI"],
                                         smoothlo=self.options["SMOOTH_LO"], 
@@ -472,7 +483,9 @@ class StarbugBase(object):
                                             sigsky=self.options["SIGSKY"],
                                             bgd_r=self.options["BGD_R"],
                                             verbose=self.options["VERBOSE"])
-            header=fits.Header({**self.header,**self.wcs.to_header()})
+            #header=fits.Header({**self.header,**self.wcs.to_header()})
+            header=self.header
+            header.update(self.wcs.to_header())
             self.background=fits.ImageHDU(data=bgd(self.image.data.copy()), header=header)
             _fname="%s/%s-bgd.fits"%(self.outdir, self.bname)
             self.log("--> %s\n"%_fname)
@@ -494,7 +507,9 @@ class StarbugBase(object):
         array= self.image.data - self.background.data
         self.residuals = array
         self._image[self._nHDU].data=array
-        fits.ImageHDU(data=self.residuals, name="RES", header=fits.Header({**self.header,**self.wcs.to_header()})).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
+        header=self.header
+        header.update(self.wcs.to_header())
+        fits.ImageHDU(data=self.residuals, name="RES", header=header).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
 
     def photometry(self):
         """
@@ -637,7 +652,9 @@ class StarbugBase(object):
                 _tmp.rename_column("flux","flux_fit")
                 residual = subtract_psf(image-bgd, psf_model, _tmp, subshape=(size,size))
                 self.residuals=residual*scalefactor
-                fits.ImageHDU(data=self.residuals, name="RES", header=fits.Header({**self.info, **self.header,**self.wcs.to_header()})).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
+                header=self.header
+                header.update(self.wcs.to_header())
+                fits.ImageHDU(data=self.residuals, name="RES", header=header).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
 
             #psf_cat.rename_column("flux_fit","flux")
             mag,magerr=flux2mag(psf_cat["flux"],psf_cat["eflux"])
@@ -669,25 +686,14 @@ class StarbugBase(object):
                                     sharplo=self.options["SHARP_LO"],
                                     sharphi=self.options["SHARP_HI"],
                                     round1hi=self.options["ROUND1_HI"],
-                                    verbose=0)
+                                    verbose=1)
         #phot=APPhot_Routine ( self.options["APPHOT_R"],
         #                      self.options["SKY_RIN"],
         #                      self.options["SKY_ROUT"])
 
         self.load_psf(self.options.get("PSF_FILE"))
         psf_model=FittableImageModel(self.psf)
-        #phot=PSFPhot_Routine(   self.options["CRIT_SEP"],
-        #                        starbug2.filters[self.filter].pFWHM,
-        #                        psf_model,
-        #                        psf_model.shape,
-        #                        sig_sky=self.options["SIGSKY"],
-        #                        sig_src=self.options["SIGSRC"],
-        #                        sharplo=self.options["SHARP_LO"],
-        #                        sharphi=self.options["SHARP_HI"],
-        #                        roundlo=self.options["ROUND_LO"],
-        #                        roundhi=self.options["ROUND_HI"],
-        #                        wcs=WCS(self.image.header),
-        #                        verbose=0)
+
         phot=PSFPhot_Routine( psf_model, psf_model.shape,
                 apphot_r=self.options["APPHOT_R"], force_fit=False, 
                 background=None, verbose=0)
@@ -698,7 +704,7 @@ class StarbugBase(object):
         result= art.run_auto( self.image.data.copy(), ntests=self.options.get("NTESTS"), stars_per_test=self.options.get("NSTARS"), 
                             subimage_size=self.options.get("SUBIMAGE"), flux_range=( self.options["MIN_FLUX"],self.options["MAX_FLUX"]))
 
-        _fname="%s/%s-art.fits"%(self.outdir, self.bname)
+        _fname="%s/%s-afs.fits"%(self.outdir, self.bname)
         export_table(result, fname=_fname)
 
         return status

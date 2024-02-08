@@ -142,6 +142,31 @@ def tab2array(tab,colnames=None):
     else: colnames=list( set(colnames)&set(tab.colnames) )
     return np.array( tab[colnames].as_array().tolist() )
 
+def collapse_header(header):
+    """
+    Convert a dictionary to a Header. 
+    Parameters in PARAMFILES have keys longer than 8 chars
+    which can cause issues in the fits format. This function turns
+    those to comment cards.
+
+    Parameters
+    ----------
+    header : dict , `fits.Header`
+        Header or dictionary to convert to collapse header
+
+    Returns
+    -------
+
+    `fits.Header`
+        Collapsed Header
+    """
+    out=fits.Header()
+    for key,value in header.items():
+        if len(key)>=8: 
+            out["comment"]=":".join([key,str(value)])
+        else: out[key]=value
+    return out
+
 
 def export_table(table, fname=None, header=None):
     """ Export table with correct dtypes """
