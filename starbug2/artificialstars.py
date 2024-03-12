@@ -3,7 +3,7 @@ from photutils.datasets import make_model_sources_image, make_random_models_tabl
 from astropy.coordinates import SkyCoord
 from astropy.table import Table,hstack,vstack
 from starbug2.routines import Detection_Routine
-from starbug2.utils import perror, loading, cropHDU, get_MJysr2Jy_scalefactor
+from starbug2.utils import perror, loading, cropHDU, get_MJysr2Jy_scalefactor, warn
 
 from astropy.io import fits
 
