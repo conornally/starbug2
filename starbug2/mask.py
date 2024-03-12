@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib.path import Path
 from matplotlib.patches import Polygon
 from astropy.table import Table
-from starbug2.utils import tab2array, colour_index
+from starbug2.utils import tab2array, colour_index, fill_nan
 
 class Mask(object):
     colour='k'
@@ -18,8 +18,8 @@ class Mask(object):
 
 
     def apply(self, dat):
-        d=tab2array(colour_index(dat,self.keys))
-        return self.path.contains_points(d)
+        d=fill_nan(colour_index(dat,self.keys))
+        return self.path.contains_points(tab2array(d))
     
     @staticmethod
     def from_file(fname):

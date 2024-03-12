@@ -4,6 +4,7 @@ from parse import parse
 import pkg_resources
 from astropy.table import Table,hstack,Column,MaskedColumn
 from astropy.io import fits
+from astropy.wcs import WCS
 import starbug2
 import requests
 
@@ -80,7 +81,6 @@ def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA
     """
     A handy function to convert the detections in a DS9 region file
     """
-    #tab=tab.copy()
     if xcol not in tab.colnames:
         xcols= list(filter(lambda s: 'x'==s[0],tab.colnames))
         if xcols:
@@ -98,6 +98,7 @@ def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA
     if "flux" in tab.colnames and scale_radius: 
         r= (-40.0/np.log10(tab["flux"]))
         r[r<region_radius]=region_radius
+        r[np.isnan(r)]=region_radius
     else: r=np.ones(len(tab))*region_radius
 
     prefix="fk5;" if wcs else ""
@@ -162,7 +163,7 @@ def collapse_header(header):
     """
     out=fits.Header()
     for key,value in header.items():
-        if len(key)>=8: 
+        if len(key)>8: 
             out["comment"]=":".join([key,str(value)])
         else: out[key]=value
     return out
@@ -442,6 +443,38 @@ def rmduplicates(seq):
     """
     seen = set()
     return [x for x in seq if not (x in seen or seen.add(x))]
+
+def cropHDU(hdu, xlim=None, ylim=None):
+    """
+    Crop an image with multiple extensions
+
+    Parameters:
+    -----------
+    hdu : fits.HDUList
+        A multi frame fits HDUList
+
+    xlim : list
+        Pixel X bounds to crop image between
+
+    ylim : list
+        Pixel Y bounds to crop image between
+    """
+    if xlim is None or ylim is None: return None
+
+    for ext in hdu:
+        if type(ext) not in (fits.PrimaryHDU, fits.ImageHDU): continue
+        if not ext.header["NAXIS"]: continue
+        
+        ctype=ext.header.get("CTYPE") 
+        #if ctype and "-SIP" in ctype:
+        ext.header["CTYPE"]="%s-SIP"%ctype
+            #ext.header["CTYPE"]=ctype.replace("-SIP","")
+
+        w=WCS(ext.header,relax=False)
+        ext.data=ext.data[ xlim[0]:xlim[1], ylim[0]:ylim[1] ]
+        ext.header.update( w[ xlim[0]:xlim[1], ylim[0]:ylim[1]].to_header())
+    return hdu
+        
 
 
 if __name__ == "__main__":

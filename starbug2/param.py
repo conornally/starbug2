@@ -35,7 +35,7 @@ SKY_RIN     = 3          //Sky annulus inner radius
 SKY_ROUT    = 4.5        //Sky annulus outer radius
 APCORR_FILE =            //Aperture correction file. See full manual for details
 
-## BACKGROUNDESTIMATION
+## BACKGROUND ESTIMATION
 BGD_R       = 0          //.
 BOX_SIZE    = 2          // (int>0) Background estimation kernal size (pix)
 

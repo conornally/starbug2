@@ -622,6 +622,35 @@ class _fitmodel(LevMarLSQFitter):
         return super().__call__(*args,**kwargs)
 
 
+class _Grouper(SourceGrouper):
+    """
+    Overloaded SourceGrouper. This class gives a
+    starbug warning into stderr if there are more than CRITICAL_VAL source
+    in any given group. Then returns the original __call__ function resultsthe original __call__ function results.
+
+    Parameters:
+    -----------
+    min_separation : float>0
+        The minimum distance (in pixels) such that any two sources
+        separated by less than this distance will be placed in the same
+        group if the ``min_size`` criteria is also met.
+    """
+    CRITICAL_VAL=25
+    min_separation=0
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+
+    def __call__(self,*args,**kwargs):
+        res= super().__call__(*args,**kwargs)
+        if (n:=sum( np.bincount(res)>self.CRITICAL_VAL)):
+            warn("Source grouper has %d groups larger than %d. Consider reducing \"CRIT_SEP=%g\" or fitting might take a long time.\n"%(n,self.CRITICAL_VAL, self.min_separation))
+        
+        #n_stars_in_groups = np.bincount(res)
+        #ten_most_populus_groups = np.argsort(n_stars_in_groups)[-10:]
+        #for bin in np.flip(ten_most_populus_groups):
+            #print('Group {} with {} stars'.format(bin, n_stars_in_groups[bin]))
+        return res
+
 class PSFPhot_Routine(PSFPhotometry):
     """
     PSF Photometry routine called by starbug
@@ -635,6 +664,9 @@ class PSFPhot_Routine(PSFPhotometry):
         Size of PSF to use in pixels. Must be less than or equal to the 
         size of psf_model
 
+    min_separation : float
+        Minimum source separation for source grouper (pixels)
+
     apphot_r : float
         Aperture radius to be used in initial guess photometry
 
@@ -647,27 +679,24 @@ class PSFPhot_Routine(PSFPhotometry):
     verbose : bool, int
         Show verbose outputs
     """
-    def __init__(self, psf_model, fitshape, apphot_r=3,
+    def __init__(self, psf_model, fitshape, apphot_r=3, min_separation=8,
             force_fit=False, background=None, verbose=1):
 
         self.verbose=verbose
         self.force_fit=force_fit        
         self.background=background
 
-        #group_maker=_grouping(crit_separation=8)#crit_separation)
-        #bkg_estimator=BackGround_Estimate_Routine(None, bgd=background)
-        #fitter=_fitmodel(grouper=group_maker, verbose=verbose)
+        grouper=_Grouper(min_separation)
         
         if force_fit:
             psf_model.x_0.fixed=True
             psf_model.y_0.fixed=True
-            #psf_model.fixed.update( {"x_0":True,"y_0":True} )
-            #if fitter.load is not None: fitter.load.msg+=" (forced)"
 
         super().__init__(psf_model=psf_model, fit_shape=fitshape, finder=None,
-                progress_bar=verbose, aperture_radius=apphot_r,
-                grouper=SourceGrouper(8))
-                #localbkg_estimator=bkg_estimator, fitter=fitter)
+                progress_bar=verbose, aperture_radius=apphot_r, grouper=grouper)
+
+        if self.verbose:
+            printf("-> source group separation: %g\n"%min_separation)
         """
         super().__init__(grouper=group_maker, localbkg_estimator=bkg_estimator,
                 psf_model=psf_model, fit_shape=fitshape,
@@ -675,7 +704,7 @@ class PSFPhot_Routine(PSFPhotometry):
         """
 
     def __call__(self,*args,**kwargs): return self.do_photometry(*args,**kwargs)
-    def do_photometry(self, image, init_params=None, mask=None, progress_bar=False):
+    def do_photometry(self, image, init_params=None, error=None, mask=None, progress_bar=False):
         """
         """ 
 
@@ -685,18 +714,17 @@ class PSFPhot_Routine(PSFPhotometry):
 
         if self.background is not None: image=image-self.background
         if self.verbose: printf("-> fitting %d sources\n"%len(init_params))
-        cat=super().__call__(image, mask=mask, init_params=init_params)
+        cat=super().__call__(image, mask=mask, init_params=init_params, error=error)
 
         d=np.sqrt((cat["x_init"]-cat["x_fit"])**2.0 + (cat["y_init"]-cat["y_fit"])**2.0)
         cat.add_column(Column(d,name="xydev"))
 
         if "flux_err" not in cat.colnames:
             cat.add_column(Column(np.full(len(cat),np.nan), name="eflux"))
-            perror("NO ERRORS??\n")
+            warn("Something went wrong with PSF error fitting\n")
         else: cat.rename_column("flux_err","eflux")
 
         cat.rename_column("flux_fit","flux")
-        #printf("!! Renaming flux_fit to flux, this may cause problems\n")
         
         keep=["x_fit","y_fit","flux","eflux","xydev","qfit"]
         return hstack((init_params, cat[keep]))

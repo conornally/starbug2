@@ -5,8 +5,19 @@ What's New in v0.7?
 v0.7.2
 ------
 
+    Photometry:
+        -   Reincluding CRIT_SEP parameter into source grouping
+
+        -   _Grouper overloading class adding into PSFPhot_Routine
+
+        -   Added error array to PSF photometry
+
+        -   Added image array masking
+
 Minor Changes:
     -   Converting long parameter keys to COMMENT cards in output header files (utils.collapse_header)
+
+    -   Moved image unit scaling to prepare_image_arrays in aperture and psf photometry
 
 v0.7.1
 ------

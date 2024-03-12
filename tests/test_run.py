@@ -66,18 +66,19 @@ def test_residual():
 
 def test_ncores():
     clean()
-    assert run("starbug2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
-    assert run("starbug2 -n2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
-    assert run("starbug2 -vD tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
-    assert run("starbug2 -Dn0 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
-    assert run("starbug2 -Dn1 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
-    assert run("starbug2 -Dn2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
-    assert run("starbug2 -Dn4 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    os.system("cp tests/dat/image.fits tests/dat/image2.fits")
+    assert run("starbug2 tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
+    assert run("starbug2 -n2 tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
+    assert run("starbug2 -vD tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
+    assert run("starbug2 -Dn0 tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
+    assert run("starbug2 -Dn1 tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
+    assert run("starbug2 -Dn2 tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
+    assert run("starbug2 -Dn4 tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
 
-    assert run("starbug2 -DBP tests/dat/image.fits tests/dat/image.fits -sPSF_FILE=tests/dat/psf.fits")==EXIT_SUCCESS
-    assert run("starbug2 -vDBPn2 tests/dat/image.fits tests/dat/image.fits -sPSF_FILE=tests/dat/psf.fits")==EXIT_SUCCESS
-    assert run("starbug2 -DM tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
-    assert run("starbug2 -DMn2 tests/dat/image.fits tests/dat/image.fits")==EXIT_SUCCESS
+    assert run("starbug2 -DBP tests/dat/image.fits tests/dat/image2.fits -sPSF_FILE=tests/dat/psf.fits")==EXIT_SUCCESS
+    assert run("starbug2 -vDBPn2 tests/dat/image.fits tests/dat/image2.fits -sPSF_FILE=tests/dat/psf.fits")==EXIT_SUCCESS
+    assert run("starbug2 -DM tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
+    assert run("starbug2 -DMn2 tests/dat/image.fits tests/dat/image2.fits")==EXIT_SUCCESS
 
     assert run("starbug2 -D tests/dat/image-ap.fits tests/dat/image.fits")==EXIT_MIXED
     assert run("starbug2 -D bad.fits tests/dat/image.fits")==EXIT_MIXED
