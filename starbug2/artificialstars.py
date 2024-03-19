@@ -4,10 +4,12 @@ from astropy.coordinates import SkyCoord
 from astropy.table import Table,hstack,vstack
 from starbug2.routines import Detection_Routine
 from starbug2.utils import perror, loading, cropHDU, get_MJysr2Jy_scalefactor, warn
+from starbug2.matching import GenericMatch
 
 from astropy.io import fits
 
 from photutils.psf import FittableImageModel
+from scipy.signal import savgol_filter
 
 
 
@@ -15,11 +17,9 @@ class Artificial_StarsIII(object):
     def __init__(self, starbug):
         ## Initialis the starbug instance
         self.starbug=starbug
-        #self.starbug.options["VERBOSE"]=0
         _=self.starbug.image
         _=self.starbug.load_psf()
 
-        #self.image=starbug._image.copy()
         self.psf=FittableImageModel(self.starbug.psf)
 
     def __call__(self,*args,**kwargs): return self.run_auto(*args,**kwargs)
@@ -29,14 +29,14 @@ class Artificial_StarsIII(object):
         """
 
         load=loading(ntests)
-        test_result=Table(None, names=["x_0","y_0","flux","x_det","y_det","flux_det", "status"])
+        test_result=Table(None, names=["x_0","y_0","flux","mag","x_det","y_det","flux_det", "status"])
         scalefactor= get_MJysr2Jy_scalefactor(self.starbug.image)
         base_image=self.starbug._image.copy()
-        base_shape=self.starbug.image.shape.copy()
+        base_shape=np.copy(self.starbug.image.shape)
         stars_per_test=int(stars_per_test)
         passed=0
 
-        ZP = 8.9#self.options.get("ZP_MAG") if self.options.get("ZP_MAG") else 0
+        ZP = self.starbug.options.get("ZP_MAG") if self.starbug.options.get("ZP_MAG") else 0
         buffer=0
 
         if mag_range[0]-mag_range[1] >=0:
@@ -52,7 +52,8 @@ class Artificial_StarsIII(object):
             centre=0
             centre= (base_shape[0]*np.random.random(), base_shape[1]*np.random.random())
 
-            image=cropHDU( base_image.__deepcopy__(), (0,-1), (0,-1) )
+            #image=cropHDU( base_image.__deepcopy__(), (0,-1), (0,-1) )
+            image=base_image.__deepcopy__()
             #image=self.create_subimage( base_image.__deepcopy__(), subimage_size, position=centre, hdu=self.st
 
             shape=image[self.starbug._nHDU].shape
@@ -64,7 +65,6 @@ class Artificial_StarsIII(object):
 
             star_overlay=make_model_sources_image( shape, self.psf, sourcelist)/scalefactor
             image[self.starbug._nHDU].data+=star_overlay
-            image.writeto("/tmp/out.fits", overwrite=True)
             self.starbug._image=image
             
             result=self.single_test(image, sourcelist)
@@ -81,12 +81,26 @@ class Artificial_StarsIII(object):
         """
         NULL=0
         DETECT=1
-        test_result=Table(np.full((len(contains),4),np.nan), names=["x_det","y_det","flux_det", "status"])
+        test_result=Table(np.full((len(contains),4),np.nan), names=["x_det","y_det","flux_det","status"])
 
         threshold=2
         if not self.starbug.detect():
             det=self.starbug.detections
-            #print(np.min(det["flux"]), np.max(det["flux"]), contains["flux"].value[0])
+            """
+            match=GenericMatch(threshold=2, colnames=None )
+            full= match([contains, self.starbug.detections], cartesian=True)[:len(contains)]
+            status = ~np.isnan(full["flux_2"])
+
+            test_result["x_det"] = full["xcentroid_2"]
+            test_result["y_det"] = full["ycentroid_2"]
+            test_result["flux_det"]= full["flux_2"]
+            test_result["status"]=status.astype(int)
+
+            self.starbug.detections=contains
+            self.starbug.psfcatalogue=None
+            self.starbug.photometry()
+            """
+
             for i, src in enumerate(contains):
                 separations=np.sqrt( (src["x_0"]-det["xcentroid"])**2 + (src["y_0"]-det["ycentroid"])**2)
                 best_match=np.argmin(separations)
@@ -94,10 +108,31 @@ class Artificial_StarsIII(object):
                     test_result["x_det"][i]=det["xcentroid"][best_match]
                     test_result["y_det"][i]=det["ycentroid"][best_match]
                     test_result["status"][i]=DETECT
-
                     test_result["flux_det"][i]=det["flux"][best_match]
-                else:
-                    test_result["status"][i]=NULL
+
+                    """
+                    print(best_match, len(det))
+                    self.starbug.detections = Table(det[best_match])
+                    self.starbug.photometry()
+                    test_result["flux_det"][i]=self.starbug.psfcatalogue["flux"]
+                    """
+                else: test_result["status"][i]=NULL
+
+            self.starbug.detections = test_result
+            if not self.starbug.photometry():
+                self.starbug.psfcatalogue
+                #test_result["flux_det"][test_result["status"].value.astype(bool)]=self.starbug.psfcatalogue["flux"]
+
+                self.starbug.psfcatalogue.rename_columns(("x_init","y_init","xydev"),("_x_init","_y_init","_xydev"))
+                matched=GenericMatch(threshold=threshold)([contains, self.starbug.psfcatalogue], cartesian=True)
+                #print(self.starbug.psfcatalogue[["x_init","y_init","x_fit","y_fit"]])
+                #print(matched[["Catalogue_Number_2","x_0_1","y_0_1","x_fit_2","y_fit_2"]])
+                #print(len(test_result),len(matched))
+                test_result["flux_det"] = matched[:len(test_result)]["flux_2"]
+        
+
+
+
         return hstack((contains,test_result))
 
 
@@ -120,7 +155,52 @@ class Artificial_StarsIII(object):
 
         return cropHDU(image,xlim=(x_edge,x_end),ylim=(y_edge,y_end)), x_edge, y_edge
 
+    def get_magerr(self, test_result):
+        return None
 
+    def get_completeness(self, test_result):
+        """
+
+        Returns:
+        --------
+        result : astropy Table
+            Table containing percent completeness as a function of magnitude
+        """
+
+        bins = np.arange( min(test_result["mag"]), max(test_result["mag"]), 0.1)
+        percs= np.zeros(len(bins))
+        errors=np.zeros(len(bins))
+        means =np.zeros(len(bins))
+        
+        ibins = np.digitize( test_result["mag"], bins=bins)
+        for i in range(max(ibins)):
+            binned=test_result[ (ibins==i) ]
+            if binned: percs[i]=sum(binned["status"])/len(binned)
+
+            mag_inj= -2.5*np.log10( binned["flux"])
+            mag_det= -2.5*np.log10( binned["flux_det"])
+            errors[i]=np.nanstd( mag_inj-mag_det )
+            means[i]=np.nanmean( mag_inj-mag_det )
+
+        import matplotlib.pyplot as plt
+        fig,(ax1,ax2)=plt.subplots(1,2)
+        ax1.scatter(bins,percs,c='k')
+        y=savgol_filter( percs, window_length=10, polyorder=2)
+        ax1.plot(bins,y, c='cyan')
+
+        ax2.scatter( -2.5 * np.log10( test_result["flux"]/test_result["flux_det"] ), test_result["mag"], c='k')
+        ax2.errorbar( means, bins , xerr=errors, lw=0)
+        ax2.invert_yaxis()
+
+
+
+        plt.show()
+
+
+
+
+
+        return None
 
 
 

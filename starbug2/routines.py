@@ -317,6 +317,8 @@ class APPhot_Routine():
             pos=[(line["xcentroid"],line["ycentroid"]) for line in detections]
         elif len( set(("x_0","y_0")) & set(detections.colnames))==2:
             pos=[(line["x_0"],line["y_0"]) for line in detections]
+        elif len( set(("x_init","y_init")) & set(detections.colnames))==2:
+            pos=[(line["x_init"],line["y_init"]) for line in detections]
         else:
             perror("Cannot identify position in detection catalogue (x_0/xcentroid)\n");
             return None
@@ -713,6 +715,8 @@ class PSFPhot_Routine(PSFPhotometry):
             return None
 
         if self.background is not None: image=image-self.background
+        from astropy.io import fits
+        fits.PrimaryHDU( image).writeto("/tmp/out.fits",overwrite=True)
         if self.verbose: printf("-> fitting %d sources\n"%len(init_params))
         cat=super().__call__(image, mask=mask, init_params=init_params, error=error)
 

@@ -40,7 +40,8 @@ def afs_parseargv(argv):
                 options|=KILLPROC
 
         if opt in ("-o","--output"):
-            warn("argument \"%s\" not implemented yet\n"%opt)
+            #warn("argument \"%s\" not implemented yet\n"%opt)
+            setopt["OUTPUT"]=optarg
 
     return options, setopt, args
 
@@ -75,7 +76,11 @@ def afs_main(argv):
         sb=StarbugBase(args[0], setopt.get("PARAMFILE"), options=setopt)
         afs=Artificial_StarsIII(sb)
         a=afs.auto_run(sb.options.get("NTESTS"), stars_per_test=sb.options.get("NSTARS"))
-        export_table(a,"/tmp/out-afs.fits")
+
+        afs.get_completeness(a)
+
+
+        export_table(a, "%s/%s-afs.fits"%( sb.outdir, sb.bname))
 
 
 

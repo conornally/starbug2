@@ -112,7 +112,7 @@ class GenericMatch(object):
 
 
 
-    def match(self, catalogues, join_type="or", mask=None, **kwargs):
+    def match(self, catalogues, join_type="or", mask=None, cartesian=False, **kwargs):
         """
         This matching works as a basic match. Everything is included and the column
         names have _N appended to the end. 
@@ -138,7 +138,7 @@ class GenericMatch(object):
 
         for n,cat in enumerate(catalogues,1): # Bulk matching processes (column naming)
             self.load.msg="matching: %d"%n
-            tmp=self._match(base,cat, join_type=join_type)
+            tmp=self._match(base,cat, join_type=join_type, cartesian=cartesian)
             tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
             base=fill_nan(hstack((base,tmp)))
 
@@ -147,7 +147,7 @@ class GenericMatch(object):
             base=fill_nan(vstack(( base,masked)))
         return base
 
-    def _match(self, base, cat, join_type="or"):
+    def _match(self, base, cat, join_type="or", cartesian=False):
         """
         Base matching function between two catalogues
         
@@ -168,17 +168,31 @@ class GenericMatch(object):
         colnames=[n for n in self.colnames if n in cat.colnames]
         cat=fill_nan(cat[colnames].copy())
 
-        _ra_cols= list( name for name in base.colnames if "RA" in name)
-        _dec_cols= list( name for name in base.colnames if "DEC" in name)
-        _ra= np.nanmean( tab2array( base, colnames=_ra_cols), axis=1)
-        _dec=np.nanmean( tab2array( base, colnames=_dec_cols), axis=1)
-        skycoord1=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
+        if not cartesian:
+            _ra_cols= list( name for name in base.colnames if "RA" in name)
+            _dec_cols= list( name for name in base.colnames if "DEC" in name)
+            _ra= np.nanmean( tab2array( base, colnames=_ra_cols), axis=1)
+            _dec=np.nanmean( tab2array( base, colnames=_dec_cols), axis=1)
+            skycoord1=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
 
-        _ra_cols= list( name for name in cat.colnames if "RA" in name)
-        _dec_cols= list( name for name in cat.colnames if "DEC" in name)
-        _ra= np.nanmean( tab2array( cat, colnames=_ra_cols), axis=1)
-        _dec=np.nanmean( tab2array( cat, colnames=_dec_cols), axis=1)
-        skycoord2=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
+            _ra_cols= list( name for name in cat.colnames if "RA" in name)
+            _dec_cols= list( name for name in cat.colnames if "DEC" in name)
+            _ra= np.nanmean( tab2array( cat, colnames=_ra_cols), axis=1)
+            _dec=np.nanmean( tab2array( cat, colnames=_dec_cols), axis=1)
+            skycoord2=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
+        else:
+            _x_cols= list( name for name in base.colnames if name[0]=="x")
+            _y_cols= list( name for name in base.colnames if name[0]=="y")
+            _x= np.nanmean( tab2array( base, colnames=_x_cols), axis=1)
+            _y=np.nanmean( tab2array( base, colnames=_y_cols), axis=1)
+            skycoord1=SkyCoord( x=_x, y=_y, z=np.zeros(len(_x)), representation_type="cartesian")
+
+            _x_cols= list( name for name in cat.colnames if name[0]=="x")
+            _y_cols= list( name for name in cat.colnames if name[0]=="y")
+            _x= np.nanmean( tab2array( cat, colnames=_x_cols), axis=1)
+            _y=np.nanmean( tab2array( cat, colnames=_y_cols), axis=1)
+            skycoord2=SkyCoord( x=_x, y=_y, z=np.zeros(len(_x)), representation_type="cartesian")
+
 
         #######################
         # The actual Matching #
@@ -186,11 +200,18 @@ class GenericMatch(object):
         idx,d2d,d3d=skycoord2.match_to_catalog_3d(skycoord1)
         tmp=Table(np.full( (len(base),len(colnames)),np.nan), names=colnames, dtype=cat[colnames].dtype)
 
-        for src,IDX,sep in zip(cat, idx, d2d):
+        if cartesian:
+            dist=d3d
+            threshold=self.threshold.value
+        else: 
+            dist=d2d
+            threshold=self.threshold
+
+        for src,IDX,sep in zip(cat, idx, dist):
             self.load()
             if self.verbose: self.load.show()
 
-            if (sep<=self.threshold) and (sep==min(d2d[idx==IDX])): ##GOODMATCH
+            if (sep<=threshold) and (sep==min(dist[idx==IDX])): ##GOODMATCH
                 tmp[IDX]=src
             elif join_type=="or": ## Append a source
                 tmp.add_row(src)

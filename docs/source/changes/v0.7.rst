@@ -2,6 +2,12 @@
 What's New in v0.7?
 *******************
 
+v0.7.3
+------
+
+Minor Changes:
+    -   PSF fit catalogue exports before the calculation of the residuals
+
 v0.7.2
 ------
 

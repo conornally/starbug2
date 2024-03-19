@@ -1,0 +1,55 @@
+# file: starbug2-afs
+#
+
+## need to make this local at some point
+## cat starbug2/param/default.param | grep -v '\#' | sed -s/\=//g| awk '{print $1}' ORS=' '
+PARAMLIST="VERBOSE OUTPUT HDUNAME FILTER  FWHM SIGSKY SIGSRC DOBGD2D DOCONVL CLEANSRC SHARP_LO SHARP_HI ROUND1_HI ROUND2_HI SMOOTH_LO SMOOTH_HI RICKER_R  APPHOT_R ENCENERGY SKY_RIN SKY_ROUT APCORR_FILE  BGD_R BOX_SIZE  AP_FILE BGD_FILE PSF_FILE USE_WCS ZP_MAG  CRIT_SEP FORCE_POS DPOS_THRESH MAX_XYDEV PSF_SIZE GEN_RESIDUAL  CALC_CROWD  MATCH_THRESH MATCH_COLS NEXP_THRESH SN_THRESH BRIDGE_COL  NTESTS NSTARS SUBIMAGE MIN_FLUX MAX_FLUX  REGION_COL REGION_SCAL REGION_RAD REGION_XCOL REGION_YCOL REGION_WCS"
+
+_starbug2_afs ()
+{
+    COMPREPLY=()
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    local prev=${COMP_WORDS[COMP_CWORD-1]}
+    local xpat
+
+    case "$prev" in 
+      -p|--param)
+          xpat="!*.param";;
+      -b|--bgdfile) 
+          xpat="!*-bgd.fits";;
+      #-d|--apfile) 
+          #xpat="!*-ap.fits";;
+
+      ### THIS ONE STILL NEEDS SOME WORK
+      -s|--set) 
+          COMPREPLY=($(compgen -o nospace -W "$PARAMLIST" -- $cur))
+          if [ ${#COMPREPLY[@]} == 1 ]
+          then
+              COMPREPLY=${COMPREPLY}"="
+          fi
+          return 0;;
+      esac
+
+    if [  $xpat ] 
+    then
+        COMPREPLY=($(compgen -o plusdirs -f -X "$xpat" -- $cur))
+        return 0
+    fi
+
+    case "$cur" in 
+
+
+    --*)
+		COMPREPLY=( $( compgen -W '--bgdfile --help --output --param --set --verbose' -- $cur ));;
+    -*)
+        COMPREPLY=($(compgen -W '-h -v -b -o -p -s ' -- $cur));;
+
+    *) 
+        xpat='!*.fits'
+        COMPREPLY=($(compgen -o plusdirs -f -X "$xpat" -- $cur));;
+    esac
+
+    return 0
+}
+
+complete -o nospace -o filenames -F _starbug2_afs starbug2-afs

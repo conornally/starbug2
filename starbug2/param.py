@@ -46,7 +46,7 @@ PSF_FILE    =            //Non default PSF file
 USE_WCS     = 1          //When loading an AP_FILE, do you want to use WCS or xy values (if available)
 ZP_MAG      = 8.9        //Zero point (mag) to add to the magnitude columns 
 
-CRIT_SEP    = 8          //minimum distance for grouping (pixels) between two sources
+CRIT_SEP    =            //minimum distance for grouping (pixels) between two sources
 FORCE_POS   = 0          //Force centroid position (1) or allow psf fitting to fit position too (0)
 DPOS_THRESH = -1         //If allowed to fit position, max separation (arcsec) from source list centroid
 MAX_XYDEV   = 3p         //.

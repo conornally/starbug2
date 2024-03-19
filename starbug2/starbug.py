@@ -249,7 +249,7 @@ class StarbugBase(object):
                 self.detections.rename_columns(("x_init","y_init"),("xcentroid","ycentroid"))
 
             if len( set(("xcentroid","ycentroid"))&cn)==2:
-                mask=(self.detections["xcentroid"]>=0) & (self.detections["xcentroid"]<self.image.shape[0]) & (self.detections["ycentroid"]>=0) & (self.detections["ycentroid"]<self.image.shape[1])
+                mask=(self.detections["xcentroid"]>=0) & (self.detections["xcentroid"]<self.image.shape[1]) & (self.detections["ycentroid"]>=0) & (self.detections["ycentroid"]<self.image.shape[0])
                 self.detections.remove_rows(~mask)
                 self.log("-> loaded %d sources from AP_FILE\n"%len(self.detections))
             else:
@@ -531,7 +531,7 @@ class StarbugBase(object):
         Estimate the background of the active image
         Saves the result as an ImageHDU self.background
         """
-        self.log("\nEstimating Background\n")
+        self.log("\nEstimating Diffuse Background\n")
         if self.detections:
 
             _f=starbug2.filters.get(self.filter)
@@ -581,18 +581,12 @@ class StarbugBase(object):
         if self.image:
             self.log("\nRunning PSF Photometry\n")
 
-
             image, error, bgd, mask = self.prepare_image_arrays()
 
             if bgd is None:
                 _,median,_=sigma_clipped_stats(image,sigma=self.options["SIGSKY"])
                 bgd=np.ones(self.image.shape)*median
                 self.log("-> no background file loaded, measuring sigma clipped median\n")
-
-
-
-
-
 
             ###################################
             # Collect relevent files and data #
@@ -601,11 +595,11 @@ class StarbugBase(object):
 
             if self.detections is None:
                 perror("unable to run photometry: no source list loaded\n")
-                return
+                return 1
 
             if self.psf is None and self.load_psf(os.path.expandvars(self.options["PSF_FILE"])):
                 perror("unable to run photometry: no PSF loaded\n")
-                return
+                return 1
 
             """
             if self.background is None:
@@ -620,7 +614,6 @@ class StarbugBase(object):
             else: 
                 error=None
             """
-
 
             #_scalefactor=self.image.header.get("PHOTMJSR")#https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
             #_bunit=self.image.header.get("BUNIT")
@@ -653,6 +646,8 @@ class StarbugBase(object):
             init_guesses=self.detections.copy()
             if "xcentroid" in init_guesses.colnames: init_guesses.rename_column("xcentroid", "x_init")
             if "ycentroid" in init_guesses.colnames: init_guesses.rename_column("ycentroid", "y_init")
+            if "x_det" in init_guesses.colnames: init_guesses.rename_column("x_det", "x_init")
+            if "y_det" in init_guesses.colnames: init_guesses.rename_column("y_det", "y_init")
 
             init_guesses=init_guesses[ init_guesses["x_init"]>=0 ]
             init_guesses=init_guesses[ init_guesses["y_init"]>=0 ]
@@ -682,7 +677,7 @@ class StarbugBase(object):
             if not apphot_r or apphot_r <=0: apphot_r=3
 
             min_separation=self.options.get("CRIT_SEP")
-            if min_separation is None:
+            if not min_separation:
                 min_separation = min(5, 2.5*self.options.get("FWHM"))
 
             if self.options["FORCE_POS"]:
@@ -694,6 +689,7 @@ class StarbugBase(object):
                 phot=PSFPhot_Routine(psf_model, size, min_separation=min_separation, apphot_r=apphot_r, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
                 psf_cat=phot(image,init_params=init_guesses, error=error, mask=mask)
 
+                if not psf_cat: return 1
 
 
                 ##################################
@@ -725,10 +721,27 @@ class StarbugBase(object):
                         psf_cat=vstack((psf_cat, fixed_cat))
                     else: self.log("-> no deviant sources\n")
 
-
             ra,dec=self.wcs.all_pix2world(psf_cat["x_fit"], psf_cat["y_fit"],0)
             psf_cat.add_column( Column(ra, name="RA"), index=2)
             psf_cat.add_column( Column(dec, name="DEC"), index=3)
+
+            #psf_cat.rename_column("flux_fit","flux")
+            mag,magerr=flux2mag(psf_cat["flux"],psf_cat["eflux"])
+
+            fltr= self.filter if self.filter else "mag"
+            psf_cat.add_column(mag+self.options.get("ZP_MAG"),name=fltr)
+            psf_cat.add_column(magerr,name="e%s"%fltr)
+            #self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
+            self.psfcatalogue=psf_cat
+            self.psfcatalogue.meta=dict(self.header.items())
+            self.psfcatalogue.meta["AP_FILE"]=self.options["AP_FILE"]
+            self.psfcatalogue.meta["BGD_FILE"]=self.options["BGD_FILE"]
+
+            reindex(self.psfcatalogue)
+            if not self.options.get("QUIETMODE"):
+                _fname="%s/%s-psf.fits"%(self.outdir, self.bname)
+                self.log("--> %s\n"%_fname)
+                fits.BinTableHDU(data=self.psfcatalogue, header=self.header).writeto(_fname,overwrite=True)
 
             ##################
             # Residual Image #
@@ -744,22 +757,7 @@ class StarbugBase(object):
                 header.update(self.wcs.to_header())
                 fits.ImageHDU(data=self.residuals, name="RES", header=header).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
 
-            #psf_cat.rename_column("flux_fit","flux")
-            mag,magerr=flux2mag(psf_cat["flux"],psf_cat["eflux"])
-
-            fltr= self.filter if self.filter else "mag"
-            psf_cat.add_column(mag+self.options.get("ZP_MAG"),name=fltr)
-            psf_cat.add_column(magerr,name="e%s"%fltr)
-            self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
-            self.psfcatalogue.meta=dict(self.header.items())
-            self.psfcatalogue.meta["AP_FILE"]=self.options["AP_FILE"]
-            self.psfcatalogue.meta["BGD_FILE"]=self.options["BGD_FILE"]
-
-            reindex(self.psfcatalogue)
-            if not self.options.get("QUIETMODE"):
-                _fname="%s/%s-psf.fits"%(self.outdir, self.bname)
-                self.log("--> %s\n"%_fname)
-                fits.BinTableHDU(data=self.psfcatalogue, header=self.header).writeto(_fname,overwrite=True)
+            return 0
 
     def artificial_stars(self):
         """
