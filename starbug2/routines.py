@@ -714,9 +714,16 @@ class PSFPhot_Routine(PSFPhotometry):
             perror("Must include source list\n")
             return None
 
+        
+
+        ### Removing completely masked sources
+        apertures=CircularAperture([(l["x_init"],l["y_init"]) for l in init_params],self.aperture_radius)
+        apmasks=aperture_photometry(~mask,apertures)
+        init_params.remove_rows(apmasks["aperture_sum"]==0)
+
+        error[error==0]=sys.maxsize ## bad errors should be big not small
+
         if self.background is not None: image=image-self.background
-        from astropy.io import fits
-        fits.PrimaryHDU( image).writeto("/tmp/out.fits",overwrite=True)
         if self.verbose: printf("-> fitting %d sources\n"%len(init_params))
         cat=super().__call__(image, mask=mask, init_params=init_params, error=error)
 

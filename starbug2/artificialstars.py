@@ -10,6 +10,7 @@ from astropy.io import fits
 
 from photutils.psf import FittableImageModel
 from scipy.signal import savgol_filter
+from scipy.optimize import curve_fit
 
 
 
@@ -24,11 +25,11 @@ class Artificial_StarsIII(object):
 
     def __call__(self,*args,**kwargs): return self.run_auto(*args,**kwargs)
 
-    def auto_run(self, ntests, stars_per_test=1, subimage_size=-1, mag_range=(18,27)):
+    def auto_run(self, ntests, stars_per_test=1, subimage_size=-1, mag_range=(18,27),
+            loading_buffer=None):
         """
         """
 
-        load=loading(ntests)
         test_result=Table(None, names=["x_0","y_0","flux","mag","x_det","y_det","flux_det", "status"])
         scalefactor= get_MJysr2Jy_scalefactor(self.starbug.image)
         base_image=self.starbug._image.copy()
@@ -67,13 +68,14 @@ class Artificial_StarsIII(object):
             image[self.starbug._nHDU].data+=star_overlay
             self.starbug._image=image
             
+            n=len(sourcelist)
             result=self.single_test(image, sourcelist)
             passed+=sum(result["status"])
             test_result=vstack((test_result,result))
 
-            load()
-            load.msg="recovering %d%%"%(100*passed/(test*stars_per_test))
-            load.show()
+            if loading_buffer is not None:
+                loading_buffer[0]+=1
+                loading_buffer[2]=int(100*passed/(test*stars_per_test))
         return test_result
 
     def single_test(self, image, contains):
@@ -107,8 +109,8 @@ class Artificial_StarsIII(object):
                 if separations[best_match]<threshold:
                     test_result["x_det"][i]=det["xcentroid"][best_match]
                     test_result["y_det"][i]=det["ycentroid"][best_match]
-                    test_result["status"][i]=DETECT
                     test_result["flux_det"][i]=det["flux"][best_match]
+                    test_result["status"][i]=DETECT
 
                     """
                     print(best_match, len(det))
@@ -118,20 +120,22 @@ class Artificial_StarsIII(object):
                     """
                 else: test_result["status"][i]=NULL
 
+            #test_result.remove_rows( (np.isnan(test_result["x_det"])|np.isnan(test_result["y_det"])) )
             self.starbug.detections = test_result
-            if not self.starbug.photometry():
-                self.starbug.psfcatalogue
-                #test_result["flux_det"][test_result["status"].value.astype(bool)]=self.starbug.psfcatalogue["flux"]
 
-                self.starbug.psfcatalogue.rename_columns(("x_init","y_init","xydev"),("_x_init","_y_init","_xydev"))
-                matched=GenericMatch(threshold=threshold)([contains, self.starbug.psfcatalogue], cartesian=True)
-                #print(self.starbug.psfcatalogue[["x_init","y_init","x_fit","y_fit"]])
-                #print(matched[["Catalogue_Number_2","x_0_1","y_0_1","x_fit_2","y_fit_2"]])
-                #print(len(test_result),len(matched))
-                test_result["flux_det"] = matched[:len(test_result)]["flux_2"]
-        
+            if sum(test_result["status"]):
 
+                #if not self.starbug.bgd_estimate() and not self.starbug.photometry():
+                if not self.starbug.photometry():
+                    #self.starbug.psfcatalogue
+                    #test_result["flux_det"][test_result["status"].value.astype(bool)]=self.starbug.psfcatalogue["flux"]
 
+                    self.starbug.psfcatalogue.rename_columns(("x_init","y_init","xydev"),("_x_init","_y_init","_xydev"))
+                    matched=GenericMatch(threshold=threshold)([contains, self.starbug.psfcatalogue], cartesian=True)
+                    #print(self.starbug.psfcatalogue[["x_init","y_init","x_fit","y_fit"]])
+                    #print(matched[["Catalogue_Number_2","x_0_1","y_0_1","x_fit_2","y_fit_2"]])
+                    #print(len(test_result),len(matched))
+                    test_result["flux_det"] = matched[:len(test_result)]["flux_2"]
 
         return hstack((contains,test_result))
 
@@ -158,7 +162,8 @@ class Artificial_StarsIII(object):
     def get_magerr(self, test_result):
         return None
 
-    def get_completeness(self, test_result):
+    @staticmethod
+    def get_completeness(test_result):
         """
 
         Returns:
@@ -167,7 +172,7 @@ class Artificial_StarsIII(object):
             Table containing percent completeness as a function of magnitude
         """
 
-        bins = np.arange( min(test_result["mag"]), max(test_result["mag"]), 0.1)
+        bins = np.arange( np.floor(min(test_result["mag"])), np.ceil(max(test_result["mag"])), 0.1)
         percs= np.zeros(len(bins))
         errors=np.zeros(len(bins))
         means =np.zeros(len(bins))
@@ -175,32 +180,39 @@ class Artificial_StarsIII(object):
         ibins = np.digitize( test_result["mag"], bins=bins)
         for i in range(max(ibins)):
             binned=test_result[ (ibins==i) ]
-            if binned: percs[i]=sum(binned["status"])/len(binned)
+            if binned: percs[i]=float(sum(binned["status"]))/len(binned)
 
             mag_inj= -2.5*np.log10( binned["flux"])
             mag_det= -2.5*np.log10( binned["flux_det"])
             errors[i]=np.nanstd( mag_inj-mag_det )
             means[i]=np.nanmean( mag_inj-mag_det )
 
+
+        #_s=curve_fit(fnxep,bins,percs)
+        #a,b,c=_s[0]
+
+        out=Table( [bins,percs,errors], names=("mag","rec","err"), dtype=(float,float,float))
+        return out
+
+
+        """
+        mask= np.isnan(test_result["flux_det"])
+        test_result=test_result[~mask]
+        m,c=np.polyfit(test_result["flux_inj"], test_result["flux_det"],1)
+
         import matplotlib.pyplot as plt
         fig,(ax1,ax2)=plt.subplots(1,2)
-        ax1.scatter(bins,percs,c='k')
-        y=savgol_filter( percs, window_length=10, polyorder=2)
-        ax1.plot(bins,y, c='cyan')
+        ax1.plot(bins,percs,c='k')
+        x=np.linspace(min(bins),max(bins),100)
+        ax1.plot(x,fnxep(x,a,b,c))
+        #y=savgol_filter( percs, window_length=10, polyorder=2)
+        #ax1.plot(bins,y, c='cyan')
 
-        ax2.scatter( -2.5 * np.log10( test_result["flux"]/test_result["flux_det"] ), test_result["mag"], c='k')
-        ax2.errorbar( means, bins , xerr=errors, lw=0)
-        ax2.invert_yaxis()
+        ax2.plot(bins,errors)
 
-
-
+        plt.tight_layout()
         plt.show()
-
-
-
-
-
-        return None
+        """
 
 
 
@@ -375,3 +387,5 @@ class Artificial_Stars(object):
         return 0
 
 
+def fnxep(x,a,b,c):
+    return a*np.exp(b*x+c)

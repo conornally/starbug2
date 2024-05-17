@@ -8,25 +8,25 @@ PARAM       =  STARBUGII PARAMETERS     //COMMENT
 
 
 ## GENERIC
-VERBOSE     = 0          // (0:false 1:true)
+VERBOSE     = 0          //(0:false 1:true)
 OUTPUT      = .          //Directory or filename to output to 
 HDUNAME     =            //If using a non standard HDU name, name it here (str or int)
 FILTER      =            //Set a custom filter for the image
 
 ## DETECTETION 
-FWHM        = -1         // Custom FWHM for image (-1 to use WEBBPSF)
-SIGSKY      = 2.0        // (float>0) 
-SIGSRC      = 5.0        // (float>0) Source value mininmum N sigma above background
-DOBGD2D     = 1          // Run background2D step (usually finds more sources but takes time)
-DOCONVL     = 1          // Run convolution step (usually finds more sources)
-CLEANSRC    = 1          // Run source cleaning after detection (removes likely contaminants)
-SHARP_LO    = 0.4        // cutoff in detection
-SHARP_HI    = 0.9        // cutoff in detection
-ROUND1_HI   = 1.0        // cutoff in detection
-ROUND2_HI   = 1.0        // cutoff in detection
-SMOOTH_LO   =            //.
-SMOOTH_HI   =            //.
-RICKER_R    = 1.0        // Radius (pix) of ricker wavelet 
+FWHM        = -1         //Custom FWHM for image (-1 to use WEBBPSF)
+SIGSKY      = 2.0        //(float>0) 
+SIGSRC      = 5.0        //Source value mininmum N sigma above background
+DOBGD2D     = 1          //Run background2D step (usually finds more sources but takes time)
+DOCONVL     = 1          //Run convolution step (usually finds more sources)
+CLEANSRC    = 1          //Run source cleaning after detection (removes likely contaminants)
+SHARP_LO    = 0.4        //Cutoff in detection
+SHARP_HI    = 0.9        //Cutoff in detection
+ROUND1_HI   = 1.0        //Cutoff in detection
+ROUND2_HI   = 1.0        //Cutoff in detection
+SMOOTH_LO   =            //Cutoff in detection
+SMOOTH_HI   =            //Cutoff in detection 
+RICKER_R    = 1.0        //Radius (pix) of ricker wavelet 
 
 ## APERTURE PHOTOMOETRY
 APPHOT_R    = 1.5        //Radius in number of pixels
@@ -36,8 +36,8 @@ SKY_ROUT    = 4.5        //Sky annulus outer radius
 APCORR_FILE =            //Aperture correction file. See full manual for details
 
 ## BACKGROUND ESTIMATION
-BGD_R       = 0          //.
-BOX_SIZE    = 2          // (int>0) Background estimation kernal size (pix)
+BGD_R       = 0          //Aperture masking fixed radius (if zero, starbug will scale radii)
+BOX_SIZE    = 2          //Background estimation kernal size (pix)
 
 ## PHOTOMETRY
 AP_FILE     =            //Detection file to use instead of detecting
@@ -49,26 +49,28 @@ ZP_MAG      = 8.9        //Zero point (mag) to add to the magnitude columns
 CRIT_SEP    =            //minimum distance for grouping (pixels) between two sources
 FORCE_POS   = 0          //Force centroid position (1) or allow psf fitting to fit position too (0)
 DPOS_THRESH = -1         //If allowed to fit position, max separation (arcsec) from source list centroid
-MAX_XYDEV   = 3p         //.
+MAX_XYDEV   = 3p         //Maximum deviation from initial guess centroid position
 PSF_SIZE    = -1         //Set fit size of psf (>0) or -1 to take PSF file dimensions
-GEN_RESIDUAL= 0          //generate a residual image
+GEN_RESIDUAL= 0          //Generate a residual image
 
 ## SOURCE STATS
 CALC_CROWD  = 1          //Run crowding metric calculation (execution time scales N^2)
 
 ## CATALOGUE MATCHING
-MATCH_THRESH= 0.1        // when combining background subtraction catalogue, minimum separation (arcsec) of centroids to be considered separate sources
+MATCH_THRESH= 0.1        // matching separation threshold in units arcsec
 MATCH_COLS  =            // EXTRA columns to include in output matched table i.e sharpness
 NEXP_THRESH = -1         // Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
 SN_THRESH   = -1         // Remove sources with SN ratio < SN_THRESH before matching (default -1 to not apply this cut)
 BRIDGE_COL  =            // Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam catalogue has a match in BRIDGE_COL
 
 ## ARTIFICAL STAR TESTS
-NTESTS      = 100        // Number of artificial star tests
-NSTARS      = 1          // Number of stars per artifical test
+NTESTS      = 100        //Number of artificial star tests
+NSTARS      = 1          //Number of stars per artifical test
 SUBIMAGE    = 500        //number of pixels ? to crop around artificial star
-MIN_FLUX    = 0.00001      //minimun flux for artificial star
-MAX_FLUX    = 100.0      //maximum flux for artificial star
+#MIN_FLUX    = 0.00001    //minimun flux for artificial star
+#MAX_FLUX    = 100.0      //maximum flux for artificial star
+MIN_MAG     = 18.0       //Bright limit of test magnitude
+MAX_MAG     = 28.0       //Faint limit of test magnitude
 
 ## MISC EXTRAS
 REGION_COL  = green      //DS9 region colour

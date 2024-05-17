@@ -140,7 +140,7 @@ def tab2array(tab,colnames=None):
     if colnames not None, return the subset of the table corresponding to this list
     """
     if not colnames: colnames=tab.colnames
-    else: colnames=list( set(colnames)&set(tab.colnames) )
+    else: colnames=rmduplicates(colnames)#list( set(colnames)&set(tab.colnames) ) ####BBAAAAD
     return np.array( tab[colnames].as_array().tolist() )
 
 def collapse_header(header):

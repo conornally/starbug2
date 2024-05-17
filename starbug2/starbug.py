@@ -248,7 +248,7 @@ class StarbugBase(object):
             elif len( set(("x_init","y_init"))&cn)==2:
                 self.detections.rename_columns(("x_init","y_init"),("xcentroid","ycentroid"))
 
-            if len( set(("xcentroid","ycentroid"))&cn)==2:
+            if len( set(("xcentroid","ycentroid"))&set(self.detections.colnames))==2:
                 mask=(self.detections["xcentroid"]>=0) & (self.detections["xcentroid"]<self.image.shape[1]) & (self.detections["ycentroid"]>=0) & (self.detections["ycentroid"]<self.image.shape[0])
                 self.detections.remove_rows(~mask)
                 self.log("-> loaded %d sources from AP_FILE\n"%len(self.detections))
@@ -349,7 +349,8 @@ class StarbugBase(object):
         if "DQ" in extnames(self._image):
             mask=self._image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
             mask=mask.astype(bool)
-        else:mask=np.isnan(image)
+        else:mask=(np.isnan(image) | np.isnan(error))
+        #fits.PrimaryHDU(data=mask.astype(int)).writeto("/tmp/out.fits",overwrite=True)
 
         # collect and scale background array
         if self.background is not None:
@@ -532,14 +533,24 @@ class StarbugBase(object):
         Saves the result as an ImageHDU self.background
         """
         self.log("\nEstimating Diffuse Background\n")
+        status=1
         if self.detections:
+            sourcelist=self.detections.copy()
 
             _f=starbug2.filters.get(self.filter)
             if self.options["FWHM"]>0: FWHM=self.options["FWHM"]
             elif _f: FWHM=_f.pFWHM
             else: FWHM=2
 
-            bgd=BackGround_Estimate_Routine(self.detections,
+            if "x_init" in sourcelist.colnames: sourcelist.rename_column("x_init", "xcentroid")
+            if "y_init" in sourcelist.colnames: sourcelist.rename_column("y_init", "ycentroid")
+            if "x_det" in sourcelist.colnames: sourcelist.rename_column("x_det", "xcentroid")
+            if "y_det" in sourcelist.colnames: sourcelist.rename_column("y_det", "ycentroid")
+            if "flux_det" in sourcelist.colnames: sourcelist.rename_column("flux_det", "flux")
+            mask=~(np.isnan(sourcelist["xcentroid"])|np.isnan(sourcelist["ycentroid"]))
+
+
+            bgd=BackGround_Estimate_Routine(sourcelist[mask],
                                             boxsize=int(self.options["BOX_SIZE"]),
                                             fwhm=FWHM,
                                             sigsky=self.options["SIGSKY"],
@@ -548,11 +559,15 @@ class StarbugBase(object):
             header=self.header
             header.update(self.wcs.to_header())
             self.background=fits.ImageHDU(data=bgd(self.image.data.copy()), header=header)
-            _fname="%s/%s-bgd.fits"%(self.outdir, self.bname)
-            self.log("--> %s\n"%_fname)
-            self.background.writeto(_fname,overwrite=True)
+            if not self.options.get("QUIETMODE"):
+                _fname="%s/%s-bgd.fits"%(self.outdir, self.bname)
+                self.log("--> %s\n"%_fname)
+                self.background.writeto(_fname,overwrite=True)
+
         else:
             perror("unable to estimate background, no source list loaded\n")
+            status=1
+        return status
 
 
 
@@ -642,8 +657,11 @@ class StarbugBase(object):
             #########################
             # Sort out Init guesses #
             #########################
+            apphot_r=self.options.get("APPHOT_R")
+            if not apphot_r or apphot_r <=0: apphot_r=3
 
             init_guesses=self.detections.copy()
+            #print(init_guesses, end="")
             if "xcentroid" in init_guesses.colnames: init_guesses.rename_column("xcentroid", "x_init")
             if "ycentroid" in init_guesses.colnames: init_guesses.rename_column("ycentroid", "y_init")
             if "x_det" in init_guesses.colnames: init_guesses.rename_column("x_det", "x_init")
@@ -653,6 +671,8 @@ class StarbugBase(object):
             init_guesses=init_guesses[ init_guesses["y_init"]>=0 ]
             init_guesses=init_guesses[ init_guesses["x_init"]<self.image.header["NAXIS1"]]
             init_guesses=init_guesses[ init_guesses["y_init"]<self.image.header["NAXIS2"]]
+            #print(init_guesses)
+
 
             ######
             # Allow tables that dont have the correct columns through
@@ -673,8 +693,6 @@ class StarbugBase(object):
             ###########
             # Run Fit #
             ###########
-            apphot_r=self.options.get("APPHOT_R")
-            if not apphot_r or apphot_r <=0: apphot_r=3
 
             min_separation=self.options.get("CRIT_SEP")
             if not min_separation:

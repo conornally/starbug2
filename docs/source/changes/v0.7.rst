@@ -2,6 +2,24 @@
 What's New in v0.7?
 *******************
 
+v0.7.5
+------
+
+Minor Changes:
+    -   Adding loading bar to afs that spans all the multiprocesses
+
+    -   tab2array now preserves colname order
+
+
+v0.7.4
+------
+
+Minor Changes:
+    -   Adding a check for completely masked sources in PSF phot
+
+    -   Adding a check for errors==0 in PSF phot
+
+
 v0.7.3
 ------
 
