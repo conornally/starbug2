@@ -19,7 +19,6 @@ from astropy.convolution import RickerWavelet2DKernel
 from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
-from photutils.psf.groupstars import DAOGroup
 from photutils.psf import PSFPhotometry, IntegratedGaussianPRF, SourceGrouper
 
 from photutils.datasets import make_model_sources_image, make_random_models_table
@@ -575,48 +574,48 @@ class BackGround_Estimate_Routine(BackgroundBase):
         if self.bgd is None: self.__call__(data)
         return self.bgd
 
-class _grouping(DAOGroup):
-    """
-    Deprecated
-    Overwritten DAOGroup that just holds the number of groups
-    for use in verbose loading of psfphot routine
-    >>> This is now a bit redundant after photoutils added progress_bar=true
-
-    Issue:6 recursion during fitting.
-        >>> the fitting seems to include this recursive step within a given source of sources
-            if the group contains more members than the system recursion limit then it will
-            unceremonially crash on a recursion error.
-        >>> for now at least, I will give a warning that this would have occurred, but then 
-            ill override the recursion limit and avoid the crash. Hopefully
-    """
-    logfile=None
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.ngroups=0
-        if os.getenv("SBIIDEBUG"):
-            self.logfile=open(os.getenv("SBIIDEBUG"),'a')
-            self.logfile.write("# PSF Source Grouping\n")
-
-    def __call__(self, *args):
-        res=super().__call__(*args)
-        self.ngroups=max(res["group_id"])
-
-        #### hacking recursion error
-        for gid in set(res["group_id"]):
-            n_members=sum(res["group_id"]==gid)
-            if self.logfile:
-                self.logfile.write("GID:%d (%d)\n"%(gid,n_members))
-
-            ## It seems to not quite hit the recursion limit
-            ## Crashed on 980 with a limit of 1000, so im going to try 90%
-            if n_members > (0.9*sys.getrecursionlimit()):
-                warn("This run will exceed the recursion depth of the system. "
-                       "Starbug will intervene and override the recursion limit but "
-                       "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
-                       "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), int(2.0*n_members)))
-                sys.setrecursionlimit(int(2.0*n_members))
-        if self.logfile: self.logfile.close()
-        return res
+#class _grouping(DAOGroup):
+#    """
+#    Deprecated
+#    Overwritten DAOGroup that just holds the number of groups
+#    for use in verbose loading of psfphot routine
+#    >>> This is now a bit redundant after photoutils added progress_bar=true
+#
+#    Issue:6 recursion during fitting.
+#        >>> the fitting seems to include this recursive step within a given source of sources
+#            if the group contains more members than the system recursion limit then it will
+#            unceremonially crash on a recursion error.
+#        >>> for now at least, I will give a warning that this would have occurred, but then 
+#            ill override the recursion limit and avoid the crash. Hopefully
+#    """
+#    logfile=None
+#    def __init__(self, *args, **kwargs):
+#        super().__init__(*args, **kwargs)
+#        self.ngroups=0
+#        if os.getenv("SBIIDEBUG"):
+#            self.logfile=open(os.getenv("SBIIDEBUG"),'a')
+#            self.logfile.write("# PSF Source Grouping\n")
+#
+#    def __call__(self, *args):
+#        res=super().__call__(*args)
+#        self.ngroups=max(res["group_id"])
+#
+#        #### hacking recursion error
+#        for gid in set(res["group_id"]):
+#            n_members=sum(res["group_id"]==gid)
+#            if self.logfile:
+#                self.logfile.write("GID:%d (%d)\n"%(gid,n_members))
+#
+#            ## It seems to not quite hit the recursion limit
+#            ## Crashed on 980 with a limit of 1000, so im going to try 90%
+#            if n_members > (0.9*sys.getrecursionlimit()):
+#                warn("This run will exceed the recursion depth of the system. "
+#                       "Starbug will intervene and override the recursion limit but "
+#                       "the parameter \"CRIT_SEP\" should be reduced to avoid this.\n"
+#                       "Setting recursion limit %d -> %d\n"%(sys.getrecursionlimit(), int(2.0*n_members)))
+#                sys.setrecursionlimit(int(2.0*n_members))
+#        if self.logfile: self.logfile.close()
+#        return res
 
 class _fitmodel(LevMarLSQFitter):
     """
