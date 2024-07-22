@@ -555,10 +555,12 @@ class StarbugBase(object):
                                             fwhm=FWHM,
                                             sigsky=self.options["SIGSKY"],
                                             bgd_r=self.options["BGD_R"],
+                                            profile_scale=self.options["PROF_SCALE"],
+                                            profile_slope=self.options["PROF_SLOPE"],
                                             verbose=self.options["VERBOSE"])
             header=self.header
             header.update(self.wcs.to_header())
-            self.background=fits.ImageHDU(data=bgd(self.image.data.copy()), header=header)
+            self.background=fits.ImageHDU(data=bgd(self.image.data.copy(), output=self.options.get("BGD_CHECKFILE")), header=header)
             if not self.options.get("QUIETMODE"):
                 _fname="%s/%s-bgd.fits"%(self.outdir, self.bname)
                 self.log("--> %s\n"%_fname)

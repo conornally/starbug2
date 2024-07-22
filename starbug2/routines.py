@@ -478,15 +478,23 @@ class BackGround_Estimate_Routine(BackgroundBase):
     bgd_r : float
         .
 
+    profile_scale : float
+        .
+
+    profile_slope : float
+        .
+
     verbose : bool
         .
     """
-    def __init__(self, sourcelist, boxsize=2, fwhm=2, sigsky=2, bgd_r=-1, verbose=0, bgd=None):#mask_r0=7, mask_r1=9
+    def __init__(self, sourcelist, boxsize=2, fwhm=2, sigsky=2, bgd_r=-1, profile_scale=1, profile_slope=0.5, verbose=0, bgd=None):#mask_r0=7, mask_r1=9
         self.sourcelist=sourcelist
         self.boxsize=boxsize
         self.fwhm=fwhm
         self.sigsky=sigsky
         self.bgd_r=bgd_r
+        self.A=profile_scale
+        self.B=profile_slope
         self.verbose=verbose
         self.bgd=bgd
         super().__init__()
@@ -506,7 +514,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
     def log(self,msg):
         if self.verbose: printf(msg)
 
-    def __call__(self, data, axis=None, masked=False):
+    def __call__(self, data, axis=None, masked=False, output=None):
         if self.sourcelist is None or data is None: return self.bgd
         _data=np.copy(data)
         X,Y=np.ogrid[:data.shape[1], :data.shape[0]]
@@ -523,9 +531,15 @@ class BackGround_Estimate_Routine(BackgroundBase):
             #rlist=np.sqrt(peaks**0.7)*self.fwhm/1.5 ## <-- that works but hmm
             if "flux" in self.sourcelist.colnames:
                 self.log("-> calculating source aperture mask radii\n")
-                _,median,_=sigma_clipped_stats(data,sigma=self.sigsky)
-                rlist= FUDGE * self.fwhm/2 * np.sqrt( np.log( median/self.sourcelist["flux"]) )
+                sky= self.sourcelist["sky"] if "sky" in self.sourcelist.colnames else 1.0
+                #_,median,_=sigma_clipped_stats(data,sigma=self.sigsky)
+                rlist= self.A*self.fwhm* (np.log(self.sourcelist["flux"]/sky))**self.B
                 rlist[np.isnan(rlist)]=DEFAULT_R
+                if output:
+                    with open(output,'w') as fp:
+                        for i in range(len(rlist)):
+                            fp.write("circle %f %f %f;"%(1+self.sourcelist[i]["xcentroid"],1+self.sourcelist[i]["ycentroid"], rlist[i]))
+                    self.log("-> exporting check file \"%s\"\n"%output)
             else:
                 warn("Unable to caluclate aperture mask sizes, add '-A' to starbug command.\n")
                 rlist=DEFAULT_R*np.ones(len(self.sourcelist))

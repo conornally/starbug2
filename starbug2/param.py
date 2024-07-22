@@ -37,7 +37,10 @@ APCORR_FILE =            //Aperture correction file. See full manual for details
 
 ## BACKGROUND ESTIMATION
 BGD_R       = 0          //Aperture masking fixed radius (if zero, starbug will scale radii)
+PROF_SCALE  = 1          //Aperture mask radius profile scaling factor
+PROF_SLOPE  = 0.5        //Aperture mask radius profile slope
 BOX_SIZE    = 2          //Background estimation kernal size (pix)
+BGD_CHECKFILE=           //Output region file to check the aperture mask radii
 
 ## PHOTOMETRY
 AP_FILE     =            //Detection file to use instead of detecting
