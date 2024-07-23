@@ -1,6 +1,6 @@
 [project]
 name = "starbug2"
-version = "0.7.4"
+version = "0.7.5"
 authors = [ {name = "Conor Nally", email = "conor.nally@ed.ac.uk" } ]
 readme = "README.md"
 description = "JWST PSF photometry in complex crowded fields."

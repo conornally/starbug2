@@ -526,18 +526,16 @@ class BackGround_Estimate_Routine(BackgroundBase):
             rlist=self.bgd_r*np.ones(len(self.sourcelist)) 
 
         else:
-            #peaks=self.calc_peaks(data)
-            #rlist=np.sqrt(peaks**0.7)*self.fwhm/1.5 ## <-- that works but hmm
             if "flux" in self.sourcelist.colnames:
                 self.log("-> calculating source aperture mask radii\n")
                 sky= self.sourcelist["sky"] if "sky" in self.sourcelist.colnames else 1.0
-                #_,median,_=sigma_clipped_stats(data,sigma=self.sigsky)
                 rlist= self.A*self.fwhm* (np.log(self.sourcelist["flux"]/sky))**self.B
                 rlist[np.isnan(rlist)]=DEFAULT_R
                 if output:
                     with open(output,'w') as fp:
                         for i in range(len(rlist)):
-                            fp.write("circle %f %f %f;"%(1+self.sourcelist[i]["xcentroid"],1+self.sourcelist[i]["ycentroid"], rlist[i]))
+                            fp.write("circle %f %f %f #color=green;"%(1+self.sourcelist[i]["xcentroid"],1+self.sourcelist[i]["ycentroid"], rlist[i]))
+                            fp.write("annulus %f %f %f %f #color=white;"%(1+self.sourcelist[i]["xcentroid"],1+self.sourcelist[i]["ycentroid"], 1.5*rlist[i], 1.5*rlist[i]+1))
                     self.log("-> exporting check file \"%s\"\n"%output)
             else:
                 warn("Unable to caluclate aperture mask sizes, add '-A' to starbug command.\n")

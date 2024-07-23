@@ -22,9 +22,12 @@ The routine combines an aperture masking and unsharp masking steps. The masked a
 
 .. math::
    
-   R_i = A\sigma\(ln(\frac{f_i}{s_i})\)^B
+   r_i = A\sigma\leftln(\frac{f_i}{s_i})\right^B
 
 Where *A* is a dimensionless scale factor, :math:`\sigma` is the full width half maximum of the PSF of the source, :math:`f_i` and :math:`s_i` are the source flux and sky values respectively and *B* is the profile slope.
+Using the calculated aperture masks, *starbug2* fills the aperture with the median pixel value within a local sky annulus. The annulus dimensions are :math:`r_i_0=1.5r_i` :math:`r_i_1=r_i_0+1`.
+
+An unsharp mask is created from the aperture masked image, the width of the smoothing kernel is the parameter **BOX_SIZE**. If this value is small, the resulting model will be high resolution but may be subject to noise in the image, if it is large, the noise will be smoothed out but the diffuse emission will also be smoothed further. Both cases are useful for different applications and instances.
 
 
 The routine requires a source list to be loaded using :code:`-d sourcelist.fits` or generated with the :doc:`detection routine <./detection>`. Running the routine looks something like::

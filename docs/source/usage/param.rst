@@ -99,6 +99,15 @@ APCORR_FILE [STR]
 BGD_R [FLOAT>0]
     Set a aperture source masking radius in pixel units to be used during the diffuse background estimation routine. By default *starbug2* will try to calculate good values for each source, but in cases where this doesnt act appropriately, a uniform radius can be set with this parameter.
 
+PROF_SCALE [FLOAT>0] default:1.0
+    The aperture masking in the background estimation steps scales the aperture radii with source flux. This parameter is used to change the scale factor *A* of the profile.
+
+PROF_SLOPE [FLOAT>0] default 0.5
+    The aperture masking in the background estimation steps scales the aperture radii with source flux. This parameter is used to change the slope exponent *B* of the profile.
+    
+BGD_CHECKFILE [STR]
+    The scaled aperture masking is done under the hood of *starbug2*, set this value to a filename to output a ds9 region file containing the calculated aperture radii for each source.
+
 BOX_SIZE [FLOAT>1] default:2.0
     Set the kernel size in pixel units to be used with estimating the background emission. When set small, the resulting model will contain a lot of detail at a high resolution but may be influenced by extraneous bright pixel or undetected sources. When set large, the resulting model will be low resolution but will be less influenced by bright pixels.
 

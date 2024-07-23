@@ -2,7 +2,7 @@
 What's New in v0.7?
 *******************
 
-v0.7.6
+v0.7.5
 ------
 
 Additions:
@@ -12,9 +12,6 @@ Additions:
 
 Bug Fixes:
     - Photutils 1.13 deprecated some of the functions starbug uses, these have been updated
-
-v0.7.5
-------
 
 Minor Changes:
     -   Adding loading bar to afs that spans all the multiprocesses
