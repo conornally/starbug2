@@ -7,7 +7,8 @@ from starbug2.artificialstars import Artificial_Stars
 
 from astropy.wcs import WCS
 from astropy.table import hstack, vstack
-from photutils.psf import EPSFModel, subtract_psf, FittableImageModel
+from photutils.psf import EPSFModel, FittableImageModel
+from photutils.datasets import make_model_image
 
 
 class StarbugBase(object):
@@ -770,8 +771,10 @@ class StarbugBase(object):
             if self.options["GEN_RESIDUAL"]:
                 self.log("-> generating residual\n")
                 _tmp=psf_cat["x_fit","y_fit","flux"].copy()
-                _tmp.rename_column("flux","flux_fit")
-                residual = subtract_psf(image-bgd, psf_model, _tmp, subshape=(size,size))
+                _tmp.rename_columns( ("x_fit","y_fit"), ("x_0","y_0"))
+                stars=make_model_image(image.shape, psf_model, _tmp, model_shape=(size,size))
+                residual=image-(bgd+stars)
+                #residual = subtract_psf(image-bgd, psf_model, _tmp, subshape=(size,size))
                 self.residuals=residual/get_MJysr2Jy_scalefactor(self.image)
                 header=self.header
                 header.update(self.wcs.to_header())

@@ -9,6 +9,10 @@ Additions:
     -   Background estimations now has PROF_SCALE and PROF_SLOPE, these can be used to tweak the aperture radius profile
 
     -   BGD_CHECKFILE option added to parameter file to help debug the output
+
+Bug Fixes:
+    - Photutils 1.13 deprecated some of the functions starbug uses, these have been updated
+
 v0.7.5
 ------
 
