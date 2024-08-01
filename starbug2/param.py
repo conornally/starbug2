@@ -70,10 +70,8 @@ BRIDGE_COL  =            // Bridge --band matching NIRCam and MIRI catalogues by
 NTESTS      = 100        //Number of artificial star tests
 NSTARS      = 1          //Number of stars per artifical test
 SUBIMAGE    = 500        //number of pixels ? to crop around artificial star
-#MIN_FLUX    = 0.00001    //minimun flux for artificial star
-#MAX_FLUX    = 100.0      //maximum flux for artificial star
-MIN_MAG     = 18.0       //Bright limit of test magnitude
-MAX_MAG     = 28.0       //Faint limit of test magnitude
+MAX_MAG     = 18.0       //Bright limit of test magnitude
+MIN_MAG     = 28.0       //Faint limit of test magnitude
 
 ## MISC EXTRAS
 REGION_COL  = green      //DS9 region colour

@@ -128,3 +128,40 @@ An example of this would look like::
 The source lists produced from each image can be matched together at the end of the detection run by including the :code:`-M` or :code:`--match` flag to the command. More information on this is available in the :doc:`Catalogue Matching <./matching>` section. An example of this command would be::
 
     $~ starbug2 -vDM image1.fits image2.fits 
+
+
+Source Quality Flags
+--------------------
+
+The output source catalogues contain a *flag* column, which contains experimental data quality information. The integer contains bitwise flags that each pertain to a different points of potential error in the source. The flags and bit mask are as follows:
+
+.. list-table:: Data Quality Flags
+    :widths: 20 20 60
+    :header-rows: 1
+
+    * - BIT
+      - Name
+      - Description
+    * -`0x00`
+      - SRC_GOOD  
+      - Source OK
+    * - `0x01`
+      - SRC_BAD   
+      - Source aperture contains a pixel marked as saturate or bad
+    * - `0x02`
+      - SRC_JMP   
+      - Source aperture contains a pixel marked with a jump during integration (possible cosmic ray)
+    * - `0x04`
+      - SRC_VAR   
+      - Source has an asymmetric flux distribution between matches (mean and median more than 5% different)
+    * - `0x08`
+      - SRC_FIX   
+      - Source has PSF photometry with a forced position
+    * - `0x10`
+      - SRC_UKN   
+      - Something was wrong..
+
+To test a source for a given flag, use the following code::
+    
+    from starbug2 import SRC_BAD
+    mask = (catalogue["flag"]&SRC_BAD)

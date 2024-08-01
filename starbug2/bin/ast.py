@@ -1,5 +1,5 @@
 """StarbugII Artificial Star Testing
-usage: starbug2-afs [-vh] [-N ntests] [-n ncores] [-p file.param] [-S nstars] [-s opt=val] image.fits ..
+usage: starbug2-ast [-vh] [-N ntests] [-n ncores] [-p file.param] [-S nstars] [-s opt=val] image.fits ..
     -h  --help          : show help screen
     -N  --ntests    num : number of tests to run
     -n  --ncores  cores : number of cores to split the tests over
@@ -49,16 +49,17 @@ def load(msg="loading"):
 def afs_parseargv(argv):
     """ Organise the argv line into options, values and arguments """
     options=0
-    setopt={"NTESTS":100, "NSTARS":10}
+    setopt={"NTESTS":100, "NSTARS":10, "QUIETMODE":1}
     cmd,argv = scr.parsecmd(argv)
     opts,args = getopt.gnu_getopt(argv, "hvN:n:p:S:s:o:", ("help","verbose","ncores=","param=", "set=", "output=",
                                                             "ntests=", "nstars"))
 
     for opt,optarg in opts:
         if opt in ("-h","--help"): options |= (SHOWHELP|STOPPROC)
-        if opt in ("-p","--param"): setopt["PARAMFILE"]=optarg
         if opt in ("-v","--verbose"): options |= VERBOSE
+        if opt in ("-p","--param"): setopt["PARAMFILE"]=optarg
         if opt in ("-n","--ncores"): setopt["NCORES"]=int(optarg)
+        if opt in ("-o","--output"): setopt["OUTPUT"]=optarg
 
         if opt in ("-N","--ntests"): setopt["NTESTS"]=int(optarg)
         if opt in ("-S","--nstars"): setopt["NSTARS"]=int(optarg)
@@ -72,10 +73,6 @@ def afs_parseargv(argv):
             else:
                 perror("unable to set parameter, use syntax -s KEY=VALUE\n")
                 options|=KILLPROC
-
-        if opt in ("-o","--output"):
-            warn("argument \"%s\" not implemented yet\n"%opt)
-            setopt["OUTPUT"]=optarg
 
     return options, setopt, args
 
@@ -103,7 +100,7 @@ def fn(args):
         opt=sb.options
         afs=Artificial_StarsIII(sb)
         out=afs.auto_run(opt.get("NTESTS"), stars_per_test=opt.get("NSTARS"),
-                mag_range=(opt.get("MIN_MAG"),opt.get("MAX_MAG")), loading_buffer=buf)
+                mag_range=(opt.get("MAX_MAG"),opt.get("MIN_MAG")), loading_buffer=buf)
     return out
 
 def afs_main(argv):
@@ -114,17 +111,17 @@ def afs_main(argv):
         if (exit_code:=afs_onetimeruns(options, setopt, args)):
             _share.unlink()
             return exit_code
-    setopt["QUIETMODE"]=1
+
     if args:
         fname=args[0]
+        _ntests=setopt.get("NTESTS")
         if options & VERBOSE:
             printf("Artificial Stars\n----------------\n")
             printf("-> loading %s\n"%fname)
-            printf("-> running %d tests with %d injections per test\n"%(setopt.get("NTESTS"),setopt.get("NSTARS")))
-            #printf("-> magnitude range: %f %f\n"
+            printf("-> running %d tests with %d injections per test\n"%(_ntests,setopt.get("NSTARS")))
 
         buf[0]=0
-        buf[1]=setopt.get("NTESTS")
+        buf[1]=_ntests
         loading=Process(target=load, args=("afs",))
         loading.start()
 
@@ -132,35 +129,38 @@ def afs_main(argv):
             setopt["NCORES"]=1
             outs=[fn((fname,options,setopt,0)) for fname in args]
         else:
-            ncores=min(ncores,setopt.get("NTESTS"))
+            ncores=min(ncores,_ntests)
             zip_options=np.full(ncores,options,dtype=int)
             for n in range(ncores):
                 if n>0: zip_options[n]&=~VERBOSE
-            setopt["NTESTS"]/=ncores
+            setopt["NTESTS"]=int(np.ceil(_ntests/ncores))
 
 
             pool=Pool(processes=ncores)
-            outs=pool.map(fn, zip(repeat(fname), zip_options, repeat(setopt), range(1,ncores+1)))
+            outs=pool.map(fn, zip(repeat(fname), zip_options, repeat(setopt), range(1,ncores+1))) 
             pool.close()
 
         buf[0]=buf[1] #force finish
         loading.join()
 
-        if options & VERBOSE: printf("-> compiling results\n")
         raw=outs[0]
         for res in outs[1:]: raw=tabppend(raw,res)
+        if options & VERBOSE:
+            printf("-> compiling results\n")
+            printf("-> flux recovery: %.2g\n"%(np.nanmean(raw["flux"]/raw["flux_det"])))
 
         completeness=Artificial_StarsIII.get_completeness(raw)
+
+        sb=StarbugBase(fname, setopt.get("PARAMFILE"), options=setopt)
+        spatial_completeness=Artificial_StarsIII.get_spatialcompleteness(raw,sb.image,res=10)
+
         results=fits.HDUList([fits.PrimaryHDU(),
-                fits.BinTableHDU(data=completeness, name="AFS"),
-                fits.BinTableHDU(data=raw, name="RAW")])
-        results.writeto("%s-afs.fits"%fname[:-5],overwrite=True)
-
-
-
-
-        
-
+                fits.BinTableHDU(data=completeness, name="AST"),
+                fits.BinTableHDU(data=raw, name="RAW"),
+                fits.ImageHDU(data=spatial_completeness,name="CMP")])
+        outdir,bname,_=StarbugBase.sort_output_names(fname, param_output=setopt.get("OUTPUT"))
+        if options & VERBOSE: printf("--> %s/%s-ast.fits\n"%(outdir,bname))
+        results.writeto("%s/%s-ast.fits"%(outdir,bname),overwrite=True)
 
     else:
         perror("must include a fits image to work on\n")
@@ -169,6 +169,6 @@ def afs_main(argv):
     _share.unlink()
     return exit_code
 
-def afs_mainentry():
+def ast_mainentry():
     """Command line entry point"""
     return afs_main(sys.argv)

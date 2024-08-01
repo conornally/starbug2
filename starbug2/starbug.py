@@ -3,7 +3,7 @@ from starbug2.param import load_params, load_default_params
 from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.routines import *
-from starbug2.artificialstars import Artificial_Stars
+#from starbug2.artificialstars import Artificial_Stars
 
 from astropy.wcs import WCS
 from astropy.table import hstack, vstack
@@ -139,6 +139,47 @@ class StarbugBase(object):
             sys.stdout.flush()
 
 
+    @staticmethod
+    def sort_output_names(fname, param_output=None):
+        """
+        This is a useful function that looks at both an input file and a set output
+        and figures out how to name output files. If param_output looks like a directory
+        then the output will be set to that directory with the basename of fname. If
+        param_output looks like a file, then the output basename will take that form
+
+        Parameters
+        ----------
+        fname : str
+            Filename to use as the core of the output
+
+        param_output : str
+            This is the OUTPUT parameter in the parameter file. It can be an output
+            directory or output filename. If None (default) then it will be ignored
+
+        Returns
+        -------
+        outdir : str
+            The output directory
+
+        bname : str
+            The output file basename (e.g. path/to/output.txt -> "output")
+
+        extension : str
+            The file extension split from the inputs
+        """
+        outdir=""
+        bname=""
+        extension=""
+        if fname:
+            outdir,bname,extension=split_fname(fname)
+            if (tmp_outname:=param_output) and tmp_outname !='.':
+                _outdir,_bname,_=split_fname(tmp_outname)
+                if os.path.exists(outdir) and os.path.isdir(outdir): outdir=_outdir
+                else: perror("unable to locate output directory \"%s\"\n"%_outdir)
+                if _bname: bname=_bname
+
+        return outdir,bname,extension
+
     def load_image(self, fname):
         """
         Given fname, load the image into starbug to be worked on.
@@ -155,12 +196,13 @@ class StarbugBase(object):
             #########################################
             # Sorting out the file names and what not
             #########################################
-            self.outdir,self.bname,extension=split_fname(fname)
-            if (tmp_outname:=self.options.get("OUTPUT")) and tmp_outname !='.':
-                outdir,bname,_=split_fname(tmp_outname)
-                if os.path.exists(outdir) and os.path.isdir(outdir): self.outdir=outdir
-                else: perror("unable to locate output directory \"%s\"\n"%outdir)
-                if bname: self.bname=bname
+            self.outdir,self.bname, extension = self.sort_output_names(fname,self.options.get("OUTPUT"))
+            #self.outdir,self.bname,extension=split_fname(fname)
+            #if (tmp_outname:=self.options.get("OUTPUT")) and tmp_outname !='.':
+            #    outdir,bname,_=split_fname(tmp_outname)
+            #    if os.path.exists(outdir) and os.path.isdir(outdir): self.outdir=outdir
+            #    else: perror("unable to locate output directory \"%s\"\n"%outdir)
+            #    if bname: self.bname=bname
 
             if extension==".fits":
                 if os.path.exists(fname):
@@ -619,33 +661,6 @@ class StarbugBase(object):
                 perror("unable to run photometry: no PSF loaded\n")
                 return 1
 
-            """
-            if self.background is None:
-                _,median,_=sigma_clipped_stats(self.image.data,sigma=self.options["SIGSKY"])
-                bgd=np.ones(self.image.shape)*median
-                self.log("-> no background file loaded, measuring sigma clipped median\n")
-            else:
-                bgd = self.background.data.copy()
-
-            if "ERR" in extnames(self._image) and np.shape(self._image["ERR"]):
-                error=self._image["ERR"].data
-            else: 
-                error=None
-            """
-
-            #_scalefactor=self.image.header.get("PHOTMJSR")#https://spacetelescope.github.io/jdat_notebooks/notebooks/psf_photometry/NIRCam_PSF_Photometry_Example.html
-            #_bunit=self.image.header.get("BUNIT")
-                #self.log("-> PHOTMJSR: %f\n"%_scalefactor)
-            """
-            if self.header.get("BUNIT")=="MJy/sr":
-                scalefactor=get_MJysr2Jy_scalefactor(self.image)
-                self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
-                image*=scalefactor
-                bgd*=scalefactor
-                if error is not None: error*=scalefactor
-            else: scalefactor=1
-            """
-
             psfmask= ~np.isfinite(self.psf)
             if psfmask.sum():
                 self.psf[psfmask]=0
@@ -674,8 +689,6 @@ class StarbugBase(object):
             init_guesses=init_guesses[ init_guesses["y_init"]>=0 ]
             init_guesses=init_guesses[ init_guesses["x_init"]<self.image.header["NAXIS1"]]
             init_guesses=init_guesses[ init_guesses["y_init"]<self.image.header["NAXIS2"]]
-            #print(init_guesses)
-
 
             ######
             # Allow tables that dont have the correct columns through
@@ -752,7 +765,6 @@ class StarbugBase(object):
             fltr= self.filter if self.filter else "mag"
             psf_cat.add_column(mag+self.options.get("ZP_MAG"),name=fltr)
             psf_cat.add_column(magerr,name="e%s"%fltr)
-            #self.psfcatalogue=tabppend(self.psfcatalogue, psf_cat)
             self.psfcatalogue=psf_cat
             self.psfcatalogue.meta=dict(self.header.items())
             self.psfcatalogue.meta["AP_FILE"]=self.options["AP_FILE"]
@@ -774,7 +786,6 @@ class StarbugBase(object):
                 _tmp.rename_columns( ("x_fit","y_fit"), ("x_0","y_0"))
                 stars=make_model_image(image.shape, psf_model, _tmp, model_shape=(size,size))
                 residual=image-(bgd+stars)
-                #residual = subtract_psf(image-bgd, psf_model, _tmp, subshape=(size,size))
                 self.residuals=residual/get_MJysr2Jy_scalefactor(self.image)
                 header=self.header
                 header.update(self.wcs.to_header())
