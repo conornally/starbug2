@@ -3,6 +3,7 @@ usage: starbug2-ast [-vh] [-N ntests] [-n ncores] [-p file.param] [-S nstars] [-
     -h  --help          : show help screen
     -N  --ntests    num : number of tests to run
     -n  --ncores  cores : number of cores to split the tests over
+    -o  --output output : output directory or filename to export results to
     -p  --param    file : load a parameter file
     -S  --nstars    num : number of stars to inject per test
     -s  --set    option : set parameter at runtime with syntax "-s KEY=VALUE"
@@ -15,6 +16,8 @@ from multiprocessing import Pool, Process, shared_memory
 from itertools import repeat
 from time import sleep
 from astropy.io import fits
+import matplotlib; matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 
 import starbug2.bin as scr
 from starbug2.starbug import StarbugBase
@@ -149,18 +152,51 @@ def afs_main(argv):
             printf("-> compiling results\n")
             printf("-> flux recovery: %.2g\n"%(np.nanmean(raw["flux"]/raw["flux_det"])))
 
-        completeness=Artificial_StarsIII.get_completeness(raw)
-
         sb=StarbugBase(fname, setopt.get("PARAMFILE"), options=setopt)
+        completeness=Artificial_StarsIII.get_completeness(raw)
+        _cfit, _compl=Artificial_StarsIII.estim_completeness(completeness)
+        head={  "COMPLETE_FN":"F(x)=l/(1+exp(-k(x-xo)))",
+                "l":_cfit[0], "k":_cfit[1], "xo":_cfit[2],
+                }
+                #"COMPLETE 70%": _compl[0],
+                #"COMPLETE 50%": _compl[1]}
+        #if _compl[0]: printf("-> complete to 90%%: M=%.2f\n"%_compl[0])
+        #if _compl[1]: printf("-> complete to 70%%: M=%.2f\n"%_compl[1])
+        #if _compl[2]: printf("-> complete to 50%%: M=%.2f\n"%_compl[2])
+        for i,frac in enumerate((90,70,50)):
+            if _compl[i] and not np.isnan(_compl[i]):
+                printf("-> complete to %d%%: %s=%.2f\n"%(frac,sb.filter,_compl[i]))
+                head["COMPLETE %d%%"%frac]=_compl[i]
+
         spatial_completeness=Artificial_StarsIII.get_spatialcompleteness(raw,sb.image,res=10)
 
         results=fits.HDUList([fits.PrimaryHDU(),
-                fits.BinTableHDU(data=completeness, name="AST"),
+                fits.BinTableHDU(data=completeness, name="AST", header=head),
                 fits.BinTableHDU(data=raw, name="RAW"),
                 fits.ImageHDU(data=spatial_completeness,name="CMP")])
         outdir,bname,_=StarbugBase.sort_output_names(fname, param_output=setopt.get("OUTPUT"))
         if options & VERBOSE: printf("--> %s/%s-ast.fits\n"%(outdir,bname))
         results.writeto("%s/%s-ast.fits"%(outdir,bname),overwrite=True)
+
+        ## output figure plotting
+        if (_fname:=setopt.get("PLOTAST")):
+            fig,ax=plt.subplots(1,figsize=(3.5,3),dpi=300)
+            ax.scatter(completeness["mag"],completeness["rec"], c='k', lw=0, s=8)
+            ax.plot(completeness["mag"],Artificial_StarsIII.scurve(completeness["mag"],*_cfit),c='g',label=r"$f(x)=\frac{%.2f}{1+e^{%.2f(x-%.2f)}}$"%(_cfit[0],-_cfit[1],_cfit[2]))
+            ax.axvline(_compl[0], c="seagreen",ls='--', label=("90%%:%.2f"%_compl[0]),lw=0.75)
+            ax.axvline(_compl[1], c="seagreen",ls='-.', label=("70%%:%.2f"%_compl[1]),lw=0.75)
+            ax.axvline(_compl[2], c="seagreen",ls=':', label=("50%%:%.2f"%_compl[2]),lw=0.75)
+            ax.scatter(_compl,(0.9,0.7,0.5),marker='*', c='teal', s=10)
+            ax.tick_params(direction="in",top=True,right=True)
+            ax.set_title("Artificial Star Test")
+            ax.set_xlabel(sb.filter)
+            ax.set_ylabel("Fraction Recovered")
+            ax.set_yticks([0,.25,.5,.75,1])
+            ax.legend(loc="lower left",frameon=False, fontsize=8)
+            plt.tight_layout()
+            fig.savefig(_fname,dpi=300)
+            printf("--> %s\n"%_fname)
+
 
     else:
         perror("must include a fits image to work on\n")

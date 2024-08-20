@@ -2,6 +2,14 @@
 What's New in v0.7?
 *******************
 
+v0.7.6
+------
+
+Additions:
+    -   Added pyplot output to AST
+
+    -   Added S-curve fitting to AST output
+
 v0.7.5
 ------
 

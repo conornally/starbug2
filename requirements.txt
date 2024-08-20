@@ -1,7 +1,8 @@
 numpy>=1.25
-photutils>=1.13.0
+photutils=1.13.0
 astropy
 parse
 scipy
 webbpsf
 scikit-image
+matplotlib

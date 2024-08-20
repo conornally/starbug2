@@ -209,10 +209,71 @@ class Artificial_StarsIII(object):
             for yi in ybins[:-1]:
                 yo=yi+res
                 mask=(test_result["x_0"]>=xi) & (test_result["x_0"]<xo) &(test_result["y_0"]>=yi) & (test_result["y_0"]<yo) 
-                print(np.sum(mask))
                 binned=test_result[mask] 
                 if len(binned): percs[int(xi):int(xo),int(yi):int(yo)]=float(sum(binned["status"])/len(binned))
         return percs
+
+    @staticmethod
+    def estim_completeness(raw):
+        """
+        Estimate the completenss level of the artificial star test
+        
+        Parameters
+        ----------
+        raw : astropy Table
+            Output of Artificial_Stars.get_completeness, table must contain columns (mag, rec)
+
+        Returns
+        -------
+        fit : list
+            The fitting parameters to the logistic curve f(x)=l/(1+exp(-k(x-xo)))
+            fit=[l,xo,k]
+
+        complete : list
+            Magnitude of 70% and 50% completeness 
+        """
+        fit=[None,None,None]
+        compl=[None,None,None]
+        fn_i=lambda y,l,k,xo: xo-(np.log((l/y)-1)/k)
+
+        if len(set(raw.colnames) & set(("mag","rec")))==2:
+            fit,_=curve_fit(Artificial_StarsIII.scurve, raw["mag"], raw["rec"], [1, -1,np.median(raw["mag"])])
+            compl=(fn_i(0.9,*fit),fn_i(0.7,*fit),fn_i(0.5,*fit))
+        else: perror("Input table must have columns 'mag' and 'rec'\n")
+        return fit,compl
+
+    @staticmethod
+    def scurve(x,l,k,xo):
+        """
+        S-curve function to fit completeness results to
+
+        f(x)=l/(1+exp(-k(x-xo)))
+
+        Parameters
+        ----------
+        x : list
+            Magnitude range to input into function
+
+        l,xo,k : float
+            Function parameters
+
+        Returns
+        -------
+        f(x) : float
+        """
+        return l/(1+np.exp(-k*(x-xo)))
+
+
+#if __name__=="__main__":
+#    from astropy.table import Table
+#    import matplotlib.pyplot as plt
+#    a=Table(fits.open("/home/conor/sci/docs/starbug/ws/F444W-ast.fits")[1].data)
+#
+#    fit,compl=Artificial_StarsIII.estim_completeness(a)
+#    print(fit,compl)
+
+
+
 
 
 

@@ -72,6 +72,7 @@ NSTARS      = 1          //Number of stars per artifical test
 SUBIMAGE    = 500        //number of pixels ? to crop around artificial star
 MAX_MAG     = 18.0       //Bright limit of test magnitude
 MIN_MAG     = 28.0       //Faint limit of test magnitude
+PLOTAST     =            //Output AST result as image with this filename
 
 ## MISC EXTRAS
 REGION_COL  = green      //DS9 region colour
