@@ -107,6 +107,7 @@ class Artificial_StarsIII():
 
             if autosave>0 and not test%autosave:
                 test_result.write("sbast-autosave%d.tmp"%self.index, overwrite=True, format="fits")
+            del image # is this neccessary?
         return test_result
 
     def single_test(self, image, contains):
