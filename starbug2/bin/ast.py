@@ -8,6 +8,8 @@ usage: starbug2-ast [-vh] [-N ntests] [-n ncores] [-p file.param] [-S nstars] [-
     -S  --nstars    num : number of stars to inject per test
     -s  --set    option : set parameter at runtime with syntax "-s KEY=VALUE"
     -v  --verbose       : show verbose stdout output
+
+        --autosave freq : frequency of quick save outputs
 """
 
 import os,sys,getopt
@@ -52,10 +54,10 @@ def load(msg="loading"):
 def afs_parseargv(argv):
     """ Organise the argv line into options, values and arguments """
     options=0
-    setopt={"NTESTS":100, "NSTARS":10, "QUIETMODE":1}
+    setopt={"NTESTS":100, "NSTARS":10, "QUIETMODE":1, "AUTOSAVE":100}
     cmd,argv = scr.parsecmd(argv)
     opts,args = getopt.gnu_getopt(argv, "hvN:n:p:S:s:o:", ("help","verbose","ncores=","param=", "set=", "output=",
-                                                            "ntests=", "nstars"))
+                                                            "ntests=", "nstars=", "autosave="))
 
     for opt,optarg in opts:
         if opt in ("-h","--help"): options |= (SHOWHELP|STOPPROC)
@@ -66,6 +68,7 @@ def afs_parseargv(argv):
 
         if opt in ("-N","--ntests"): setopt["NTESTS"]=int(optarg)
         if opt in ("-S","--nstars"): setopt["NSTARS"]=int(optarg)
+        if opt == "--autosave": setopt["AUTOSAVE"]=int(optarg)
 
         if opt in ("-s","--set"): 
             if '=' in optarg:
@@ -101,9 +104,10 @@ def fn(args):
     if os.path.exists(fname):
         sb=StarbugBase(fname, setopt.get("PARAMFILE"), options=setopt)
         opt=sb.options
-        afs=Artificial_StarsIII(sb)
+        afs=Artificial_StarsIII(sb, index=index)
         out=afs.auto_run(opt.get("NTESTS"), stars_per_test=opt.get("NSTARS"),
-                mag_range=(opt.get("MAX_MAG"),opt.get("MIN_MAG")), loading_buffer=buf)
+                mag_range=(opt.get("MAX_MAG"),opt.get("MIN_MAG")), loading_buffer=buf,
+                autosave=opt.get("AUTOSAVE"))
     return out
 
 def afs_main(argv):
@@ -145,6 +149,10 @@ def afs_main(argv):
 
         buf[0]=buf[1] #force finish
         loading.join()
+        
+        #############################
+        # COMPILING ALL THE RESULTS #
+        #############################
 
         raw=outs[0]
         for res in outs[1:]: raw=tabppend(raw,res)
@@ -158,11 +166,7 @@ def afs_main(argv):
         head={  "COMPLETE_FN":"F(x)=l/(1+exp(-k(x-xo)))",
                 "l":_cfit[0], "k":_cfit[1], "xo":_cfit[2],
                 }
-                #"COMPLETE 70%": _compl[0],
-                #"COMPLETE 50%": _compl[1]}
-        #if _compl[0]: printf("-> complete to 90%%: M=%.2f\n"%_compl[0])
-        #if _compl[1]: printf("-> complete to 70%%: M=%.2f\n"%_compl[1])
-        #if _compl[2]: printf("-> complete to 50%%: M=%.2f\n"%_compl[2])
+
         for i,frac in enumerate((90,70,50)):
             if _compl[i] and not np.isnan(_compl[i]):
                 printf("-> complete to %d%%: %s=%.2f\n"%(frac,sb.filter,_compl[i]))
@@ -177,6 +181,11 @@ def afs_main(argv):
         outdir,bname,_=StarbugBase.sort_output_names(fname, param_output=setopt.get("OUTPUT"))
         if options & VERBOSE: printf("--> %s/%s-ast.fits\n"%(outdir,bname))
         results.writeto("%s/%s-ast.fits"%(outdir,bname),overwrite=True)
+
+        for n in range(_ntests+1):
+            _fname="sbast-autosave%d.tmp"%n
+            if os.path.exists(_fname): os.remove(_fname)
+
 
         ## output figure plotting
         if (_fname:=setopt.get("PLOTAST")):

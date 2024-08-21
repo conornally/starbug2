@@ -1,18 +1,33 @@
 Module
 ======
-
-.. note::
-   Just testing automodule. Documentation coming at some point soon
-
-
-.. automodule:: starbug2.utils
-   :members:
-.. automodule:: starbug2.matching
-   :members:
-
-Indices and tables
-------------------
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+StarbugBase
+-----------
+.. automodule:: starbug2.starbug
+    :members:
+
+Starbug2 Routines
+-----------------
+
+.. automodule:: starbug2.routines
+   :members:
+
+Artificial Star Testing
+-----------------------
+.. automodule:: starbug2.artificialstars
+    :members:
+
+Utils
+--------------
+.. automodule:: starbug2.utils
+   :members:
+
+Matching
+----------------
+.. automodule:: starbug2.matching
+   :members:
 

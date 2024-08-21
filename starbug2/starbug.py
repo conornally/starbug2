@@ -1,14 +1,14 @@
+from astropy.wcs import WCS
+from astropy.table import hstack, vstack
+from photutils.psf import FittableImageModel
+from photutils.datasets import make_model_image
+
 import starbug2
 from starbug2.param import load_params, load_default_params
 from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.routines import *
-#from starbug2.artificialstars import Artificial_Stars
 
-from astropy.wcs import WCS
-from astropy.table import hstack, vstack
-from photutils.psf import EPSFModel, FittableImageModel
-from photutils.datasets import make_model_image
 
 
 class StarbugBase(object):
@@ -184,8 +184,8 @@ class StarbugBase(object):
         """
         Given fname, load the image into starbug to be worked on.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fname : str
             Filename of fits image (with any number of extensions. If using
             a non standard HDU index, set the name or index of the extension
@@ -257,8 +257,8 @@ class StarbugBase(object):
         """
         Load a AP_FILE to be used during photometry
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fname : str
             Filename for fits table containg source coordinates. These coorindates can be
             xcentroid/ycentroid, x_init/y_init, x_0,y_0 or RA/DEC. The latter is used if 
@@ -303,8 +303,8 @@ class StarbugBase(object):
         """
         Load a BGD_FILE to be used during photometry
         
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fname : str
             Filename of fits image the same dimensions as the main image
         """
@@ -318,8 +318,8 @@ class StarbugBase(object):
         """
         Load a PSF_FILE to be used during photometry
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fname : str
             Filename of a PSF fits image
         """
@@ -357,8 +357,8 @@ class StarbugBase(object):
         """
         Make a copy of the original image, and prepare the other image arrays
 
-        Returns:
-        --------
+        Returns
+        -------
         image : 
             A copy of the image array, scale into Jy if appropriate
 
@@ -453,10 +453,10 @@ class StarbugBase(object):
 
         if self.detections is None:
             perror("No detection source file loaded (-d file-ap.fits)\n")
-            return
+            return 1
         if len(set(("x_0","y_0","x_init","y_init","xcentroid","ycentroid")) & set(self.detections.colnames))<2:
             perror("No pixel coordinates in source file\n")
-            return
+            return 1
 
         new_columns=("smoothness","flux","eflux","sky", "flag", self.filter,"e%s"%self.filter)
         self.detections.remove_columns( set(new_columns)&set(self.detections.colnames) )
@@ -468,26 +468,6 @@ class StarbugBase(object):
         self.log("\nRunning Aperture Photometry\n")
 
         image, error, _, mask = self.prepare_image_arrays()
-
-        """
-        image=self.image.data.copy() ##dont work on the real image!
-
-        #########################
-        # Unit Conversion to Jy #
-        #########################
-        error=None
-        if self.header.get("BUNIT")=="MJy/sr":
-            scalefactor=get_MJysr2Jy_scalefactor(self.image)
-            self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
-        else: scalefactor=1
-
-        image*=scalefactor
-        if "ERR" in extnames(self._image) and np.shape(self._image["ERR"]):
-            error=self._image["ERR"].data.copy()
-            error*=scalefactor
-        else: 
-            error=np.sqrt(image)
-        """
 
         #######################
         # Aperture Correction #
@@ -527,22 +507,6 @@ class StarbugBase(object):
         if "DQ" in extnames(self._image):
             dqflags=self._image["DQ"].data.copy()
         else: dqflags=None
-        """
-        if self.stage==2:
-            if "AREA" in extnames(self._image):
-                image*= self._image["AREA"].data ## AREA distortion correction
-            if "DQ" in extnames(self._image):
-                mask=self._image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
-                image[mask]=np.nan
-                error[mask]=np.nan
-                dqflags=self._image["DQ"].data
-            else: dqflags=None
-
-            ap_cat=apphot(image, self.detections, error=error, dqflags=dqflags, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
-
-        else: ##stage 3 version
-            ap_cat=apphot(image, self.detections, error=error, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
-        """
         ap_cat=apphot(image, self.detections, error=error, dqflags=dqflags, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
 
@@ -568,6 +532,8 @@ class StarbugBase(object):
             _fname="%s/%s-ap.fits"%(self.outdir, self.bname)
             self.log("--> %s\n"%_fname)
             export_table(self.detections, _fname, header=self.header)
+
+        return 0
 
 
     def bgd_estimate(self):
@@ -624,13 +590,14 @@ class StarbugBase(object):
 
         if self.background is None:
             perror("No background array loaded (-b file-bgd.fits)\n")
-            return
+            return 1
         array= self.image.data - self.background.data
         self.residuals = array
         self._image[self._nHDU].data=array
         header=self.header
         header.update(self.wcs.to_header())
         fits.ImageHDU(data=self.residuals, name="RES", header=header).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
+        return 0
 
     def photometry(self):
         """
@@ -793,82 +760,79 @@ class StarbugBase(object):
 
             return 0
 
-    def artificial_stars(self):
-        """
-        Run artificial star testing
+    #def artificial_stars(self):
+    #    """
+    #    #Run artificial star testing
 
-        >>> This needs to get the background loaded into it somewhere!!
-        >>> Need to make sure all the appropriate parameters are being passed into the functions
-        """
-        status=0
-        self.log("\nArtificial Star Testing (n=%d)\n"%(self.options["NTESTS"]))
-        
-        ################################
-        # Collect files and sort units #
-        ################################
-        image=self.image.data.copy()
-        bgd=None
+    #    #>>> This needs to get the background loaded into it somewhere!!
+    #    #>>> Need to make sure all the appropriate parameters are being passed into the functions
+    #    """
+    #    status=0
+    #    self.log("\nArtificial Star Testing (n=%d)\n"%(self.options["NTESTS"]))
+    #    
+    #    ################################
+    #    # Collect files and sort units #
+    #    ################################
+    #    image=self.image.data.copy()
+    #    bgd=None
 
-        if self.background is not None:
-            bgd=self.background.data.copy()
+    #    if self.background is not None:
+    #        bgd=self.background.data.copy()
 
-        if self.header.get("BUNIT")=="MJy/sr-1":
-            scalefactor=get_MJysr2Jy_scalefactor(self.image)
-            image/=scalefactor
-            if bgd is not None: bgd/=scalefactor
+    #    if self.header.get("BUNIT")=="MJy/sr-1":
+    #        scalefactor=get_MJysr2Jy_scalefactor(self.image)
+    #        image/=scalefactor
+    #        if bgd is not None: bgd/=scalefactor
 
-        self.load_psf(self.options.get("PSF_FILE"))
-        psf_model=FittableImageModel(self.psf)
+    #    self.load_psf(self.options.get("PSF_FILE"))
+    #    psf_model=FittableImageModel(self.psf)
 
-        #############################
-        # Build the Routine Classes #
-        #############################
+    #    #############################
+    #    # Build the Routine Classes #
+    #    #############################
 
-        detector=Detection_Routine( sig_src=self.options["SIGSRC"],
-                                    sig_sky=self.options["SIGSKY"],
-                                    fwhm=starbug2.filters[self.filter].pFWHM,
-                                    sharplo=self.options["SHARP_LO"],
-                                    sharphi=self.options["SHARP_HI"],
-                                    round1hi=self.options["ROUND1_HI"],
-                                    verbose=0)
-        phot=APPhot_Routine ( self.options["APPHOT_R"],
-                              self.options["SKY_RIN"],
-                              self.options["SKY_ROUT"])
-        
-        phot=PSFPhot_Routine( psf_model, psf_model.shape,
-                apphot_r=self.options["APPHOT_R"], force_fit=False, 
-                background=bgd, verbose=0)
-        export_table(phot(image,detector(image)),fname="/tmp/out.fits")
-
-
-
-        art=Artificial_Stars(detector=detector, photometry=phot, psf=psf_model)
-
-        ###########
-        # Execute #
-        ###########
-        """
-        I can parallelise here
-        """
-
-        MINMAG=27
-        MAXMAG=18
-
-        ZP = self.options.get("ZP_MAG") if self.options.get("ZP_MAG") else 0
-        min_flux=np.exp( (np.log(10)/2.5)*(ZP-MINMAG) )
-        max_flux=np.exp( (np.log(10)/2.5)*(ZP-MAXMAG) )
-
-        #print("calc", min_flux, max_flux, MINMAG, MAXMAG)
-        #print("cat", np.nanmin( self.detections["flux"]), np.nanmax( self.detections["flux"]), np.nanmax(self.detections["F444W"]), np.nanmin(self.detections["F444W"]))
+    #    detector=Detection_Routine( sig_src=self.options["SIGSRC"],
+    #                                sig_sky=self.options["SIGSKY"],
+    #                                fwhm=starbug2.filters[self.filter].pFWHM,
+    #                                sharplo=self.options["SHARP_LO"],
+    #                                sharphi=self.options["SHARP_HI"],
+    #                                round1hi=self.options["ROUND1_HI"],
+    #                                verbose=0)
+    #    phot=APPhot_Routine ( self.options["APPHOT_R"],
+    #                          self.options["SKY_RIN"],
+    #                          self.options["SKY_ROUT"])
+    #    
+    #    phot=PSFPhot_Routine( psf_model, psf_model.shape,
+    #            apphot_r=self.options["APPHOT_R"], force_fit=False, 
+    #            background=bgd, verbose=0)
+    #    export_table(phot(image,detector(image)),fname="/tmp/out.fits")
 
 
-        result= art.run_auto( image, background=bgd, ntests=self.options.get("NTESTS"), stars_per_test=self.options.get("NSTARS"), 
-                            subimage_size=self.options.get("SUBIMAGE"), flux_range=( min_flux, max_flux))
 
-        _fname="%s/%s-afs.fits"%(self.outdir, self.bname)
-        export_table(result, fname=_fname)
+    #    art=Artificial_Stars(detector=detector, photometry=phot, psf=psf_model)
 
-        return status
+    #    ###########
+    #    # Execute #
+    #    ###########
+
+    #    MINMAG=27
+    #    MAXMAG=18
+
+    #    ZP = self.options.get("ZP_MAG") if self.options.get("ZP_MAG") else 0
+    #    min_flux=np.exp( (np.log(10)/2.5)*(ZP-MINMAG) )
+    #    max_flux=np.exp( (np.log(10)/2.5)*(ZP-MAXMAG) )
+
+    #    #print("calc", min_flux, max_flux, MINMAG, MAXMAG)
+    #    #print("cat", np.nanmin( self.detections["flux"]), np.nanmax( self.detections["flux"]), np.nanmax(self.detections["F444W"]), np.nanmin(self.detections["F444W"]))
+
+
+    #    result= art.run_auto( image, background=bgd, ntests=self.options.get("NTESTS"), stars_per_test=self.options.get("NSTARS"), 
+    #                        subimage_size=self.options.get("SUBIMAGE"), flux_range=( min_flux, max_flux))
+
+    #    _fname="%s/%s-afs.fits"%(self.outdir, self.bname)
+    #    export_table(result, fname=_fname)
+
+    #    return status
 
 
 
@@ -907,9 +871,11 @@ class StarbugBase(object):
     def verify(self):
         """
         This simple function verifies that everything necessary has been loaded properly
-        RETURN: 
-            0 - on success
-            1 - on fail
+
+        RETURN 
+        ------
+        0 : on success
+        1 : on fail
         """
         status=0
         #warn=lambda :perror(sbold("WARNING: "))

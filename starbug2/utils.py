@@ -80,6 +80,29 @@ def tabppend(base, tab):
 def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA", ycol="DEC", wcs=1, fname="/tmp/out.reg"):
     """
     A handy function to convert the detections in a DS9 region file
+
+    Parameters
+    ----------
+    tab : table 
+        Source list table with some kind of positional columns
+
+    colour : str
+        Region colour
+
+    scale_region : int
+        Scale region radius with flux ? true/false
+
+    region_radius : int
+        Otherwise, use this region radius in pixels
+
+    xcol/ycol : str
+        XY column names to use
+
+    wcs : int
+        Boolean if the xycols use WCS system
+
+    fname : str
+        Filename to output to
     """
     if xcol not in tab.colnames:
         xcols= list(filter(lambda s: 'x'==s[0],tab.colnames))
@@ -116,6 +139,25 @@ def parse_unit(raw):
     """
     Take a value with the ability to be cast into several units and parse it
     i.e. 123p -> 123 'pixels'
+
+    Recognised units are:
+    p : pixels
+    s : arcsec
+    m : arcmin
+    d : degree
+
+    Parameters
+    ----------
+    raw : str
+        Raw input string to operate on
+
+    Returns
+    -------
+    value : float
+        Numerical value of unit
+
+    unit : int
+        Unit type (p,s,m,d)
     """
     recognised={'p':starbug2.PIX, 's':starbug2.ARCSEC, 'm':starbug2.ARCMIN, 'd':starbug2.DEG}
     value=None
@@ -138,6 +180,19 @@ def tab2array(tab,colnames=None):
     NB: this is different from Table.asarray(), which returns an array of numpy.voids
 
     if colnames not None, return the subset of the table corresponding to this list
+
+    Parameters
+    ----------
+    tab : table
+        Table to operate on
+
+    colnames : list
+        Column names in table to include in the array
+
+    Returns
+    -------
+    array : numpy.ndarray
+        Array from the table
     """
     if not colnames: colnames=tab.colnames
     else: colnames=rmduplicates(colnames)#list( set(colnames)&set(tab.colnames) ) ####BBAAAAD
@@ -157,8 +212,7 @@ def collapse_header(header):
 
     Returns
     -------
-
-    `fits.Header`
+    result : `fits.Header`
         Collapsed Header
     """
     out=fits.Header()
@@ -170,7 +224,20 @@ def collapse_header(header):
 
 
 def export_table(table, fname=None, header=None):
-    """ Export table with correct dtypes """
+    """ 
+    Export table with correct dtypes
+
+    Parameters
+    ----------
+    table : 
+        Table to export
+
+    fname : str
+        Filename to export to
+
+    header : dict,Header
+        Optional header file to include in fits table
+    """
     dtypes=[]
     table=reindex(table)
     for name in table.colnames:
@@ -194,24 +261,16 @@ def import_table(fname, verbose=0):
 
     verbose : bool
         Display verbose information
+
+    Returns
+    -------
+    table :
+        Loading table
     """
     tab=None
     if os.path.exists(fname):
         if os.path.splitext(fname)[1]==".fits":
             tab=fill_nan(Table.read(fname,format="fits"))
-            #tmp=Table()
-
-            #names=[]
-            #for index in range(len(tab.dtype.names)):
-            #    if tab.dtype[index].kind!='f':
-            #        name=tab.colnames[index]
-            #        names.append(name)
-            #        tmp.add_column( tab[name] )
-            #tab.remove_columns( names )
-
-            #tab=tab.filled(np.nan)
-            #if tmp: tab=hstack((tab,tmp))
-
             if not tab.meta.get("FILTER"):
                 if (fltr:=find_filter(tab)): 
                     tab.meta["FILTER"]=fltr
@@ -226,6 +285,16 @@ def fill_nan(table):
     Fill empty values in table with nans
     This is useful for tables that have columns that
     dont support nans (e.g. starbug flag). These will be set to zero instead
+
+    Parameters
+    ----------
+    table :
+        table to operate on
+
+    Returns
+    -------
+    table : 
+        Input table will masked vales filled in as nan
     """
     for i,name in enumerate(table.colnames):
         fill_val=np.nan if table.dtype[i].kind=='f' else 0
@@ -235,7 +304,23 @@ def fill_nan(table):
 
 def find_colnames(tab, basename):
     """
-    find substring (basename) within the table colnames
+    Find substring (basename) within the table colnames.
+    Searches for substring at the beginning of the word
+    I.E search for "flux" in ("flux_out","flux_err","dflux")
+    returns as ("flux_out","flux_err")
+
+    Parameters
+    ----------
+    tab : table
+        Table to operate on
+
+    basename : str
+        String basename to search
+
+    Returns
+    -------
+    result : list
+        List of all matching column names
     """
     return [colname for colname in tab.colnames if colname[:len(basename)]==basename]
 
@@ -250,6 +335,11 @@ def combine_fnames(fnames, ntrys=10):
     
     ntrys : int
         The number of mismatched characters it will allow
+
+    Returns
+    -------
+    fname : str
+        Combined filenames
     """
     trys=0
     fname=""
@@ -281,6 +371,11 @@ def hcascade(tables, colnames=None):
     colnames: list of str
         List of column names to include in the stacking.
         If colnames=None, use all possible columns
+
+    Returns
+    -------
+    result : table
+        Single combined table
     """
     tab=fill_nan(hstack(tables))
 
@@ -327,9 +422,46 @@ def hcascade(tables, colnames=None):
         except: pass
     return tab
 
-def extnames(hdulist): return list(ext.name for ext in hdulist)
+def extnames(hdulist):
+    """
+    Return list of HDU extension names
+
+    Parameters
+    ----------
+    hdulist : HDUList
+        fits hdulist to operate on
+
+    Returns
+    -------
+    result : list
+        List of extension names
+    """
+    return list(ext.name for ext in hdulist)
 
 def flux2mag(flux,fluxerr=None, zp=1):
+    """
+    Convert flux to magnitude in an arbitrary system
+
+    Parameters
+    ----------
+    flux : list (float)
+        List of source flux values
+
+    fluxerr : list (flost)
+        List of known flux uncertainties
+
+    zp : float
+        Zero point flux value
+
+    Returns
+    -------
+    mag : float
+        Source magnitudes
+
+    magerr : float
+        Magnitude errors 
+    """
+
 
     ## sort any type issues in FLUX
     if type(flux)!=np.array: flux=np.array(flux)
@@ -354,12 +486,36 @@ def flux2mag(flux,fluxerr=None, zp=1):
 
 
 def flux2ABmag(flux,fluxerr=None):
+    """
+    Convert flux to AB magnitudes
+
+    Parameters
+    ----------
+    flux : float
+        Source flux values
+
+    fluxerr : float
+        Soure flux error values if known
+
+    Returns
+    -------
+    result : float
+        Magnitude in AB system
+    """
     return flux2mag( flux, fluxerr, zp=3631.0)
 
 
 def wget(address, fname=None):
     """
     A really simple "implementation" of wget
+
+    Parameters
+    ----------
+    address : str
+        URL to download
+
+    fname : str
+        Filename to save output to
     """
     r=requests.get(address)
     if r.status_code==200:
@@ -393,6 +549,17 @@ def colour_index(table,keys):
 def get_MJysr2Jy_scalefactor(ext):
     """
     Find the unit scale factor to convert an image from MJy/sr to Jy
+    Header file must contain the keyword "PIXAR_SR"
+    
+    Parameters
+    ----------
+    ext : PrimaryHDU,ImageHDU,BinaryTableHDU
+        Fits extension with header file
+
+    Returns
+    -------
+    scalefactor : float
+        Value of scaling factor from the header
     """
     scalefactor=1
     if ext.header.get("BUNIT")=="MJy/sr":
@@ -411,7 +578,8 @@ def find_filter(table):
 
     Returns
     -------
-    Identified filter value, otherwise None
+    filter : str
+        Identified filter value, otherwise None
     """
     fltr=None
     if not (fltr:=table.meta.get("FILTER")):
@@ -422,6 +590,11 @@ def find_filter(table):
 def get_version():
     """
     Try to determine the installed starbug version on the system
+
+    Returns
+    -------
+    version : str
+        Starbug2 installed version
     """
     try: version=pkg_resources.get_distribution("starbug2").version 
     except: version="UNKNOWN" ## Github pytest work around for now
@@ -439,17 +612,18 @@ def rmduplicates(seq):
 
     Returns
     -------
-    A copy of the list with the duplicate elements removed
+    result : list
+        A copy of the list with the duplicate elements removed
     """
     seen = set()
     return [x for x in seq if not (x in seen or seen.add(x))]
 
 def cropHDU(hdu, xlim=None, ylim=None):
     """
-    Crop an image with multiple extensions
+    Crop an image with multiple extensions. Retaining the extensions
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     hdu : fits.HDUList
         A multi frame fits HDUList
 
@@ -458,6 +632,11 @@ def cropHDU(hdu, xlim=None, ylim=None):
 
     ylim : list
         Pixel Y bounds to crop image between
+
+    Returns
+    -------
+    hdu : fits.HDUList
+        The full HDUList that has been spatially cropped
     """
     if xlim is None or ylim is None: return None
 

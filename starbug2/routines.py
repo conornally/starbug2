@@ -28,7 +28,7 @@ from starbug2 import *
 class Detection_Routine(StarFinderBase):
     """
     Detection routine
-    -----------------
+    
     A standalone detection that runs on a 2D image.
     It uses DAOStarFinder as the base for peak detection but run
     several times on a series of background subtracted images.
@@ -132,7 +132,8 @@ class Detection_Routine(StarFinderBase):
 
         Returns
         -------
-        Sourcelist Table 
+        detections : astropy.Table
+            Sourcelist Table 
         """
         bkg=np.zeros(data.shape)
         if bkg_estimator:
@@ -169,7 +170,8 @@ class Detection_Routine(StarFinderBase):
 
         Returns
         -------
-        The matched catalogue
+        matched : astropy.Table
+            The matched catalogue
         """
 
         base_sky=SkyCoord(x=base["xcentroid"], y=base["ycentroid"], z=np.zeros(len(base)), representation_type="cartesian")
@@ -185,9 +187,9 @@ class Detection_Routine(StarFinderBase):
         of the data array each time. Each form has been "skewed" somehow to brighten the
         most faint sources and flatten the differential background.
 
-        - Plain detections
-        - Subtract Background estimation
-        - RickerWave convolution
+        1:Plain detections
+        2:Subtract Background estimation
+        3:RickerWave convolution
 
         Parameters
         ----------

@@ -1,36 +1,63 @@
 import numpy as np
 from photutils.datasets import make_model_sources_image, make_random_models_table
-from astropy.coordinates import SkyCoord
-from astropy.table import Table,hstack,vstack
-from starbug2.routines import Detection_Routine
-from starbug2.utils import perror, loading, cropHDU, get_MJysr2Jy_scalefactor, warn
-from starbug2.matching import GenericMatch
-
-from astropy.io import fits
-
 from photutils.psf import FittableImageModel
-from scipy.signal import savgol_filter
+from astropy.table import Table,hstack,vstack
 from scipy.optimize import curve_fit
 
+from starbug2.utils import perror, cropHDU, get_MJysr2Jy_scalefactor, warn
+from starbug2.matching import GenericMatch
 
-
-class Artificial_StarsIII(object):
-    def __init__(self, starbug):
+class Artificial_StarsIII():
+    """
+    ast
+    """
+    def __init__(self, starbug, index=-1):
         ## Initialis the starbug instance
         self.starbug=starbug
         _=self.starbug.image
         _=self.starbug.load_psf()
 
         self.psf=FittableImageModel(self.starbug.psf)
+        self.index=index
 
-    def __call__(self,*args,**kwargs): return self.run_auto(*args,**kwargs)
+    def __call__(self,*args,**kwargs): return self.auto_run(*args,**kwargs)
 
     def auto_run(self, ntests, stars_per_test=1, subimage_size=-1, mag_range=(18,27),
-            loading_buffer=None):
+            loading_buffer=None, autosave=-1):
         """
+        The main entry point into the artificial star test
+        This handles everything except the results compilation at the end,
+
+        Parameters
+        ----------
+        ntests : int
+            Number of tests to run
+
+        stars_per_test : int
+            Number of stars to inject per test
+
+        subimage_size : int
+            in prep.
+
+        mag_range : tuple,list
+            Length two list or tuple containing the magnitude range of
+            injected stars. These will be uniformly sampled from within 
+            this range.
+
+        loading_buffer : numpy.ndarray
+            Length 3 array of shared memory to increment a loading bar
+            between multiple subprocesses..
+
+        autosave : int
+            Auto quick saving output frequency
+            
+        Returns
+        -------
+        test_result : astropy.Table
+            Full raw test results. Injected initial properties with measured values
         """
 
-        test_result=Table(None, names=["x_0","y_0","flux","mag","x_det","y_det","flux_det", "status"])
+        test_result=Table(np.full((ntests*stars_per_test,8),np.nan), names=["x_0","y_0","mag","flux","x_det","y_det","flux_det", "status"])
         scalefactor= get_MJysr2Jy_scalefactor(self.starbug.image)
         base_image=self.starbug._image.copy()
         base_shape=np.copy(self.starbug.image.shape)
@@ -62,6 +89,7 @@ class Artificial_StarsIII(object):
                                                                     "y_0":[buffer,shape[1]-buffer],
                                                                     "mag":mag_range}) 
             sourcelist.add_column( 10.0 ** ( (ZP-sourcelist["mag"])/2.5 ) , name="flux")
+            sourcelist.remove_column("id")
 
             #image[self.starbug._nHDU].data*=0
             star_overlay=make_model_sources_image( shape, self.psf, sourcelist)/scalefactor
@@ -71,39 +99,44 @@ class Artificial_StarsIII(object):
             n=len(sourcelist)
             result=self.single_test(image, sourcelist)
             passed+=sum(result["status"])
-            test_result=vstack((test_result,result))
+            test_result[(test-1)*stars_per_test: test*stars_per_test]=result
 
             if loading_buffer is not None:
                 loading_buffer[0]+=1
                 loading_buffer[2]=int(100*passed/(test*stars_per_test))
+
+            if autosave>0 and not test%autosave:
+                test_result.write("sbast-autosave%d.tmp"%self.index, overwrite=True, format="fits")
         return test_result
 
     def single_test(self, image, contains):
         """
+        Conduct a single test on an image with a set of initial source properties
+
+        Parameters
+        ----------
+        image : numpy.ndarray
+            2D image array to conduct test on
+
+        contains : table
+            Table of initial source properties to be injected into the image.
+            This table must contain the columns ("x_0","y_0","flux")
+
+        Returns
+        -------
+        result : Table
+            Table hoizontally stacked with the initial inputs and the detection and 
+            photometric results. Plus column named "status", an integer flag as to 
+            whether the source was detected or not.
         """
         NULL=0
         DETECT=1
         test_result=Table(np.full((len(contains),4),np.nan), names=["x_det","y_det","flux_det","status"])
 
         threshold=2
-        if not self.starbug.detect():
+        if not self.starbug.detect(): #Run detection on the image
             det=self.starbug.detections
-            """
-            match=GenericMatch(threshold=2, colnames=None )
-            full= match([contains, self.starbug.detections], cartesian=True)[:len(contains)]
-            status = ~np.isnan(full["flux_2"])
-
-            test_result["x_det"] = full["xcentroid_2"]
-            test_result["y_det"] = full["ycentroid_2"]
-            test_result["flux_det"]= full["flux_2"]
-            test_result["status"]=status.astype(int)
-
-            self.starbug.detections=contains
-            self.starbug.psfcatalogue=None
-            self.starbug.photometry()
-            """
-
-            for i, src in enumerate(contains):
+            for i, src in enumerate(contains): #Check for detection in output
                 separations=np.sqrt( (src["x_0"]-det["xcentroid"])**2 + (src["y_0"]-det["ycentroid"])**2)
                 best_match=np.argmin(separations)
                 if separations[best_match]<threshold:
@@ -111,31 +144,14 @@ class Artificial_StarsIII(object):
                     test_result["y_det"][i]=det["ycentroid"][best_match]
                     test_result["flux_det"][i]=det["flux"][best_match]
                     test_result["status"][i]=DETECT
-
-                    """
-                    print(best_match, len(det))
-                    self.starbug.detections = Table(det[best_match])
-                    self.starbug.photometry()
-                    test_result["flux_det"][i]=self.starbug.psfcatalogue["flux"]
-                    """
                 else: test_result["status"][i]=NULL
 
-            #test_result.remove_rows( (np.isnan(test_result["x_det"])|np.isnan(test_result["y_det"])) )
-            #self.starbug.detections = test_result
-
-            if sum(test_result["status"]) and not self.starbug.bgd_estimate(): 
+            if sum(test_result["status"]) and not self.starbug.bgd_estimate():  # Run background estim if there were detections
                 self.starbug.detections = test_result
 
-                #if not self.starbug.bgd_estimate() and not self.starbug.photometry():
-                if not self.starbug.photometry():
-                    #self.starbug.psfcatalogue
-                    #test_result["flux_det"][test_result["status"].value.astype(bool)]=self.starbug.psfcatalogue["flux"]
-
+                if not self.starbug.photometry(): # Run PSF photometry on detected sources
                     self.starbug.psfcatalogue.rename_columns(("x_init","y_init","xydev"),("_x_init","_y_init","_xydev"))
                     matched=GenericMatch(threshold=threshold)([contains, self.starbug.psfcatalogue], cartesian=True)
-                    #print(self.starbug.psfcatalogue[["x_init","y_init","x_fit","y_fit"]])
-                    #print(matched[["Catalogue_Number_2","x_0_1","y_0_1","x_fit_2","y_fit_2"]])
-                    #print(len(test_result),len(matched))
                     test_result["flux_det"] = matched[:len(test_result)]["flux_2"]
 
         return hstack((contains,test_result))
@@ -143,6 +159,7 @@ class Artificial_StarsIII(object):
 
     def create_subimage(self, image, size, position=(0,0), hdu=1, buffer=0):
         """
+        probably to be deprecated
         """
         subimage=None
         imshape=00
@@ -160,15 +177,19 @@ class Artificial_StarsIII(object):
 
         return cropHDU(image,xlim=(x_edge,x_end),ylim=(y_edge,y_end)), x_edge, y_edge
 
-    def get_magerr(self, test_result):
-        return None
-
     @staticmethod
     def get_completeness(test_result):
         """
+        Compile the results into magnitude binned values of recovery fraction
+        and flux error
 
-        Returns:
-        --------
+        Parameters
+        ----------
+        test_result : table
+            The output from auto_run
+
+        Returns
+        -------
         result : astropy Table
             Table containing percent completeness as a function of magnitude
         """
@@ -191,15 +212,30 @@ class Artificial_StarsIII(object):
             offsets[i]=np.nanmedian(binned["flux"]/binned["flux_det"])
 
 
-        #_s=curve_fit(fnxep,bins,percs)
-        #a,b,c=_s[0]
-
         out=Table( [bins,percs,errors,offsets], names=("mag","rec","err","off"), dtype=(float,float,float,float))
         return out
 
     @staticmethod
     def get_spatialcompleteness(test_result,image,res=10):
         """
+        Produce an image array showing the spatially dependant recovery fraction 
+
+        Parameters
+        ----------
+        test_result : table
+            The output from auto_run
+
+        image : numpy.ndarry
+            2D image array to take the shape from 
+
+        res : int
+            The resolution of the spatial bins
+
+        Returns
+        -------
+        percs : numpy.ndarray
+            A 2D array the same shape as the image input, pixel values
+            show the fraction of injected sources recovered in this bin
         """
         xbins=np.arange(min(test_result["x_0"]),max(test_result["x_0"]), int(res))
         ybins=np.arange(min(test_result["y_0"]),max(test_result["y_0"]), int(res))
