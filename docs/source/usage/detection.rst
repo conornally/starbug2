@@ -2,7 +2,7 @@
 Source Detection
 ****************
 
-The first routine that is likely to be run with *starbug2* is the source ddetection. This takes an image and identifies the location and brightness of the point present point-like sources. The routine is called with :code:`--detect` or :code:`-D` for short and including an appropriate fits image file::
+The first routine that is likely to be run with *starbug2* is the source detection. This takes an image and identifies the location and brightness of the point present point-like sources. The routine is called with :code:`--detect` or :code:`-D` for short and including an appropriate fits image file::
     
     $~ starbug2 -D image.fits
 

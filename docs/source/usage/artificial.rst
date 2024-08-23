@@ -50,14 +50,19 @@ Usage of :code:`starbug2-ast` can be shown with::
         -n  --ncores  cores : number of cores to split the tests over
         -o  --output output : output directory or filename to export results to
         -p  --param    file : load a parameter file
+        -R  --recover       : recover incomplete test autosave files
         -S  --nstars    num : number of stars to inject per test
         -s  --set    option : set parameter at runtime with syntax "-s KEY=VALUE"
         -v  --verbose       : show verbose stdout output
 
+            --autosave freq : frequency of quick save outputs
+            --no-background : turn off background estimation routine
+            --no-psfphot    : turn off psf photometry routine
+
 
 A typical run, parallelised over three cores, and outputting all results, may look like::
 
-    $~ starbug2-ast -N3000 -S100 -n3 -v -p file.param -sPLOTAST=ast.pdf image.fits
+    $~ starbug2-ast -N3000 -S100 -n3 -v -p file.param -sPLOTAST=ast.pdf --autosave=200 image.fits
 
 Relevant Parameters
 -------------------
@@ -80,5 +85,13 @@ MIN_MAG
 PLOTAST
     Optional figure output. This is the filename of a simple user facing result. If left empty, the routine will not output this image.
 
+
+
+Recovery of Failed or Incomplete Test
+-------------------------------------
+
+Artificial star testing takes a long time. It may happen that the process gets stopped prematurely and progress lost. By setting an *autosave* frequency (default 100), the routine will save its progress after every *N* tests complete. This can be done with :code:`$~ starbug2-ast --autosave 100`. Each core running a test will create its own recovery file, named "sbast-autosave*N*.tmp", which would normally be deleted on a successful completion of the program. 
+
+If for whatever reason, the program does not complete properly, run the command :code:`starbug2-ast --recover` in the appropriate folder, or supply the path to all relevant autosave files. This will attempt to compile usable results from what is available and will not delete the autosave files, just in case.
 
 

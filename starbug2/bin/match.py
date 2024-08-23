@@ -7,7 +7,7 @@ usage: starbug2-match [-BCGfhv] [-e column] [-m mask] [-o output] [-p file.param
     -e  --error   column     : photometric error column ("eflux" or "stdflux")
     -f  --full               : export full catalogue
     -h  --help               : show help message
-    -m  --mask    eval       : column evaluation to mask out of matching e.g. -m F444W==nan
+    -m  --mask    eval       : column evaluation to mask out of matching e.g. -m"~np.isnan(F444W)"
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file
     -s  --set     option     : set value in parameter file at runtime (-s MATCH_THRESH=1)

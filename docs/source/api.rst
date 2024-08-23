@@ -22,9 +22,15 @@ Artificial Star Testing
     :members:
 
 Utils
---------------
+-----
 .. automodule:: starbug2.utils
    :members:
+
+
+Param
+-----
+.. automodule:: starbug2.param
+    :members:
 
 Matching
 ----------------

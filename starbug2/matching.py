@@ -124,11 +124,12 @@ class GenericMatch(object):
             "and" only include sources in all catalogues
 
         mask : list
-            
+            in prep. 
         
         Returns
         -------
-        .
+        base : astropy.Table
+            Matched catalogue.
         """
         catalogues=self.init_catalogues(catalogues)
         masked= self.mask_catalogues(catalogues, mask)
@@ -160,7 +161,8 @@ class GenericMatch(object):
 
         Returns
         -------
-            idx,d2d,d3d : the same as SkyCoord.match_to_catalog_3d
+        idx,d2d,d3d : 
+            the same as SkyCoord.match_to_catalog_3d
         """
         if not len(base): return cat.copy()
 
@@ -461,14 +463,16 @@ class BandMatch(GenericMatch):
             List of `astropy.table.Table` objects containing the meta item "FILTER=XXX"
 
         method: str
-            Centroid method:
-            -   "first" :   Use the position corresponding to the earliest appearance of the source
-            -   "last"  :   Use the position corresponding to the latest appearance of the source
-            -   "bootsrap": ..
-            -   "average" : ..
+            Centroid method
+            "first" -   Use the position corresponding to the earliest appearance of the source
+            "last"  -   Use the position corresponding to the latest appearance of the source
+            "bootsrap"- ..
+            "average" - ..
 
         Returns
         -------
+        base : astropy.Table
+            Matched catalogue
         """
         catalogues=self.order_catalogues(catalogues)
 
