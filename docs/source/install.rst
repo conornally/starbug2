@@ -23,6 +23,7 @@ Initialising
     `WEBBPSF <https://github.com/spacetelescope/webbpsf>`_ is a dependency of *starbug* that has its own installation process which is not done automatically. This process is documented `here <https://webbpsf.readthedocs.io/en/latest/installation.html>`_ but requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then append to your .bashrc (or equivalent)::
 
         $~ echo "export 'WEBBPSF_PATH=PATH/TO/DIRECTORY'" >> ~/.bashrc
+        $~ source ~/.bashrc
 
 
 
@@ -30,6 +31,7 @@ Initialising
     It will generate these files by default into :code:`${HOME}/.local/share/starbug` however if you wish to use a different directory, set the environment variable :code:`"STARBUG_DATDIR"` to the desired destination::
 
         $~ echo "export 'STARBUG_DATDIR=PATH/TO/DESTINATION'" >> ~/.bashrc 
+        $~ source ~/.bashrc
         $~ starbug2 --init 
     
 
