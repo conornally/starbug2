@@ -28,6 +28,7 @@ import starbug2.bin as scr
 from starbug2.starbug import StarbugBase
 from starbug2.artificialstars import Artificial_StarsIII, compile_results
 from starbug2.utils import printf,perror,warn,export_table,tabppend,fill_nan
+from starbug2.param import load_params
 
 VERBOSE =0x01
 SHOWHELP=0x02
@@ -145,9 +146,15 @@ def afs_main(argv):
             _share.unlink()
             return exit_code
 
+    if (params:=load_params(setopt.get("PARAMFILE"))):
+        params.update(setopt)
+    else: 
+        perror("Failed to load parameters from file\n")
+        return scr.EXIT_FAIL
+
     if args:
         fname=args[0]
-        _ntests=setopt.get("NTESTS")
+        _ntests=params.get("NTESTS")
         if options & VERBOSE:
             printf("Artificial Stars\n----------------\n")
             printf("-> loading %s\n"%fname)
@@ -168,8 +175,8 @@ def afs_main(argv):
             zip_options=np.full(ncores,options,dtype=int)
             for n in range(ncores):
                 if n>0: zip_options[n]&=~VERBOSE
-            setopt["NTESTS"]=int(np.ceil(_ntests/ncores))
-            setopt["AUTOSAVE"]=int(np.ceil(setopt.get("AUTOSAVE")/ncores))
+            params["NTESTS"]=int(np.ceil(_ntests/ncores))
+            params["AUTOSAVE"]=int(np.ceil(setopt.get("AUTOSAVE")/ncores))
 
 
             pool=Pool(processes=ncores)

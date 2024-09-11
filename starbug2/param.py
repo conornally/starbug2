@@ -68,7 +68,7 @@ BRIDGE_COL  =            // Bridge --band matching NIRCam and MIRI catalogues by
 
 ## ARTIFICAL STAR TESTS
 NTESTS      = 100        //Number of artificial star tests
-NSTARS      = 1          //Number of stars per artifical test
+NSTARS      = 10         //Number of stars per artifical test
 SUBIMAGE    = 500        //number of pixels ? to crop around artificial star
 MAX_MAG     = 18.0       //Bright limit of test magnitude
 MIN_MAG     = 28.0       //Faint limit of test magnitude

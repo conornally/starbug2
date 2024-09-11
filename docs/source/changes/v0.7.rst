@@ -8,6 +8,9 @@ v0.7.7
 Additions:
     -   AST now includes recovery from incomplete test
 
+Bug Fixes:
+    -   AST loads parameters properly
+
 v0.7.6
 ------
 

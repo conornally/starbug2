@@ -4,8 +4,11 @@ from photutils.psf import FittableImageModel
 from astropy.table import Table,hstack,vstack
 from astropy.io import fits
 from scipy.optimize import curve_fit
-import matplotlib; matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
+
+try: import matplotlib.pyplot as plt
+except:
+    import matplotlib; matplotlib.use("TkAgg")
+    import matplotlib.pyplot as plt
 
 from starbug2.utils import printf,perror, cropHDU, get_MJysr2Jy_scalefactor, warn
 from starbug2.matching import GenericMatch
@@ -75,6 +78,7 @@ class Artificial_StarsIII():
 
         ZP = self.starbug.options.get("ZP_MAG") if self.starbug.options.get("ZP_MAG") else 0
         buffer=0
+        print(self.starbug.options)
 
         if mag_range[0]-mag_range[1] >=0:
             warn("Detected magnitude range in wrong order, put bright limit first\n")
