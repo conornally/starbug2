@@ -78,7 +78,6 @@ class Artificial_StarsIII():
 
         ZP = self.starbug.options.get("ZP_MAG") if self.starbug.options.get("ZP_MAG") else 0
         buffer=0
-        print(self.starbug.options)
 
         if mag_range[0]-mag_range[1] >=0:
             warn("Detected magnitude range in wrong order, put bright limit first\n")

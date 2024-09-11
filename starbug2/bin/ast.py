@@ -61,7 +61,8 @@ def load(msg="loading"):
 def afs_parseargv(argv):
     """ Organise the argv line into options, values and arguments """
     options=0
-    setopt={"NTESTS":100, "NSTARS":10, "QUIETMODE":1, "AUTOSAVE":100}
+    #setopt={"NTESTS":100, "NSTARS":10, "QUIETMODE":1, "AUTOSAVE":100}
+    setopt={"QUIETMODE":1, "AUTOSAVE":100}
     cmd,argv = scr.parsecmd(argv)
     opts,args = getopt.gnu_getopt(argv, "hvN:n:p:R:S:s:o:", ("help","verbose","ncores=","param=", "set=", "output=",
                                                             "ntests=", "nstars=", "autosave=",
