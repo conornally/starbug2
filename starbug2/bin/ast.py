@@ -159,7 +159,7 @@ def afs_main(argv):
         if options & VERBOSE:
             printf("Artificial Stars\n----------------\n")
             printf("-> loading %s\n"%fname)
-            printf("-> running %d tests with %d injections per test\n"%(_ntests,setopt.get("NSTARS")))
+            printf("-> running %d tests with %d injections per test\n"%(_ntests,params.get("NSTARS")))
             if options&NOPHOT:printf("-> skipping PSF photometry step\n")
             if options&NOBGD: printf("-> skipping background estimation step\n")
 
@@ -168,8 +168,8 @@ def afs_main(argv):
         loading=Process(target=load, args=("afs",))
         loading.start()
 
-        if (ncores:=setopt.get("NCORES")) is None or ncores==1:
-            setopt["NCORES"]=1
+        if (ncores:=params.get("NCORES")) is None or ncores==1:
+            params["NCORES"]=1
             outs=[fn((fname,options,params,0)) for fname in args]
         else:
             ncores=min(ncores,_ntests)
@@ -181,7 +181,7 @@ def afs_main(argv):
 
 
             pool=Pool(processes=ncores)
-            outs=pool.map(fn, zip(repeat(fname), zip_options, repeat(setopt), range(1,ncores+1))) 
+            outs=pool.map(fn, zip(repeat(fname), zip_options, repeat(params), range(1,ncores+1))) 
             pool.close()
 
         buf[0]=buf[1] #force finish
