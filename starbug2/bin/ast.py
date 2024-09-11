@@ -160,6 +160,7 @@ def afs_main(argv):
             printf("Artificial Stars\n----------------\n")
             printf("-> loading %s\n"%fname)
             printf("-> running %d tests with %d injections per test\n"%(_ntests,params.get("NSTARS")))
+            printf("-> magnitude range: %.1f - %.1f\n"%(params.get("MAX_MAG"), params.get("MIN_MAG")))
             if options&NOPHOT:printf("-> skipping PSF photometry step\n")
             if options&NOBGD: printf("-> skipping background estimation step\n")
 
