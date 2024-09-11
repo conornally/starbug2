@@ -170,7 +170,7 @@ def afs_main(argv):
 
         if (ncores:=setopt.get("NCORES")) is None or ncores==1:
             setopt["NCORES"]=1
-            outs=[fn((fname,options,setopt,0)) for fname in args]
+            outs=[fn((fname,options,params,0)) for fname in args]
         else:
             ncores=min(ncores,_ntests)
             zip_options=np.full(ncores,options,dtype=int)
