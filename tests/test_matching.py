@@ -1,6 +1,6 @@
 import os,numpy as np
 import pytest
-from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, parse_mask
+from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, parse_mask, ExactValueMatch
 from starbug2.utils import import_table
 from starbug2.param import load_default_params
 from starbug2.bin.main import starbug_main
@@ -262,5 +262,22 @@ def test_matchwithmasks():
     res=GenericMatch().match([cat1,cat2,cat3], mask=mask)
     print(res)
 
+def test_ExactMatch():
+    cat1=Table(np.array([["CN1",1], ["CN2",1], ["CN3",1]]),names=["CN","i"], dtype=(str,int))
+    cat2=Table(np.array([["CN2",2], ["CN3",2], ["CN4",2]]),names=["CN","i"], dtype=(str,int))
+    cat3=Table(np.array([["CN3",3], ["CN4",3], ["CN5",3]]),names=["CN","i"], dtype=(str,int))
+    
+    arr= [[1, np.nan, np.nan],
+          [1,      2, np.nan],
+          [1,      2,      3],
+          [np.nan, 2,      3],
+          [np.nan, np.nan, 3]]
+    correct=Table(np.array(arr), dtype=[int,int,int], names=["i_1","i_2","i_3"],masked=True)
+    for i,col in enumerate(correct.columns.values()): col.mask=np.isnan(np.array(arr)[:,i])
+    correct.add_column(["CN1","CN2","CN3","CN4","CN5"],name="CN",index=0)
+    
+    res=ExactValueMatch(value="CN").match([cat1,cat2,cat3])
+    assert all(res==correct)
         
-
+if __name__=="__main__":
+    test_ExactMatch()

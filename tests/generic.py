@@ -2,23 +2,38 @@ import numpy as np
 import matplotlib.path as mpltpath
 import matplotlib.pyplot as plt
 from astropy.table import Table
-
-d=Table.read("/home/conor/sci/proj/ngc6822/paper1/dat/ngc6822.fits", format="fits").filled(np.nan)
-
-bounds=((0,20), 
-        (0,22),
-        (1,23),
-        (1,20))
-            
+from starbug2.utils import fill_nan
 
 
-arr=np.array(( d["F115W"]-d["F200W"], d["F115W"]))
+tab=Table(np.full((2,2),np.nan), masked=True)
+for col in tab.columns.values():
+    col.mask=(np.isnan(col))|(col==0)
 
-polygon=mpltpath.Path(bounds)
-plt.scatter( arr[0],arr[1], c='k', lw=0, s=1, marker=',')
-mask= polygon.contains_points( arr.T )
-plt.scatter( arr[0][mask], arr[1][mask], c='r')
-plt.show()
+tab[0][0]=0
+
+print(tab)
+tab=fill_nan(tab)
+print(tab)
+
+
+
+
+#d=Table.read("/home/conor/sci/proj/ngc6822/paper1/dat/ngc6822.fits", format="fits").filled(np.nan)
+#
+#bounds=((0,20), 
+#        (0,22),
+#        (1,23),
+#        (1,20))
+#            
+#
+#
+#arr=np.array(( d["F115W"]-d["F200W"], d["F115W"]))
+#
+#polygon=mpltpath.Path(bounds)
+#plt.scatter( arr[0],arr[1], c='k', lw=0, s=1, marker=',')
+#mask= polygon.contains_points( arr.T )
+#plt.scatter( arr[0][mask], arr[1][mask], c='r')
+#plt.show()
 #dd=d[polygon.contains_points( 
 #plt.scatter( d["F115W"]-d["F200W"], d["F115W"], c='k')
 

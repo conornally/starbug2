@@ -67,25 +67,44 @@ class GenericMatch(object):
 
     def init_catalogues(self, catalogues):
         """
+        This function is a bit of a "do everything" function
+
+        It takes the input catalogues and removes any columns that arent included in 
+        the self.colnames list. If this is None, then all columns are kept.
+        Additionally it initialises the loading bar with the summed length of all the 
+        input catalogues. 
+        Finally it attempts to set the photometric filter that is being used
+
+        Parameters
+        ----------
+        catalogues : list (astropy.Tables)
+            The input catalouges to work on
+
+        Returns
+        -------
+        out : list (astropy.Table)
+            The cleaned list of input catalogues
         """
         ## Must copy here maybe?
         if len(catalogues)>=2:
             self.load=loading( sum( len(cat) for cat in catalogues[1:]), msg="initialising")
             if self.verbose: self.load.show()
 
-        if self.colnames is None:
+        if self.colnames is None: # initialise the column names if it wasnt already set
             self.colnames=[]
             for cat in catalogues:
                 self.colnames+=cat.colnames
         self.colnames = rmduplicates(self.colnames)
-        if "Catalogue_Number" in self.colnames: self.colnames.remove("Catalogue_Number")
+        #if "Catalogue_Number" in self.colnames: self.colnames.remove("Catalogue_Number")
 
+        # clean out the column names not included in self.colnames
         for n,catalogue in enumerate(catalogues):
             keep=set(catalogue.colnames)&set(self.colnames)
             keep=sorted( keep, key= lambda s:self.colnames.index(s))
             catalogues[n]=catalogue[keep]
             #self.colnames=keep  # This maybe wants to go somewhere else but it ensures that colnames doesnt contain anything not in any tables
 
+        # Attempt to get a value for filter if not already set
         if not self.filter:
             if (fltr:=catalogues[0].meta.get("FILTER")) is None:
                 fltr="MAG"
@@ -132,6 +151,7 @@ class GenericMatch(object):
             Matched catalogue.
         """
         catalogues=self.init_catalogues(catalogues)
+        if "Catalogue_Number" in self.colnames: self.colnames.remove("Catalogue_Number")
         masked= self.mask_catalogues(catalogues, mask)
         base=self.build_meta(catalogues)
 
@@ -249,34 +269,46 @@ class GenericMatch(object):
 
         colnames : list
             List of colnames to include in the averaging. If None, use self.colnames instead
+
+        Returns
+        -------
+        av : astropy.Table
+            An averaged version of the input table
         """
         flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint16)
-        av=Table(np.full((len(tab),len(self.colnames)),np.nan), names=self.colnames)
+        av=Table(None)#np.full((len(tab),len(self.colnames)),np.nan), names=self.colnames)
         
         if colnames is None: colnames=self.colnames 
         for name in colnames:
             if (all_cols:=find_colnames(tab,name)):
                 col=Column(None, name=name)
                 ar=tab2array(tab, colnames=all_cols)
-                if name=="flux":
-                    col=Column(np.nanmedian(ar,axis=1), name=name)
-                    mean=np.nanmean(ar,axis=1)
-                    if "stdflux" not in self.colnames: 
-                        av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux"))
-                    ## if median and mean are >5% different, flag as SRC_VAR
-                    flags[ np.abs(mean-col)>(col/5.0)] |= starbug2.SRC_VAR
-                elif name== "eflux":
-                    col=Column(np.sqrt(np.nansum(ar*ar, axis=1)), name=name)
-                elif name=="stdflux": 
-                    col=Column(np.nanmedian(ar,axis=1),name=name)
-                elif name=="flag":
-                    col=Column(flags, name=name)
-                    for fcol in ar.T: flags|=fcol.astype(np.uint16)
-                elif name=="NUM":
-                    col=Column(np.nansum(ar, axis=1), name=name)
-                else: col=Column(np.nanmedian(ar, axis=1),name=name)
+                if ar.shape[1]>1:
+                    if name=="flux":
+                        col=Column(np.nanmedian(ar,axis=1), name=name)
+                        mean=np.nanmean(ar,axis=1)
+                        if "stdflux" not in self.colnames: 
+                            av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux"))
+                        ## if median and mean are >5% different, flag as SRC_VAR
+                        flags[ np.abs(mean-col)>(col/5.0)] |= starbug2.SRC_VAR
+                    elif name== "eflux":
+                        col=Column(np.sqrt(np.nansum(ar*ar, axis=1)), name=name)
+                    elif name=="stdflux": 
+                        col=Column(np.nanmedian(ar,axis=1),name=name)
+                    elif name=="flag":
+                        col=Column(flags, name=name)
+                        for fcol in ar.T: flags|=fcol.astype(np.uint16)
+                    elif name=="NUM":
+                        col=Column(np.nansum(ar, axis=1), name=name)
+                    elif name=="Catalogue_Number":
+                        col=Column(all_cols[0],name=name)
+                    else:
+                        col=Column(np.nanmedian(ar, axis=1),name=name)
+                else:
+                    col=tab[all_cols[0]]
                 
-                av[name]=col
+                #av[name]=col
+                av.add_column(col)
             else: av.remove_column(name) ## Clean empty columns in table
 
         av["flag"]=Column(flags,name="flag")
@@ -303,13 +335,6 @@ class GenericMatch(object):
         Not happy with this yet
         """
         meta=catalogues[0].meta
-        #for n,cat in enumerate(catalogues):
-        #    for key,val in cat.meta.items():
-        #        if key not in meta: meta[key]=val
-        #        if meta[key]!=val:
-        #            if type(meta[key])==list: meta[key].append(val)
-        #            else: meta[key]=[meta[key],val]
-
         base=Table(None, meta=meta)
         return base
 
@@ -344,39 +369,12 @@ class CascadeMatch(GenericMatch):
             A left aligned catalogue of all the matched values
         """
         catalogues=self.init_catalogues(catalogues)
+        if "Catalogue_Number" in self.colnames: self.colnames.remove("Catalogue_Number")
         base=self.build_meta(catalogues)
 
         for n,cat in enumerate(catalogues,1):
             self.load.msg="matching: %d"%n
             tmp=self._match(base,cat, join_type="or")
-            """
-            if n==1:
-                tmp=cat.copy()
-            else:
-                idx,d2d,_=self._match(base,cat)
-                colnames=[name for name in self.colnames if name in cat.colnames]
-                #tmp=Table(np.full((len(base),ncol),np.nan), names=colnames)
-
-                ## If the tmp table is larger than cat, then I can copy in the unmatched
-                ## sources without add_row
-                drow=len(base) 
-                mask=(d2d>self.threshold)
-                tmp=Table(np.full((len(base)+sum(mask),len(colnames)),np.nan), names=colnames, dtype=cat[colnames].dtype)
-
-                for src,IDX,sep in zip(cat,idx,d2d):
-                    self.load()
-                    self.load.msg="matching: %d"%n
-                    if self.verbose: self.load.show()
-
-                    if (sep<=self.threshold) and (sep==min(d2d[idx==IDX])): ##It does match
-                        tmp[IDX]=src
-                    else:   ##APPEND
-                        if drow<len(tmp): ##This is a time saving idea im trying
-                            tmp[drow]=src
-                            drow+=1 
-                        else: 
-                            tmp.add_row(src[colnames]) ##i can purely use add_row to simplifiy the code
-            """
             tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
             base=hcascade((base,tmp), colnames=self.colnames)
         base=fill_nan(base)
@@ -416,7 +414,8 @@ class BandMatch(GenericMatch):
 
         Returns
         -------
-        The same list reordered
+        catalogues : list
+            The same list reordered
         """
 
         status=-1
@@ -649,6 +648,80 @@ def band_match(catalogues, colnames=("RA","DEC")):
     return base.filled(np.nan)
 
 
+class ExactValueMatch(GenericMatch):
+    value="Catalogue_Number"
+    method="Exact Value Matching"
+    def __init__(self, value="Catalogue_Number", **kwargs):
+        self.value=value
+        super().__init__(**kwargs)
+
+        if "colnames" in kwargs: 
+            perror("Colnames not implemented in %s\n"%self.method)
+
+    def __str__(self):
+        s=[ "%s:"%self.method,
+            "Value: \"%s\""%self.value,
+            "Colnames: %s"%self.colnames,
+            ]
+            
+        return "\n".join(s)
+
+    def _match(self,base,cat):
+        """
+        The low level matching function.
+
+        Parameters
+        ----------
+        base : astropy.Table
+            Table onto which to match *cat*
+
+        cat : astropy.Table
+            Table to match to *base*
+
+        Returns
+        -------
+        tmp : astropy.Table
+            A new catalogue, it is a reordered version of *cat*, in the 
+            correct sorting to be hstacked with *base*
+        """
+        
+        tmp=Table( np.full((len(base),len(cat.colnames)),np.nan), names=cat.colnames, dtype=cat.dtype, masked=True )
+        for col in tmp.columns.values(): col.mask|=True
+
+        if not len(base): return vstack([tmp,cat])
+
+        for src in cat:
+            if self.verbose:
+                self.load()
+                self.load.show()
+            ii=np.where(base[self.value]==src[self.value])[0]
+            if ii: tmp[ii]=src
+            else: tmp.add_row(src)
+        return tmp
+
+    def match(self, catalogues, **kwargs):
+        catalogues=self.init_catalogues(catalogues)
+        base=self.build_meta(catalogues)
+
+        if self.value not in self.colnames:
+            perror("Exact value '%s' not in column names.\n"%self.value)
+            return None
+
+        for n,cat in enumerate(catalogues,1):
+            self.load.msg="matching: %d"%n
+            tmp=self._match(base,cat)
+            tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
+            base=hstack([base,tmp])
+
+            if n>1:
+                ii= base[self.value].mask& ~base["%s_%d"%(self.value,n)].mask
+                base["%s"%self.value][ii]=base["%s_%d"%(self.value,n)][ii]
+                base.remove_column("%s_%d"%(self.value,n))
+
+            else: base.rename_column("%s_1"%self.value, self.value)
+            
+        return fill_nan(base)
+
 
 
 
@@ -743,6 +816,7 @@ def exp_info(hdulist):
 
 def sort_exposures(catalogues):
     """
+
     Given a list of catalogue files, this will return the fitsHDULists as a series of
     nested dictionaries sorted by:
     >   BAND

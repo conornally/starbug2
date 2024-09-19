@@ -3,6 +3,7 @@ usage: starbug2-match [-BCGfhv] [-e column] [-m mask] [-o output] [-p file.param
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
     -C  --cascade            : match in "CASCADE" mode (left justify columns)
     -G  --generic            : match in "GENERIC" mode
+    -X  --exact              : match in "EXACTVALUE" mode
 
     -e  --error   column     : photometric error column ("eflux" or "stdflux")
     -f  --full               : export full catalogue
@@ -23,7 +24,7 @@ import os,sys,getopt
 import numpy as np
 from astropy.table import Table, hstack, vstack
 from starbug2 import utils
-from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, band_match, parse_mask
+from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, ExactValueMatch, band_match, parse_mask
 from starbug2 import param
 import starbug2.bin as scr
 import starbug2
@@ -38,8 +39,9 @@ BANDMATCH   =0x10
 BANDDEPR    =0x20
 GENERICMATCH=0x40
 CASCADEMATCH=0x80
+EXACTMATCH  =0x100
 
-EXPFULL = 0x100
+EXPFULL = 0x1000
 
 
 def match_parsemargv(argv):
@@ -47,7 +49,7 @@ def match_parsemargv(argv):
     setopt={}
 
     cmd,argv=scr.parsecmd(argv)
-    opts,args=getopt.gnu_getopt(argv, "BCfGhve:m:o:p:s:", ("band","cascade","dither","full","generic","help","verbose",
+    opts,args=getopt.gnu_getopt(argv, "BCfGhvXe:m:o:p:s:", ("band","cascade","dither","exact","full","generic","help","verbose",
                                                     "error=","mask=","output=","param=","set=",
                                                     "band-depr"))
     for opt,optarg in opts:
@@ -71,6 +73,7 @@ def match_parsemargv(argv):
         if opt in ("-B","--band"): options|=BANDMATCH
         if opt in ("-C","--cascade"): options|=CASCADEMATCH
         if opt in ("-G","--generic"): options|=GENERICMATCH
+        if opt in ("-X","--exact")  : options|=EXACTMATCH
         if opt == "--band-depr": options|=BANDDEPR
     return options, setopt, args
 
@@ -190,10 +193,11 @@ def match_main(argv):
 
             elif options & CASCADEMATCH: matcher=CascadeMatch(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
             elif options & GENERICMATCH: matcher=GenericMatch(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
+            elif options & EXACTMATCH:   matcher=ExactValueMatch(value="Catalogue_Number",colnames=None, verbose=parameters["VERBOSE"])
             else: 
                 matcher=GenericMatch(threshold=dthreshold, verbose=parameters["VERBOSE"])
                 options|=EXPFULL
-            print(matcher)
+            if options & VERBOSE: print("\n%s"%matcher)
             full= matcher.match( tables, join_type="or", mask=masks )
             av = matcher.finish_matching(full, num_thresh=parameters["NEXP_THRESH"], zpmag=parameters["ZP_MAG"], error_column=error_column)
 

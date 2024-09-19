@@ -243,7 +243,7 @@ def export_table(table, fname=None, header=None):
     for name in table.colnames:
         if name=="Catalogue_Number": dtypes.append(str)
         elif name=="flag": dtypes.append(np.uint16)
-        else: dtypes.append(float)
+        else: dtypes.append(table[name].dtype)
     table=fill_nan(Table(table,dtype=dtypes))
 
     if not fname: fname="/tmp/starbug.fits"
@@ -297,7 +297,10 @@ def fill_nan(table):
         Input table will masked vales filled in as nan
     """
     for i,name in enumerate(table.colnames):
-        fill_val=np.nan if table.dtype[i].kind=='f' else 0
+        match(table.dtype[i].kind):
+            case 'f': fill_val=np.nan
+            case 'i'|'u': fill_val=0
+            case _: fill_val=np.nan
         if type(table[name])==MaskedColumn: table[name]=table[name].filled(fill_val)
 
     return table
