@@ -1,7 +1,7 @@
 import os,numpy as np
 import pytest
 from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, parse_mask, ExactValueMatch
-from starbug2.utils import import_table
+from starbug2.utils import import_table, fill_nan
 from starbug2.param import load_default_params
 from starbug2.bin.main import starbug_main
 from astropy.table import Table
@@ -277,7 +277,7 @@ def test_ExactMatch():
     correct.add_column(["CN1","CN2","CN3","CN4","CN5"],name="CN",index=0)
     
     res=ExactValueMatch(value="CN").match([cat1,cat2,cat3])
-    assert all(res==correct)
+    assert all(res==fill_nan(correct))
         
 if __name__=="__main__":
     test_ExactMatch()

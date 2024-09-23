@@ -12,6 +12,7 @@ def test_start():
     assert run("starbug2 -h")==EXIT_EARLY
     assert run("starbug2 -vh")==EXIT_EARLY
     assert run("starbug2 --version")==EXIT_EARLY
+    assert run("starbug2 -vDABPh")==EXIT_EARLY
     assert run("starbug2")==EXIT_FAIL
 
 def test_param():

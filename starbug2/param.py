@@ -15,17 +15,17 @@ FILTER      =            //Set a custom filter for the image
 
 ## DETECTETION 
 FWHM        = -1         //Custom FWHM for image (-1 to use WEBBPSF)
-SIGSKY      = 2.0        //(float>0) 
+SIGSKY      = 2.0        //Number of sigma above the median to clip out as background
 SIGSRC      = 5.0        //Source value mininmum N sigma above background
 DOBGD2D     = 1          //Run background2D step (usually finds more sources but takes time)
 DOCONVL     = 1          //Run convolution step (usually finds more sources)
 CLEANSRC    = 1          //Run source cleaning after detection (removes likely contaminants)
-SHARP_LO    = 0.4        //Cutoff in detection
-SHARP_HI    = 0.9        //Cutoff in detection
-ROUND1_HI   = 1.0        //Cutoff in detection
-ROUND2_HI   = 1.0        //Cutoff in detection
-SMOOTH_LO   =            //Cutoff in detection
-SMOOTH_HI   =            //Cutoff in detection 
+SHARP_LO    = 0.4        //Lower limit of source sharpness (0 is not sharp)
+SHARP_HI    = 0.9        //Upper limit of source sharpness (1 is sharp)
+ROUND1_HI   = 1.0        //Limit of source roundness1 (|roundness|>>0 is less round)
+ROUND2_HI   = 1.0        //Limit of source roundness2 (|roundness|>>0 is less round)
+SMOOTH_LO   =            //Lower limit on source smoothness (0 is not smooth)
+SMOOTH_HI   =            //Upper limit on source smoothness (1 is smooth)
 RICKER_R    = 1.0        //Radius (pix) of ricker wavelet 
 
 ## APERTURE PHOTOMOETRY

@@ -16,6 +16,7 @@ Repository = "https://github.com/conornally/starbug2.git"
 starbug2 = "starbug2.bin.main:starbug_mainentry"
 starbug2-match= "starbug2.bin.match:match_mainentry"
 starbug2-ast= "starbug2.bin.ast:ast_mainentry"
+starbug2-plot="starbug2.bin.plot:plot_mainentry"
 
 [build-system]
 requires = ["setuptools"]

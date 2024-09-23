@@ -1,0 +1,14 @@
+xtick.direction:in
+ytick.direction:in
+xtick.top:True
+ytick.right:True
+xtick.labelsize: 8
+ytick.labelsize: 8
+font.size: 10
+lines.color: 'k'
+
+legend.frameon: False
+legend.fontsize:8
+legend.loc: upper right
+
+axes.prop_cycle: cycler("color",["2E3835", "5D5E60", "8D8D92", "BEB2C8", "907CA2"])

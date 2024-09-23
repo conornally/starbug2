@@ -279,7 +279,8 @@ class GenericMatch(object):
         av=Table(None)#np.full((len(tab),len(self.colnames)),np.nan), names=self.colnames)
         
         if colnames is None: colnames=self.colnames 
-        for name in colnames:
+        for ii,name in enumerate(colnames):
+            #print(name,av.colnames)
             if (all_cols:=find_colnames(tab,name)):
                 col=Column(None, name=name)
                 ar=tab2array(tab, colnames=all_cols)
@@ -288,7 +289,7 @@ class GenericMatch(object):
                         col=Column(np.nanmedian(ar,axis=1), name=name)
                         mean=np.nanmean(ar,axis=1)
                         if "stdflux" not in self.colnames: 
-                            av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux"))
+                            av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux"),index=ii+1)
                         ## if median and mean are >5% different, flag as SRC_VAR
                         flags[ np.abs(mean-col)>(col/5.0)] |= starbug2.SRC_VAR
                     elif name== "eflux":
@@ -308,8 +309,8 @@ class GenericMatch(object):
                     col=tab[all_cols[0]]
                 
                 #av[name]=col
-                av.add_column(col)
-            else: av.remove_column(name) ## Clean empty columns in table
+                av.add_column(col,index=ii)
+            #else: av.remove_column(name) ## Clean empty columns in table
 
         av["flag"]=Column(flags,name="flag")
         if "flux" in av.colnames:

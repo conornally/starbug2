@@ -35,7 +35,10 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
 
-See https://starbug2.readthedocs.io for more information.
+To see more detailed information on an option, run [OPTION] --help:
+    $~ starbug2 -D --help
+
+See https://starbug2.readthedocs.io for full documentation.
 
 """
 import os,sys,getopt
@@ -156,6 +159,14 @@ def starbug_onetimeruns(options, setopt, args):
 
     if options&SHOWHELP:
         scr.usage(__doc__,verbose=options&VERBOSE)
+
+        if options & DODETECT: perror(starbug2.helpstrings["DETECTION"])
+        if options & DOBGDEST: perror(starbug2.helpstrings["BACKGROUND"])
+        if options & DOAPPHOT: perror(starbug2.helpstrings["APPHOT"])
+        if options & DOPHOTOM: perror(starbug2.helpstrings["PSFPHOT"])
+
+
+
         return scr.EXIT_EARLY
 
     ## Load parameter files for onetime runs

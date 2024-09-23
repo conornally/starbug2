@@ -143,3 +143,111 @@ filters={ #08/06/2023
 "F2100W":_F(20.563 ,0.674,6.127,MIRI,NULL),
 "F2550W":_F(25.147 ,0.803,7.300,MIRI,NULL),
 }
+
+
+helpstrings={
+"DETECTION":"""
+    Source Detection
+    ----------------
+
+    This routine locates point sources in an image. The input is a
+    FITS image and the output is a FITS table, containing a list of
+    point source locations, their geometric properties and flux/magnitude
+    measurements as calculated by aperture photometry. The output file
+    will have the suffix "-ap", note this is the same as the output
+    for the aperture photometry routine.
+
+    To run this routine, use the core command:
+
+        $~ starbug2 -D image.fits
+
+    Alter the parameter file options under "DETECTION" to tune the 
+    performance of starbug2. Two of the key parameters are:
+    
+        - SIGSKY : Set the background level of the image
+        - SIGSRC : Set the detection threshold of the sources
+
+    Full documentation is at https://starbug2.readthedocs.io
+
+""",
+
+"BACKGROUND":"""
+    Diffuse Background Estimations
+    ------------------------------
+
+    This routine estimates the "dusty" emissions in an image, given
+    a source list. It is used to subtract from the image, thus removing
+    the flux contribution on a source brightness from the dusty environment.
+    
+    The routine requires a list of sources to be generated (by source 
+    detection) or loaded with [-d sourcelist.fits] and requires a FITS
+    image to work on. The routine will ouput a FITS image, with the same
+    dimensions and spatial coverage as the input image, with the suffix
+    "-bgd". This background image can be used in the photometry later.
+
+    To run the routine, use the core command:
+
+        $~ starbug2 -B -d sourcelist.fits image.fits
+
+    Alter the parameter file options under "BACKGROUND ESTIMATION" 
+    to tune the performance of starbug2. Two key parameters are:
+
+        - BGD_R    : Set a fixed aperture mask radius around each source
+        - BOX_SIZE : Set the estimation resolution (larger will be more blurred)
+
+    Full documentation is at https://starbug2.readthedocs.io
+
+""",
+
+"APPHOT":"""
+    Aperture Photometry
+    -------------------
+
+    This routine conducts aperture photometry on an image given a list
+    of sources. It requires a FITS image to run on and a FITS table source
+    list with either RA/DEC columns, or x/y_centroid or x/y_0 columns. 
+    The routine outputs a table with the suffix "-ap". Note this filename
+    is the same as the source detection routine because aperture photometry 
+    is automatically run at the end of the source detection step. The output
+    table contains 2flux/magnitude information on every source
+
+    To run this routine, use the core command:
+
+        $~ starbug2 -A -d sourcelist.fits image.fits
+
+    Alter the parameter file options under "APERTURE PHOTOMETRY" to tune
+    the performance of starbug2. Three key parameters are:
+
+        - APPHOT_R : Set the aperture radius for photometry (in pixels)
+        - SKY_RIN  : Set the inner sky annulus radius (in pixels)
+        - SKY_ROUT : Set the outer sky annulus radius (in pixels)
+
+    Full documentation is at https://starbug2.readthedocs.io
+
+""",
+
+"PSFPHOT":"""
+    PSF Photometry
+    --------------
+
+    This routine conducts PSF fitting photometry on an image given
+    a list of sources. Its requires a FITS image to run on and a FITS table
+    sourcelist with either RA/DEC columns, or x/y_centroid or x/y_0 columns.
+    The routine outputs a table with the suffix "-psf". The output table 
+    contains 2flux/magnitude information on every source
+    
+    To run this routine, use the core command:
+        
+        $~ starbug2 -P -d sourcelist image.fits 
+
+    Alter the parameter file options under "PHOTOMETRY" to tune the
+    performance of starbug2. Two key parameters are:
+
+        - FORCE_POS : Hold the cetroid positions of source fixed (forced photometry)
+        - GEN_RESIDUAL : Generate a residual image from all the fit source
+
+    Full documentation is at https://starbug2.readthedocs.io
+
+""",
+    }
+

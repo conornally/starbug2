@@ -8,6 +8,9 @@ v0.8.0
 Exact Value Matching:
     -   Match two catalogues together based on an exact value. Most likely this is Catalogue Number
 
+Help Strings:
+    -   More verbose help information on each routine is now displayable in starbug with -DABP -h
+
 Minor Changes:
     -   GenericMatch.finish_matching now skips single columns
 

@@ -61,6 +61,7 @@ class loading(object):
                 stime=""
                 if nhrs: stime+="%dh"%int(nhrs)
                 if nmins: stime+="%dm"%int(nmins)
+
                 stime+="%ds"%int(nsecs)
                 out+= " ETC:%s"%stime
 
@@ -519,6 +520,11 @@ def wget(address, fname=None):
 
     fname : str
         Filename to save output to
+
+    Returns
+    -------
+    status : int
+        0 on success, 1 on failure
     """
     r=requests.get(address)
     if r.status_code==200:
@@ -526,7 +532,11 @@ def wget(address, fname=None):
         with open(fname,"wb") as fp:
             for chunk in r.iter_content(chunk_size=128):
                 fp.write(chunk)
-    else: perror("Unable to download \"%s\"\n"%address)
+        return 0
+    else:
+        perror("Unable to download \"%s\"\n"%address)
+        return 1
+
 
 def reindex(table):
     """
