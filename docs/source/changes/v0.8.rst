@@ -11,6 +11,9 @@ Exact Value Matching:
 Help Strings:
     -   More verbose help information on each routine is now displayable in starbug with -DABP -h
 
+Plotting:
+    -   Initial code for some basic plotting functions
+
 Minor Changes:
     -   GenericMatch.finish_matching now skips single columns
 
