@@ -43,24 +43,25 @@ $~ starbug2 --init
 See the [full documentation](https://starbug2.readthedocs.io/en/latest/?badge=latest) for the complete installation and detailed guides to using the photometric routines.
 Basic usage information is produced by running:
 
-```bash
+```txt
 StarbugII - JWST PSF photometry
 usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-p file.param] [-s opt=val] image.fits ...
    -A  --apphot          : run aperture photometry on a source list
    -B  --background      : run background estimation
+   -D  --detect          : run source detection
+   -G  --geom            : calculate geometric stats on source list
+   -M  --match           : match outputs from all input image files
+   -P  --psf             : run psf photometry
+   -S  --subbgd          : subtract background from image
+
    -b  --bgdfile         : load background (-bgd.fits) file
    -d  --apfile  ap.fits : load a source detection (-ap.fits) file to skip the source detection step
-   -D  --detect          : run source detection
    -f  --find            : attempt to find associated -ap -bgd files
-   -G  --geom            : calculate geometric stats on source list
    -h  --help            : display uasage information
-   -M  --match           : match outputs from all input image files
    -n  --ncores      num : number of CPU cores to split process between
    -o  --output      dir : output directory
    -p  --param   a.param : load parameter file
-   -P  --psf             : run psf photometry
    -s  --set      option : set value in parameter file at runtime (-s SIGSKY=3)
-   -S  --subbgd          : subtract background from image
    -v  --verbose         : display verbose outputs
 
    --> Single run commands
@@ -80,19 +81,24 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
       $~ starbug2 -vd image-ap.fits -BP image.fits  //PSF photometry on an image with a source file (image-ap.fits)
 
-See https://starbug2.readthedocs.io for more information.
+To see more detailed information on an option, run [OPTION] --help:
+    $~ starbug2 -D --help
+
+See https://starbug2.readthedocs.io for full documentation.
 ```
 
-```bash
+```txt
 StarbugII Matching 
-usage: starbug2-match [-BCGfhv] [-e column] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
+usage: starbug2-match [-BCGfhvX] [-e column] [-m mask] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
     -C  --cascade            : match in "CASCADE" mode (left justify columns)
     -G  --generic            : match in "GENERIC" mode
+    -X  --exact              : match in "EXACTVALUE" mode
 
     -e  --error   column     : photometric error column ("eflux" or "stdflux")
     -f  --full               : export full catalogue
     -h  --help               : show help message
+    -m  --mask    eval       : column evaluation to mask out of matching e.g. -m"~np.isnan(F444W)"
     -o  --output  file.fits  : output matched catalogue
     -p  --param   file.param : load starbug parameter file
     -s  --set     option     : set value in parameter file at runtime (-s MATCH_THRESH=1)

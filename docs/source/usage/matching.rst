@@ -83,7 +83,13 @@ Band Matching is used when combining catalogues that are from different photomet
 
 This routine orders the input tables based on increasing PSF FWHM. At every stage, rather than averaging all astrometric positions, it take the shortest wavelength filter possible and uses the position measured in that band. 
 
+Run the routine with :code:`-B` or :code:`--band` and a list of catalogues. 
 
+
+Exact Value Matching
+--------------------
+
+This method is designed to match two separate catalogues based in their *Catalogue Number*. It may be useful in case where the sourcelist has been used in adjacent processes (like SED fitting) and the results want to be combined together. The routine simply matches the *Catalogue Number* from one catalogue to the other, and appending any unmatched sources at the end of the list. Run it with :code:`-X` or :code:`--exact`.
 
 
 Dither Matching

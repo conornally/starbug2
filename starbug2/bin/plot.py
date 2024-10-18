@@ -19,7 +19,7 @@ from astropy.table import Table
 import starbug2.bin as scr
 import starbug2
 from starbug2.plot import load_style, plot_test, plot_inspectsource
-from starbug2.utils import printf, perror
+from starbug2.utils import printf, perror, warn
 
 VERBOSE =0x01
 SHOWHELP=0x02
@@ -121,9 +121,8 @@ def fn_pinspect(options, setopt, images=None, tables=None):
     else: perror("Must include the source Catalogue_Number, a list of images and a sourcelist \n")
     return fig
 
-
-
 def plot_main(argv):
+    warn("Still in development\n\n")
     options,setopt,args=plot_parseargv(argv)
     load_style("%s/extras/starbug.style"%starbug2.__path__[0])
     exit_code=0
@@ -147,18 +146,12 @@ def plot_main(argv):
                     break
             hdu.header["FILTER"]=_filter
 
-
-
     fig=None
     if options& PTEST:
         fig,ax=plt.subplots(1,figsize=(3,2.5))
         ax=plot_test(ax)
 
-
-
     if options& PINSPECT: fig=fn_pinspect(options, setopt, images=images, tables=tables)
-
-
 
     if fig is not None:
         fig.tight_layout()
@@ -166,8 +159,6 @@ def plot_main(argv):
             fig.savefig(output, dpi=300)
         else:
             plt.show()
-
-
 
 def plot_mainentry():
     """Command Line entry point"""

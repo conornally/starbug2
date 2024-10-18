@@ -243,11 +243,37 @@ helpstrings={
     Alter the parameter file options under "PHOTOMETRY" to tune the
     performance of starbug2. Two key parameters are:
 
-        - FORCE_POS : Hold the cetroid positions of source fixed (forced photometry)
+        - FORCE_POS    : Hold the cetroid positions of source fixed (forced photometry)
         - GEN_RESIDUAL : Generate a residual image from all the fit source
 
     Full documentation is at https://starbug2.readthedocs.io
 
 """,
-    }
+
+"MATCHOUTPUTS":"""
+    Match Outputs
+    -------------
+
+    This option is set if the user wishes to combine all the output catalogues
+    from starbug together. It would be used in the case that a routine is
+    being ran on a list of images (either in series or parallel) and the
+    final catalogues should all be combined into a single source list.
+    It outputs two files, one with the suffix "full" and another with "match".
+    The first is all columns from all table preserved into a single large
+    catalogue, the second averages all the similar columns into a reduced
+    table.
+
+    To run this routine, use the core code:
+        
+        $~ starbug2 -DM image1.fits image2.fits image3.fits ...
+
+    Alter the parameter file options under "CATALOGUE MATCHING" to tune the
+    performance of starbug2. Two key parameters are:
+
+        - MATCH_THRESH : Set the separation threshold (arcsec) to match two sources
+        - NEXP_THRESH  : Set the minimum number of catalogues a source must be present in
+
+""",
+}
+
 

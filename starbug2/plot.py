@@ -4,14 +4,21 @@ A collection of plotting functions
 import os
 import numpy as np
 from astropy.visualization import ZScaleInterval
-import matplotlib.pyplot as plt
+from scipy.interpolate import interp2d,RegularGridInterpolator
+from multiprocessing import Pool
+
+try: import matplotlib.pyplot as plt
+except:
+    from matplotlib import use; use("TkAgg")
+    import maplotlib.pyplot
 import matplotlib.image as mpimg
+from matplotlib.colors import LinearSegmentedColormap
 
 from astropy.wcs import WCS
 import astropy.units as u
 
 import starbug2
-from starbug2.utils import printf, perror, wget, get_version
+from starbug2 import utils
 
 
 def load_style(fname):
@@ -26,7 +33,18 @@ def load_style(fname):
     if os.path.exists(fname): 
         plt.style.use(fname)
     else:
-        perror("Unable to load style sheet \"%s\"\n"%fname)
+        utils.perror("Unable to load style sheet \"%s\"\n"%fname)
+
+
+def get_point_density(x,y,bins=30):
+    hist,_x,_y=np.histogram2d(x,y,bins=bins)
+    xx=np.linspace(min(x),max(x),bins)
+    yy=np.linspace(min(y),max(y),bins)
+    f=RegularGridInterpolator((xx,yy),hist)
+
+    with Pool(processes=8) as pool:
+        dens=pool.map(f,zip(x,y))
+    return dens
 
 def plot_test(ax, **kwargs):
     """
@@ -43,14 +61,58 @@ def plot_test(ax, **kwargs):
         The working axes
     """
 
-    if not wget("https://raw.githubusercontent.com/conornally/starbug2/refs/heads/main/docs/source/_static/images/starbug.png",fname="/tmp/sb.png"):
+    if not utils.wget("https://raw.githubusercontent.com/conornally/starbug2/refs/heads/main/docs/source/_static/images/starbug.png",fname="/tmp/sb.png"):
         ax.imshow(mpimg.imread("/tmp/sb.png"))
-        ax.set_title("starbug2 v%s"%get_version())
+        ax.set_title("starbug2 v%s"%utils.get_version())
         ax.set_axis_off()
     return ax
 
-def plot_cmd(*args,**kwargs):
-    pass
+def plot_cmd(tab, colour, mag, ax=None,col=None,hess=True,
+        xlim=None, ylim=None, **kwargs):
+    tt=utils.colour_index(tab,(colour,mag))
+    mask=~(tt[colour].mask|tt[mag].mask)
+    cc=tt[colour][mask]
+    mm=tt[mag][mask]
+
+    if not ax: fig,ax=plt.subplots(1)
+
+    xm=np.nanmean(cc)
+    dx=np.nanstd(cc)
+    ym=np.nanmean(mm)
+    dy=np.nanstd(mm)
+
+    if xlim is None: xlim=(np.nanmin(cc),np.nanmax(cc))#( xm-(3*dx),xm+(5*dx))
+    if ylim is None: ylim=(np.nanmin(mm),np.nanmax(mm))#( ym-(5*dy),ym+(3*dy))
+
+    mask=((cc>=xlim[0])&(cc<=xlim[1]) & (mm>=ylim[0])&(mm<=ylim[1]))
+    cc=cc[mask]
+    mm=mm[mask]
+
+    if col is None: col=plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
+    cmap=LinearSegmentedColormap.from_list("",[plt.rcParams["axes.prop_cycle"].by_key()["color"][0],col])
+
+    if hess:
+        bins=100
+        hist,_x,_y=np.histogram2d(cc,mm,bins=bins)
+        xx=np.linspace(min(cc),max(cc),bins)
+        yy=np.linspace(min(mm),max(mm),bins)
+        f=RegularGridInterpolator((xx,yy),hist)
+        col=[f([X,Y]) for X,Y in zip(cc,mm)]
+    pyplot_kw={"lw":0,"s":3}
+    pyplot_kw.update(kwargs)
+    ax.scatter(cc,mm,c=col,cmap=cmap,**pyplot_kw)
+
+
+
+
+    ax.set_xlabel(colour)
+    ax.set_ylabel(mag)
+    ax.set_xlim(xlim)
+    ax.set_ylim(*ylim[::-1])
+    return ax
+
+
+
 
 def plot_inspectsource(src, images):
     """
@@ -89,24 +151,22 @@ def plot_inspectsource(src, images):
 
 
         dat=im.data[min(ymin,ymax):max(ymin,ymax),min(xmin,xmax):max(xmin,xmax)]
-        #print(xmin,xmax,ymin,ymax,dp,dat.shape)
-        #if not all(dat.shape): 
-            #print("invert")
-            #dat=im.data[xmin:xmax,ymin:ymax] #HACK because MIRI has inverted coords?
-
         if all(dat.shape):
             ax.imshow(ZScaleInterval()(dat), cmap="Greys_r", origin="lower")
             ax.text(0,0,im.header.get("FILTER"),c="white")
 
-
-
-        #ax.tick_params(labelleft=False,labelbottom=False)
         ax.set_axis_off()
         fig.suptitle(src["Catalogue_Number"][0])
     fig.tight_layout()
         
     return fig
 
+if __name__=="__main__":
+    from astropy.table import Table
+    fig,ax=plt.subplots(1)
+    t=Table().read("/home/conor/sci/proj/ngc6822/overview/dat/ngc6822.fits")
+    plot_cmd(t,"F115W-F200W","F200W",ax=ax)
+    plt.show()
 
 
 

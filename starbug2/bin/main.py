@@ -27,9 +27,6 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
        --generate-run      *.fits : Generate a simple run script
        --version                  : Print starbug2 version
 
-       --apply-zeropint    a.fits : Apply a zeropoint (-s ZP_MAG=1.0) to a.fits
-       --calc-instr-zp     a.fits : Calculate and apply an instrumental zero point onto a.fits
-
    --> typical runs
       $~ starbug2 -vD -p file.param image.fits      //Source detect on image with a parameter file
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
@@ -82,7 +79,6 @@ def starbug_parseargv(argv):
             (   "apphot","background", "detect", "find", "geom", "help", "match", "psf", "subbgd", "verbose", "xtest",
                 "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
                 "init", "generate-psf", "local-param", "generate-region=", "version", "generate-run", "update-param",
-                "calc-instr-zp=", "apply-zeropoint=",
                 "debug", "dev"))
     for opt,optarg in opts:
         if opt in ("-h","--help"):   options|=(SHOWHELP|STOPPROC)
@@ -142,12 +138,14 @@ def starbug_parseargv(argv):
             printf(starbug2.logo%("starbug2-v%s"%get_version()))
             options|=STOPPROC
 
+        """
         if opt=="--calc-instr-zp":
             setopt["ZP_PSF_CAT"]=optarg
             options|=(CALCINSTZP|APPLYZP|STOPPROC)
         if opt=="--apply-zeropoint":
             setopt["ZP_PSF_CAT"]=optarg
             options|=(APPLYZP|STOPPROC)
+        """
 
     return options,setopt,args
 
@@ -164,9 +162,7 @@ def starbug_onetimeruns(options, setopt, args):
         if options & DOBGDEST: perror(starbug2.helpstrings["BACKGROUND"])
         if options & DOAPPHOT: perror(starbug2.helpstrings["APPHOT"])
         if options & DOPHOTOM: perror(starbug2.helpstrings["PSFPHOT"])
-
-
-
+        if options & DOMATCH:  perror(starbug2.helpstrings["MATCHOUTPUTS"])
         return scr.EXIT_EARLY
 
     ## Load parameter files for onetime runs
@@ -226,6 +222,9 @@ def starbug_onetimeruns(options, setopt, args):
     ###########################
     # instrumental zero point #
     ###########################
+    if options&(APPLYZP|CALCINSTZP): perror("instrumental zero point application deprecated\n")
+
+    """
     if options&APPLYZP:
         _fname=setopt.get("ZP_PSF_CAT")
         _zp=init_parameters.get("ZP_MAG")
@@ -258,6 +257,7 @@ def starbug_onetimeruns(options, setopt, args):
                 export_table( psftable, fname="%s/%s-zp.fits"%(dname,fname), header=_header)
             else: perror("Unable to set ZEROPOINT, set it with -sZP_MAG=000\n")
         else: perror("Unable to locate table \"%s\".\n"%_fname)
+    """
 
     if options&STOPPROC: return scr.EXIT_EARLY ## quiet ending the process if required
 

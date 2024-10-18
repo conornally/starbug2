@@ -1,5 +1,5 @@
 """StarbugII Matching 
-usage: starbug2-match [-BCGfhv] [-e column] [-m mask] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
+usage: starbug2-match [-BCGfhvX] [-e column] [-m mask] [-o output] [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
     -C  --cascade            : match in "CASCADE" mode (left justify columns)
     -G  --generic            : match in "GENERIC" mode

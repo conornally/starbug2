@@ -240,7 +240,7 @@ def export_table(table, fname=None, header=None):
         Optional header file to include in fits table
     """
     dtypes=[]
-    table=reindex(table)
+    if "Catalogue_Number" not in table.colnames: table=reindex(table)
     for name in table.colnames:
         if name=="Catalogue_Number": dtypes.append(str)
         elif name=="flag": dtypes.append(np.uint16)
