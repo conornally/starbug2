@@ -21,7 +21,8 @@ from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photo
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
 from photutils.psf import PSFPhotometry, IntegratedGaussianPRF, SourceGrouper
 
-from photutils.datasets import make_model_sources_image, make_random_models_table
+#from photutils.datasets import make_model_sources_image, make_random_models_table
+from photutils.datasets import make_model_image, make_random_models_table
 from starbug2.utils import loading, printf, perror, warn
 from starbug2 import *
 

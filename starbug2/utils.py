@@ -2,7 +2,7 @@ import time
 import os, sys, numpy as np
 from parse import parse
 import pkg_resources
-from astropy.table import Table,hstack,Column,MaskedColumn
+from astropy.table import Table,hstack,Column,MaskedColumn,vstack
 from astropy.io import fits
 from astropy.wcs import WCS
 import starbug2
@@ -73,10 +73,10 @@ def tabppend(base, tab):
     """
     Is this the same as vstack?
     """
-    if(not base): base=tab
+    if(not base): return tab#base=tab
     else:
-        for line in tab: base.add_row(line)
-    return base
+        #for line in tab: base.add_row(line)
+        return vstack([base,tab])
 
 def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA", ycol="DEC", wcs=1, fname="/tmp/out.reg"):
     """

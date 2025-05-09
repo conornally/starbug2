@@ -93,6 +93,7 @@ def test_ncores():
 
 
 
+
 def clean():
     files=glob.glob("tests/dat/*")
     files.remove("tests/dat/image.fits")
