@@ -1,5 +1,5 @@
 import numpy as np
-from photutils.datasets import make_model_sources_image, make_random_models_table
+from photutils.datasets import make_model_image, make_random_models_table
 from photutils.psf import FittableImageModel
 from astropy.table import Table,hstack,vstack
 from astropy.io import fits
@@ -104,7 +104,7 @@ class Artificial_StarsIII():
             sourcelist.remove_column("id")
 
             #image[self.starbug._nHDU].data*=0
-            star_overlay=make_model_sources_image( shape, self.psf, sourcelist)/scalefactor
+            star_overlay=make_model_image( shape, self.psf, sourcelist,model_shape=self.psf.shape)/scalefactor
             image[self.starbug._nHDU].data+=star_overlay
             self.starbug._image=image
             
@@ -290,8 +290,11 @@ def estim_completeness_mag(ast):
     fn_i=lambda y,l,k,xo: xo-(np.log((l/y)-1)/k)
 
     if len(set(ast.colnames) & set(("mag","rec")))==2:
-        fit,_=curve_fit(scurve, ast["mag"], ast["rec"], [1, -1,np.median(ast["mag"])])
-        compl=(fn_i(0.9,*fit),fn_i(0.7,*fit),fn_i(0.5,*fit))
+        try:
+            fit,_=curve_fit(scurve, ast["mag"], ast["rec"], [1, -1,np.median(ast["mag"])])
+            compl=(fn_i(0.9,*fit),fn_i(0.7,*fit),fn_i(0.5,*fit))
+        except:
+            warn("Unable to fit completeness fractions\n")
     else: perror("Input table must have columns 'mag' and 'rec'\n")
     return fit,compl
 

@@ -58,7 +58,7 @@ def load(msg="loading"):
         sys.stdout.flush()
     printf("\n")
 
-def afs_parseargv(argv):
+def ast_parseargv(argv):
     """ Organise the argv line into options, values and arguments """
     options=0
     #setopt={"NTESTS":100, "NSTARS":10, "QUIETMODE":1, "AUTOSAVE":100}
@@ -94,7 +94,7 @@ def afs_parseargv(argv):
 
     return options, setopt, args
 
-def afs_onetimeruns(options, setopt, args):
+def ast_onetimeruns(options, setopt, args):
     """
     Set options, verify run and execute one time functions
     """
@@ -132,18 +132,18 @@ def fn(args):
     if os.path.exists(fname):
         sb=StarbugBase(fname, setopt.get("PARAMFILE"), options=setopt)
         opt=sb.options
-        afs=Artificial_StarsIII(sb, index=index)
-        out=afs.auto_run(opt.get("NTESTS"), stars_per_test=opt.get("NSTARS"),
+        ast=Artificial_StarsIII(sb, index=index)
+        out=ast.auto_run(opt.get("NTESTS"), stars_per_test=opt.get("NSTARS"),
                 mag_range=(opt.get("MAX_MAG"),opt.get("MIN_MAG")), loading_buffer=buf,
                 autosave=opt.get("AUTOSAVE"), skip_phot=options&NOPHOT, skip_background=options&NOBGD)
     return out
 
-def afs_main(argv):
-    options, setopt, args= afs_parseargv(argv)
+def ast_main(argv):
+    options, setopt, args= ast_parseargv(argv)
     exit_code=0
 
     if options or setopt:
-        if (exit_code:=afs_onetimeruns(options, setopt, args)):
+        if (exit_code:=ast_onetimeruns(options, setopt, args)):
             _share.unlink()
             return exit_code
 
@@ -167,7 +167,7 @@ def afs_main(argv):
 
         buf[0]=0
         buf[1]=_ntests
-        loading=Process(target=load, args=("afs",))
+        loading=Process(target=load, args=("ast",))
         loading.start()
 
         if (ncores:=params.get("NCORES")) is None or ncores==1:
@@ -219,4 +219,4 @@ def afs_main(argv):
 
 def ast_mainentry():
     """Command line entry point"""
-    return afs_main(sys.argv)
+    return ast_main(sys.argv)
