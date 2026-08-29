@@ -15,9 +15,12 @@ Installing the development version::
     $~ pip install .
 
 
+NOTE::
+    At this point star bug is fully functional for telescopes which are not JWST.
+    To bring into line for use with JWST, the "JWST initialization" section
+    needs to be followed.
 
-
-Initialising
+JWST Initialization
     After the package is installed, there are a few steps required to initialise *starbug2*:
 
     `WEBBPSF <https://github.com/spacetelescope/webbpsf>`_ is a dependency of *starbug* that has its own installation process which is not done automatically. This process is documented `here <https://webbpsf.readthedocs.io/en/latest/installation.html>`_ but requires two main steps. Download the data file on the website, named something like webbpsf-data-X.X.X.tar.gz and expand it into a directory, then append to your .bashrc (or equivalent)::

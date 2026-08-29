@@ -1,22 +1,23 @@
 [project]
 name = "starbug2"
 version = "0.7.7"
-authors = [ {name = "Conor Nally", email = "conor.nally@ed.ac.uk" } ]
+authors = [ {name = "Conor Nally", email = "conor.nally@ed.ac.uk" },
+            {name = "Alan Barry Stokes", email = "alan.stokes@stfc.ac.uk"}]
 readme = "README.md"
 description = "JWST PSF photometry in complex crowded fields."
 license = {file = "LICENSE.txt"}
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dynamic = ["dependencies"]
 
 [project.urls]
 Documentation = "https://starbug2.readthedocs.io/en/latest/"
-Repository = "https://github.com/conornally/starbug2.git"
+Repository = "https://github.com/alan-stokes/starbug2.git"
 
 [project.scripts]
-starbug2 = "starbug2.bin.main:starbug_mainentry"
-starbug2-match= "starbug2.bin.match:match_mainentry"
-starbug2-ast= "starbug2.bin.ast:ast_mainentry"
-starbug2-plot="starbug2.bin.plot:plot_mainentry"
+starbug2 = "starbug2.command_line_interfaces.main:starbug_main_entry"
+starbug2-match= "starbug2.command_line_interfaces.match:match_main_entry"
+starbug2-ast= "starbug2.command_line_interfaces.ast:ast_main_entry"
+starbug2-plot="starbug2.command_line_interfaces.plot:plot_main_entry"
 
 [build-system]
 requires = ["setuptools"]
@@ -24,3 +25,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["starbug2*"]
+exclude = ["star_bug_env*", "tests*", "docs*"]

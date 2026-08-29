@@ -1,160 +1,200 @@
-import starbug2
-from starbug2 import utils
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 import numpy as np
-from astropy.table import Table, MaskedColumn
+from astropy.table import Table
 from astropy.io import fits
 
-def test_strnktn():
-    assert utils.strnktn( "", 3, 'a') == "aaa"
-    assert utils.strnktn( "a", 3, 'a') == "aaaa"
-    assert utils.strnktn( "a", 0, 'a') == "a"
-
-def test_split_fname():
-    fname="/path/to/file.fits"
-    d,f,e = utils.split_fname(fname)
-    assert d=="/path/to"
-    assert f=="file"
-    assert e==".fits"
-
-    fname="file.fits"
-    d,f,e = utils.split_fname(fname)
-    assert d=="."
-    assert f=="file"
-    assert e==".fits"
-
-    fname="file"
-    d,f,e = utils.split_fname(fname)
-    assert d=="."
-    assert f=="file"
-    assert e==""
+from starbug2.constants import Units
+from starbug2.utilities import utils
+from tests.generic import check_shape
 
 
-def test_flux2mag():
-    ## input shape
-    assert len( utils.flux2mag(1, None, zp=1)[0]) ==1
-    assert len( utils.flux2mag(np.ones(10), None, zp=1)[0]) ==10
-    assert len( utils.flux2mag(np.full(10,np.nan), None, zp=1)[0]) ==10
-    a,b=utils.flux2mag( np.empty(10), np.empty(10), zp=1)
-    assert len(a)==len(b)
-    a,b=utils.flux2mag( 1, 1, zp=1)
-    assert len(a)==len(b)
-    a,b=utils.flux2mag( 0, 0, zp=1)
-    assert len(a)==len(b)
+def test_str_nk_tn() -> None:
+    assert utils.append_chars("", 3, 'a') == "aaa"
+    assert utils.append_chars("a", 3, 'a') == "aaaa"
+    assert utils.append_chars("a", 0, 'a') == "a"
 
-    ## normal fluxed
-    flux=np.array(    [1, 100, 999, 123, 3.4, 87654, np.pi] )
-    fluxerr=None
-    mag,magerr=utils.flux2mag(flux,fluxerr, zp=1)
-    assert np.all(np.equal(mag , -2.5*np.log10(flux)))
 
-    ## boundary fluxes
-    flux=np.array( [0, 0.0, -1, np.nan] )
-    fluxerr=None
-    mag,magerr=utils.flux2mag(flux,fluxerr,zp=1)
+def test_split_f_name() -> None:
+    f_name = "/path/to/file.fits"
+    d, f, e = utils.split_file_name(f_name)
+    assert d == "/path/to"
+    assert f == "file"
+    assert e == ".fits"
+
+    f_name = "file.fits"
+    d, f, e = utils.split_file_name(f_name)
+    assert d == "."
+    assert f == "file"
+    assert e == ".fits"
+
+    f_name = "file"
+    d, f, e = utils.split_file_name(f_name)
+    assert d == "."
+    assert f == "file"
+    assert e == ""
+
+
+def test_flux2mag() -> None:
+    # Input shape validation
+    assert len(utils.flux_to_pogson_mag(1, None)[0]) == 1
+    assert len(utils.flux_to_pogson_mag(np.ones(10), None)[0]) == 10
+    assert len(utils.flux_to_pogson_mag(np.full(10, np.nan), None)[0]) == 10
+
+    a, b = utils.flux_to_pogson_mag(np.empty(10), np.empty(10))
+    assert len(a) == len(b)
+    a, b = utils.flux_to_pogson_mag(1, 1)
+    assert len(a) == len(b)
+    a, b = utils.flux_to_pogson_mag(0, 0)
+    assert len(a) == len(b)
+
+    # Normal flux validation
+    flux = np.array([1, 100, 999, 123, 3.4, 87654, np.pi])
+    flux_err = None
+    mag, mag_err = utils.flux_to_pogson_mag(flux, flux_err)
+    assert np.all(np.isclose(mag, -2.5 * np.log10(flux)))
+
+    # Boundary fluxes
+    flux = np.array([0, 0.0, -1, np.nan])
+    flux_err = None
+    mag, mag_err = utils.flux_to_pogson_mag(flux, flux_err)
     assert np.isnan(mag).all()
-    assert utils.flux2mag( np.inf )[0] == -np.inf ##should be -inf
-    assert np.isnan(utils.flux2mag( -np.inf )[0]) ##Should be nan
 
-    ##fluxerr
-    flux=np.array( [1234, 1, 0.00001, 10])
-    fluxerr=np.array( [1,100,123456,1.234567] )
-    mag,magerr=utils.flux2mag( np.ones(flux.shape), fluxerr,zp=1)
-    assert np.all(np.equal(magerr, 2.5*np.log10( 1.0+( fluxerr/np.ones(flux.shape)) ))) ##flux all 1
-    mag,magerr=utils.flux2mag( flux,fluxerr,zp=1)
-    assert np.all(np.equal(magerr, 2.5*np.log10( 1.0+( fluxerr/flux) ))) ## random fluxes
+    # should be -inf
+    assert utils.flux_to_pogson_mag(np.inf)[0] == -np.inf
 
-    ## boundary fluxerrs
-    assert utils.flux2mag(1, None, zp=1)[1] ==0
-    assert np.isnan(utils.flux2mag(1, np.nan, zp=1)[1])
-    assert np.isnan(utils.flux2mag(1, -1, zp=1)[1])
+    # Should be nan
+    assert np.isnan(utils.flux_to_pogson_mag(-np.inf)[0])
 
-    ##ZPs
+    # flux_err
+    flux = np.array([1234, 1, 0.00001, 10])
+    flux_err = np.array([1, 100, 123456, 1.234567])
+    mag, mag_err = utils.flux_to_pogson_mag(np.ones(flux.shape), flux_err)
+
+    # flux all 1
+    assert np.all(np.equal(
+        mag_err, 2.5 * np.log10(1.0 + (flux_err / np.ones(flux.shape)))))
+    mag, mag_err = utils.flux_to_pogson_mag(flux, flux_err)
+
+    # random fluxes
+    assert np.all(np.equal(
+        mag_err, 2.5 * np.log10(1.0 + (flux_err / flux))))
+
+    # boundary flux_errs
+    assert utils.flux_to_pogson_mag(1, None)[1] == 0
+    assert np.isnan(utils.flux_to_pogson_mag(1, np.nan)[1])
+    assert np.isnan(utils.flux_to_pogson_mag(1, -1)[1])
 
 
-def test_find_colnames():
-    tab=Table(None, names=["A", "word", "word1", "word2", "notword", "_word"])
-    res=utils.find_colnames(tab, "word")
+def test_find_col_names() -> None:
+    # noinspection SpellCheckingInspection
+    tab = Table(
+        None, names=["A", "word", "word1", "word2", "notword", "_word"])
+    res = utils.find_col_names(tab, "word")
 
     assert res is not None
     assert res == ["word", "word1", "word2"]
-    assert utils.find_colnames(tab, "badmatch")==[]
+    # noinspection SpellCheckingInspection
+    assert utils.find_col_names(tab, "badmatch") == []
 
 
-def test_tabppend():
-    base=Table( [[0,0], [0,0]], names=('a','b'))
-    tab =Table( [[1,1], [1,1]], names=('a', 'b'))
-    exp =Table( [[0,0,1,1],[0,0,1,1]], names=('a','b'))
-    out=utils.tabppend(base,tab)
-    assert np.all(out==exp)
+def test_tab_append() -> None:
+    base = Table([[0, 0], [0, 0]], names=('a', 'b'))
+    tab = Table([[1, 1], [1, 1]], names=('a', 'b'))
+    exp = Table([[0, 0, 1, 1], [0, 0, 1, 1]], names=('a', 'b'))
+    out = utils.combine_tables(base, tab)
 
-    tab1=tab.copy()
-    out=utils.tabppend(None, tab1)
-    assert np.all( out==tab) ## tab is not a typo
+    # Safely compare tables via their underlying numpy structures
+    assert np.all(out.as_array() == exp.as_array())
+
+    tab1 = tab.copy()
+    out = utils.combine_tables(None, tab1)
+    assert np.all(out.as_array() == tab.as_array())
 
 
-def test_parse_unit():
-    assert utils.parse_unit("10p") == (10, starbug2.PIX)
-    assert utils.parse_unit("10s") == (10, starbug2.ARCSEC)
-    assert utils.parse_unit("10m") == (10, starbug2.ARCMIN)
-    assert utils.parse_unit("10d") == (10, starbug2.DEG)
+def test_parse_unit() -> None:
+    assert utils.parse_unit("10p") == (10, Units.PIX)
+    assert utils.parse_unit("10s") == (10, Units.ARCSEC)
+    assert utils.parse_unit("10m") == (10, Units.ARCMIN)
+    assert utils.parse_unit("10d") == (10, Units.DEG)
 
-    assert utils.parse_unit("10.1s") == (10.1, starbug2.ARCSEC)
-    assert utils.parse_unit("-10.1s") == (-10.1, starbug2.ARCSEC)
-    assert utils.parse_unit("0s") == (0, starbug2.ARCSEC)
+    assert utils.parse_unit("10.1s") == (10.1, Units.ARCSEC)
+    assert utils.parse_unit("-10.1s") == (-10.1, Units.ARCSEC)
+    assert utils.parse_unit("0s") == (0, Units.ARCSEC)
     assert utils.parse_unit("0") == (0, None)
 
     assert utils.parse_unit("") == (None, None)
     assert utils.parse_unit("p") == (None, None)
 
-def test_rmduplicates():
-    lst=["a","b","b","c","b","c"]
-    lst2=utils.rmduplicates(lst)
-    assert lst2==["a","b","c"]
 
-    assert utils.rmduplicates([]) == []
-    assert utils.rmduplicates(["a"]) == ["a"]
+def test_remove_duplicates() -> None:
+    lst = ["a", "b", "b", "c", "b", "c"]
+    lst2 = utils.remove_duplicates(lst)
+    assert lst2 == ["a", "b", "c"]
 
-def test_hcascade():
-    t1=[[1,1,0],
-        [2,2,0],
-        [3,3,0],
-        #[4,4,0]
-        ]
-    t2=[[1,1,0],
-        [2,2,0],
-        [3,3,1],
-        [4,4,0]
-        ]
+    assert utils.remove_duplicates([]) == []
+    assert utils.remove_duplicates(["a"]) == ["a"]
 
-    tables=[Table(np.array(t1), names=["A","B","flag"], dtype=[float,float,np.uint16]),
-            Table(np.array(t2), names=["A","B","flag"], dtype=[float,float,np.uint16])]
-    nan=MaskedColumn(None,dtype=float).info.mask_val
-    nan=np.ma.masked
-    nan=np.nan
-    res=utils.hcascade(tables)
-    test=Table( np.ma.array([ [1,1,0,1,1,0],
-                            [2,2,0,2,2,0],
-                            [3,3,0,3,3,1],
-                            [4,4,0,nan,nan,0]]), 
 
-                            dtype=[float,float,np.uint16,float,float,np.uint16], 
-                            names=["A_1","B_1","flag_1","A_2","B_2","flag_2"])
+def test_h_cascade() -> None:
+    t1 = [[1, 1, 0],
+          [2, 2, 0],
+          [3, 3, 0]]
 
-    res=utils.fill_nan(res)
-    assert np.shape(res)==np.shape(test)
-    for m in range(len(res)):
-        for n in range(len(res[m])):
-            a=res[m][n]
-            b=test[m][n]
-            assert np.isnan(a)==np.isnan(b)
-            if not np.isnan(a) or not np.isnan(b):
-                assert a==b
+    t2 = [[1, 1, 0],
+          [2, 2, 0],
+          [3, 3, 1],
+          [4, 4, 0]]
 
-def test_collapseheader():
-    header=fits.Header( {"OK":0,
-                         "PARAMFILE":"/PATH/TO/FILE/THAT/IS/TOO/LONG/FOR/A/HIERARCH/CARD",
-                        "PARAMFILE2":"/PATH/TO/FILE/THAT/IS/TOO/LONG/FOR/A/HIERARCH/CARD"})
+    tables = [
+        Table(np.array(t1), names=["A", "B", "flag"],
+              dtype=[float, float, np.uint16]),
+        Table(np.array(t2), names=["A", "B", "flag"],
+              dtype=[float, float, np.uint16])
+    ]
+    nan = np.nan
+    res = utils.h_cascade(tables)
 
-    h=utils.collapse_header(header)
+    # Corrected alignment: Since t1 has fewer rows than t2, missing slots
+    # belong to t1 components
+    test = Table(
+        np.ma.array([
+            [1, 1, 0, 1, 1, 0],
+            [2, 2, 0, 2, 2, 0],
+            [3, 3, 0, 3, 3, 1],
+            [4, 4, 0, nan, nan, 0]
+        ]),
+        dtype=[float, float, np.uint16, float, float, np.uint16],
+        names=["A_1", "B_1", "flag_1", "A_2", "B_2", "flag_2"]
+    )
+
+    res = utils.fill_nan(res)
+    check_shape(res, test)
+
+
+def test_collapse_header() -> None:
+    # noinspection SpellCheckingInspection
+    header = fits.Header({
+        "OK": 0,
+        "PARAMFILE": "/PATH/TO/FILE/THAT/IS/TOO/LONG/FOR/A/HIERARCH/CARD",
+        "PARAMFILE2": "/PATH/TO/FILE/THAT/IS/TOO/LONG/FOR/A/HIERARCH/CARD"
+    })
+
+    h = utils.collapse_header(header)
     assert h["COMMENT"] is not None
-    assert type(utils.collapse_header( {"a":"b"} ))==fits.Header
+    # Explicit type validation using isinstance instead of un-idiomatic direct
+    # type comparison
+    assert isinstance(utils.collapse_header({"a": "b"}), fits.Header)

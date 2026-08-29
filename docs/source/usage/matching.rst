@@ -13,7 +13,7 @@ The basic usage can be displayed with ::
         -B  --band               : match in "BAND" mode (does not preserve a column for every frame)
         -C  --cascade            : match in "CASCADE" mode (left justify columns)
         -G  --generic            : match in "GENERIC" mode
-
+        -X  --exact              : match in "EXACT" mode
         -e  --error   column     : photometric error column ("eflux" or "stdflux")
         -f  --full               : export full catalogue
         -h  --help               : show help message

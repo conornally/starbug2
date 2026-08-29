@@ -121,6 +121,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# env
+/star_bug_env/
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -138,3 +141,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# remove test files
+/tests/dat/*.fits

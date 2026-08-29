@@ -1,40 +1,122 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+  #This workflow will install Python dependencies, run tests and lint with
+  #  multiple versions of Python
+  # For more information see:
+  # (https://help.github.com/actions/language-and-framework-guides/
+  #  using-python-with-github-actions)
 
-name: Python application
+  name: Python application
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  on:
+    push:
+      branches: [ "main" ]
+    pull_request:
+      branches: [ "main" ]
 
-permissions:
-  contents: read
+  permissions:
+    contents: read
 
-jobs:
-  build:
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+      env:
+        STARBUG_TEST_DIR: ${{ github.workspace }}/tests/dat/
+        WEBBPSF_PATH: ${{ github.workspace }}/webbpsf_cache
+        STARBUG_DATDIR: ${{ github.workspace }}/starbug_data
 
-    runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          # Run across multiple modern versions to ensure starbug2 handles
+          # updates smoothly
+          python-version: ["3.12", "3.13"]
 
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install .
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
-      run: |
-        python -m pytest
+      steps:
+        # Upgraded to v4 for speed and security
+        - uses: actions/checkout@v4
+
+        # create directories for these dependency folders in envs
+        - name: Create DAta and Cache Directories
+          run: |
+            mkdir -p ${{ github.workspace }}/webbpsf_cache
+            mkdir -p ${{ github.workspace }}/starbug_data
+
+        # Upgraded to v5 and added automatic pip caching to speed up builds
+        - name: Set up Python ${{ matrix.python-version }}
+          uses: actions/setup-python@v5
+          with:
+            python-version: ${{ matrix.python-version }}
+            cache: 'pip'
+        
+        # Standardised dependency installation using modern pyproject.toml
+        # configuration
+        - name: Install dependencies
+          run: |
+            python -m pip install --upgrade pip
+            pip install flake8 pytest
+            # Install your core pipeline dependencies from the 
+            # requirements.txt file
+            if [ -f requirements.txt ]; then \
+              pip install -r requirements.txt; fi
+            
+            # Install starbug2 itself in editable mode
+            pip install -e .
+
+        - name: Cache FITS test data
+          id: cache-fits
+          uses: actions/cache@v4
+          with:
+            path: |
+              tests/dat/ngc6822_F770W_i2d.fits
+              tests/dat/image.fits
+              tests/dat/psf.fits
+            key: ${{ runner.os }}-fits-cache-v1
+
+        - name: Download FITS files from Private Draft Release if cache missed
+          if: steps.cache-fits.outputs.cache-hit != 'true'
+          env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run: gh release download TEST_DATA --repo "${{ github.repository }}" --pattern "*.fits" --dir "tests/dat"
+
+
+        - name: Lint with flake8
+          run: |
+            # stop the build if there are Python syntax errors or undefined
+            # names
+            flake8 . --count --show-source --statistics --max-line-length=79
+            # exit-zero treats all errors as warnings. The GitHub editor is
+            # 127 chars wide
+            flake8 . --count --exit-zero --max-complexity=10 \
+              --max-line-length=127 --statistics
+
+        # --- LIGHTWEIGHT RAT LICENSE HEADER CHECK ---
+        - name: Verify License Headers (RAT Check)
+          run: |
+            echo "Checking for license headers in starbug2 source files..."
+            missing_headers=0
+            
+            # Find all .py files in your source directory, ignoring 
+            # environment folders
+            for file in $(find starbug2 -name "*.py"); do
+              if ! grep -q "Copyright (C) 2026 UKATC" "$file"; then
+                echo "❌ Missing license header in: $file"
+                missing_headers=$((missing_headers + 1))
+              fi
+            done
+            
+            if [ $missing_headers -gt 0 ]; then
+              echo "Error: $missing_headers file(s) are missing the" \
+                " mandatory copyright header block."
+              exit 1
+            else
+              echo "✅ All source files contain valid copyright headers."
+            fi
+
+
+        - name: Pre-test Filter PSF setup
+          run: |
+            echo "Starting pre test filter psf setup"
+            starbug2 --init -s FILTER=F444W
+            echo "Command completed successfully!"
+
+        - name: Test with pytest
+          run: |
+            python -m pytest

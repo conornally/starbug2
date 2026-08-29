@@ -12,7 +12,7 @@
 &emsp; • Powerful modular and simple GNU Linux standard command line interface
 
 
-<br clear="left"/>
+<br clear="left">
 
 [![Python application](https://github.com/conornally/starbug2/actions/workflows/python-app.yml/badge.svg)](https://github.com/conornally/starbug2/actions/workflows/python-app.yml)
 [![PyPI version fury.io](https://badge.fury.io/py/starbug2.svg)](https://pypi.python.org/pypi/starbug2/)
@@ -27,21 +27,60 @@
 
 ```bash
 $~ pip install starbug2
+```
+
+NOTE::
+At this point star bug is fully functional for telescopes which are not JWST.
+To bring into line for use with JWST, the "JWST initialization" section
+needs to be followed, which can be done using the following command line.
+```
 $~ starbug2 --init
 ```
-</br>
+
+NOTE:: I found the stpsf stuff to fail due to outdated dependnecy. needed to 
+do the following:
+```
+ pip install --upgrade pysiaf
+
+```
+
+### From source
+
+If installing starbugII from source, the following commands are used to ensure
+current dependencies are required. The venv name is not essential to the install
+but was set up for consistency.
+
+- ```python3 -m venv star_bug_env```
+- ```./star_bug_env/bin/pip install --upgrade stpsf==2.2.0```
+- ```./star_bug_env/bin/pip install numpy==2.3.5 photutils==2.0.1 --force```
+- ```./star_bug_env/bin/pip install parse==1.22.0```
+- ```./star_bug_env/bin/pip install setuptools==82.0.1```
+- ```./star_bug_env/bin/pip install scikit-image==0.26.0```
+- ```./star_bug_env/bin/pip install webbpsf==2.0.0```
+- ```./star_bug_env/bin/pip install pytest==9.0.3```
+- ```./star_bug_env/bin/python -m pip install build```
+
+instead of:
+- ```pip install .```
+I used the following command to ensure live development.
+- ```./star_bug_env/bin/python -m pip install -e . --no-deps```
+
+For generating the doc images. graphviz is needed. To isntall that , run 
+the following commands:
+``` pip isntall graphviz```
 
 > [!IMPORTANT]
-> If you make use of *StarbugII* in any published or presented work, please include a [citation](https://ui.adsabs.harvard.edu/abs/2023ascl.soft09012N/abstract).
+> If you make use of *StarbugII* in any published or presented work,
+> please include a [citation](https://ui.adsabs.harvard.edu/abs/2023ascl.soft09012N/abstract).
 > 
-> *StarbugII* uses methods and datatypes from [astropy](https://docs.astropy.org/en/stable/) and [photutils](https://photutils.readthedocs.io/en/stable), please acknowledge them accordingly.
-
-</br>
+> *StarbugII* uses methods and datatypes from [astropy](https://docs.astropy.org/en/stable/) and 
+> [photutils](https://photutils.readthedocs.io/en/stable), please acknowledge them accordingly.
 
 ## Documentation
 
-See the [full documentation](https://starbug2.readthedocs.io/en/latest/?badge=latest) for the complete installation and detailed guides to using the photometric routines.
-Basic usage information is produced by running:
+See the [full documentation](https://starbug2.readthedocs.io/en/latest/?badge=latest) for the complete installation and detailed 
+guides to using the photometric routines. Basic usage information is 
+produced by running:
 
 ```txt
 StarbugII - JWST PSF photometry
@@ -72,9 +111,6 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
        --generate-region   a.fits : Make a ds9 region file with a detection file
        --generate-run      *.fits : Generate a simple run script
        --version                  : Print starbug2 version
-
-       --apply-zeropint    a.fits : Apply a zeropoint (-s ZP_MAG=1.0) to a.fits
-       --calc-instr-zp     a.fits : Calculate and apply an instrumental zero point onto a.fits
 
    --> typical runs
       $~ starbug2 -vD -p file.param image.fits      //Source detect on image with a parameter file

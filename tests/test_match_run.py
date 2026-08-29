@@ -1,57 +1,129 @@
-import os,glob
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
+import os
+from typing import Final
+
 import pytest
-from starbug2.utils import wget
-from starbug2.bin import EXIT_SUCCESS, EXIT_EARLY, EXIT_FAIL
-from starbug2.bin.main import starbug_main
-from starbug2.bin.match import match_main
-run = lambda s:match_main(s.split())
+
+from starbug2.command_line_interfaces.main import starbug_main
+from starbug2.command_line_interfaces.match import match_main
+from starbug2.constants import ExitStates
+from tests.generic import (
+    clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR,
+    verify_test_data_exists, TEST_PATH, TEST_PSF_FITS)
+
+OUT_1_FITS: Final[str] = str(os.path.join(TEST_PATH_STR, "out1.fits"))
+OUT_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out2.fits")
+OUT_1_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out1-ap.fits")
+OUT_2_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out2-ap.fits")
+IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
+
+
+def run(s):
+    return match_main(s.split())
+
 
 def test_match_start():
-    assert run("starbug2-match")==EXIT_FAIL
-    assert run("starbug2-match -h")==EXIT_EARLY
-    assert run("starbug2-match -vh")==EXIT_EARLY
+    verify_test_data_exists()
+    assert (run(f"starbug2-match --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    assert (run(f"starbug2-match -h --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
+    assert (run(f"starbug2-match -vh --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
 
-def test_match_badinput():
-    #clean()
-    assert run("starbug2-match ")==EXIT_FAIL
-    assert run("starbug2-match tests/dat/image.fits")==EXIT_EARLY
-    assert run("starbug2-match badinput.fits")==EXIT_FAIL
-    assert run("starbug2-match badinput.txt")==EXIT_FAIL
-    #assert run("starbug2-match tests/dat/image.fits tests/dat/image.fits")==EXIT_FAIL
-    starbug_main("starbug2 -D tests/dat/image.fits".split())
-    assert run("starbug2-match tests/dat/image-ap.fits")==EXIT_EARLY
-    
-    #clean()
 
-def test_match_basicrunthrough():
-    #clean()
-    starbug_main("starbug2 -Do tests/dat/out1.fits tests/dat/image.fits".split())
-    starbug_main("starbug2 -Do tests/dat/out2.fits tests/dat/image.fits".split())
-    assert run("starbug2-match tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -G tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -C tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    #assert run("starbug2-match -D tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
+def test_match_bad_input():
+    assert (run(f"starbug2-match --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    assert (run(f"starbug2-match {TEST_IMAGE_FITS} --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    assert (run(f"starbug2-match badinput.fits --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    assert (run(f"starbug2-match badinput.txt --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    starbug_main(
+        f"starbug2 -D --output={TEST_PATH} {TEST_IMAGE_FITS} "
+        f"{TEST_FILTER_STRING}".split())
+    assert (run(f"starbug2-match --output={TEST_PATH} {IMAGE_AP_FITS}") ==
+            ExitStates.EXIT_EARLY)
 
-    assert run("starbug2-match -f tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -fG tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -fC tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    #assert run("starbug2-match -fD tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    #clean()
+
+def test_match_basic_run_through():
+    starbug_main(
+        f"starbug2 --output={TEST_PATH} -Do {OUT_1_FITS}"
+        f"   {TEST_IMAGE_FITS} -sPSF_FILE={TEST_PSF_FITS}"
+        f" {TEST_FILTER_STRING}".split())
+    starbug_main(
+        f"starbug2 --output={TEST_PATH} -Do {OUT_2_FITS} "
+        f" {TEST_IMAGE_FITS} -sPSF_FILE={TEST_PSF_FITS} "
+        f" {TEST_FILTER_STRING}".split())
+    assert (run(
+        f"starbug2-match --output={TEST_PATH} -sPSF_FILE={TEST_PSF_FITS}"
+        f" {OUT_1_AP_FITS}"
+        f" {OUT_2_AP_FITS}"
+        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match"
+        f" {OUT_1_AP_FITS}"
+        f" {OUT_2_AP_FITS} -sPSF_FILE={TEST_PSF_FITS}"
+        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match"
+        f" {OUT_1_AP_FITS}"
+        f" {OUT_2_AP_FITS} -sPSF_FILE={TEST_PSF_FITS}"
+        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match"
+        f" {OUT_1_AP_FITS}"
+        f" {OUT_2_AP_FITS}"
+        f" {TEST_FILTER_STRING} --output={TEST_PATH} "
+        f"-sPSF_FILE={TEST_PSF_FITS}") ==
+            ExitStates.EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match"
+        f" {OUT_1_AP_FITS}"
+        f" {OUT_2_AP_FITS}"
+        f" {TEST_FILTER_STRING} --output={TEST_PATH} "
+        f"-sPSF_FILE={TEST_PSF_FITS}") == ExitStates.EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match"
+        f" {OUT_1_AP_FITS}"
+        f" {OUT_2_AP_FITS}"
+        f" {TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} "
+        f"--output={TEST_PATH}") == ExitStates.EXIT_SUCCESS)
+
 
 def test_mask():
-    starbug_main("starbug2 -Do tests/dat/out1.fits tests/dat/image.fits".split())
-    starbug_main("starbug2 -Do tests/dat/out2.fits tests/dat/image.fits".split())
-    assert run("starbug2-match -vmF444W>20 tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-
+    starbug_main(
+        f"starbug2 --output={TEST_PATH} -Do "
+        f"{OUT_1_FITS}  {TEST_IMAGE_FITS} -sPSF_FILE={TEST_PSF_FITS}"
+        f" -s FILTER=F444W".split())
+    starbug_main(
+        f"starbug2 --output={TEST_PATH} -Do"
+        f"{OUT_2_FITS}  {TEST_IMAGE_FITS} -sPSF_FILE={TEST_PSF_FITS}"
+        f" -s FILTER=F444W".split())
+    assert run(
+        f"starbug2-match --output={TEST_PATH} -vmF444W>20 "
+        f"{OUT_1_AP_FITS} {OUT_2_AP_FITS} "
+        f"-sPSF_FILE={TEST_PSF_FITS}") == ExitStates.EXIT_SUCCESS
 
 
 @pytest.fixture(autouse=True)
 def init():
-    files=glob.glob("tests/dat/*")
-    files.remove("tests/dat/image.fits")
-    files.remove("tests/dat/psf.fits")
-    for fname in files: os.remove(fname)
-    if os.path.exists("starbug.param"): os.remove("starbug.param")
-
-
-
+    clean()
